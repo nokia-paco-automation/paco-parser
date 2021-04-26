@@ -156,7 +156,7 @@ application:
         3GPP_External: {wl-name: multus-external, vrfcp-id: 17004, vrfup-id: 4000}
         3GPP_Internet: {wl-name: multus-internet, vrfcp-id: 17005, vrfup-id: 5000}
     deployment:
-      #multiNet, vlanInApp
+      #multiNet, vlanAwareApp
       connectivitymode: multiNet 
       networkname: NokiaDemo
       networkshortname: NOKIA

@@ -219,7 +219,7 @@ func (p *Parser) ParseApplicationData() {
 	p.CreateDirectory(dirName, 0777)
 
 	// Parse the application templates
-	t := ParseTemplates("./templates/app")
+	t := ParseTemplates("./templates/app-helm")
 
 	// get IP allocations from the cluster IP(s)
 	var apiServer net.IP
@@ -386,7 +386,7 @@ func (p *Parser) ParseApplicationData() {
 					// holds the relevant information per CNF
 					appc[cnfName] = new(AppConfig)
 					// provides the connectivity mode for the application
-					// Options: multiNet, vlanInApp
+					// Options: multiNet, vlanAwareApp
 					appc[cnfName].ConnectivityMode = pacoInfo.Deployment.ConnectivityMode
 					// get the K from the Config file; K is K in NtoK deployment model
 					appc[cnfName].K = cnfInfo.K
@@ -441,6 +441,8 @@ func (p *Parser) ParseApplicationData() {
 				dirName := filepath.Join(*p.BaseAppIpamDir)
 				p.WriteApplicationDeploymentIPAM(&dirName)
 			}
+
+			
 		}
 	}
 }
