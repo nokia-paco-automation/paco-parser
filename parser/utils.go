@@ -2,8 +2,15 @@ package parser
 
 import (
 	"fmt"
+	"log"
 	"math/big"
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
+	"text/template"
+
+	"github.com/Masterminds/sprig"
 )
 
 func StringPtr(s string) *string {
@@ -16,6 +23,14 @@ func BoolPtr(b bool) *bool {
 
 func IntPtr(i int) *int {
 	return &i
+}
+
+func Uint32Ptr(i uint32) *uint32 {
+	return &i
+}
+
+func StringSlicePtr(s []string) *[]string {
+	return &s
 }
 
 // RangeSize returns the size of a range in valid addresses.
@@ -65,4 +80,24 @@ func bigForIP(ip net.IP) *big.Int {
 		b = ip.To16()
 	}
 	return big.NewInt(0).SetBytes(b)
+}
+
+func ParseTemplates(path string) *template.Template {
+	templ := template.New("app").Funcs(templateHelperFunctions).Funcs(sprig.TxtFuncMap())
+	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+		if strings.HasSuffix(path, ".tmpl") {
+			_, err = templ.ParseFiles(path)
+			if err != nil {
+				log.Println(err)
+			}
+		}
+
+		return err
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	return templ
 }

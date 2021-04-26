@@ -19,14 +19,15 @@ cluster:
 container_registry:
   kind: harbor
   name: paco-harbor
-  url: https://harbor.nokia.cloudpj.be/chartrepo/paco
-  server: harbor.nokia.cloudpj.be
+  url: 'https://harbor.nokia.cloudpj.be/chartrepo/paco'
+  server: 'harbor.nokia.cloudpj.be'
   image_dir: paco
   email: robot@harbor.nokia.cloudpj.be
   username: robot$paco
   secret: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE2MDM3ODYwNTcsImlzcyI6ImhhcmJvci10b2tlbi1kZWZhdWx0SXNzdWVyIiwiaWQiOjQsInBpZCI6MiwiYWNjZXNzIjpbeyJSZXNvdXJjZSI6Ii9wcm9qZWN0LzIvcmVwb3NpdG9yeSIsIkFjdGlvbiI6InB1c2giLCJFZmZlY3QiOiIifSx7IlJlc291cmNlIjoiL3Byb2plY3QvMi9oZWxtLWNoYXJ0IiwiQWN0aW9uIjoicmVhZCIsIkVmZmVjdCI6IiJ9LHsiUmVzb3VyY2UiOiIvcHJvamVjdC8yL2hlbG0tY2hhcnQtdmVyc2lvbiIsIkFjdGlvbiI6ImNyZWF0ZSIsIkVmZmVjdCI6IiJ9XX0.T7vG76lrscW8JOeuGBHgqFBV7RT6HyCcWgbbseb9feYGdLM_UUOQNehYtP7LQigeCkLxZoODUXzJxCsMCjrcUKwR5C-jIF3KA4eRXdOra2VCUkNPVgAU39JHFU1AP-w4EBUJ88Q6mL1Bkv7PU52cQpfW7y5aZvGuOs-M075EKC6vQJAmxZ_zBNPQ3iZEzkfihVZ6ftmjSJK_d3GGtLGuLc63alGyBAkHCto19KPrhoaG51cpvFx0iwt2hx08oYvYDvpAYyN4YqcKoTVYt9o4vcfI5z7aW8UIXZatq2Pb7-qtBSA0InmaHXDl0lCx5ukWFIRvOxvAyksAJvTwS3YOucxYw9zGb3bwip9kWJst3rIt1Jrh4a66mTOJfGtrniQXibrBOPjmKNo7HtvLPDpKq_zKm4KpRn_M4cwQq9syBHFSeOpihfHi6uWuHtBQScdXqTy2mqWWK8S2b0zCuZrX4WiEsJ_pziqqFPChwf_bx8oXx5qmp6ms4hvCkvGpseZjJyx4xj2AVWkVHYwhEqOVb0xV_1mAwwHM10fC41lGsslTc005NrklXbvdcHdRGBUYJY5OyvHM68St9uYWVDTAFcv344cLioaagrq70I_F5lqx18rgHZeQigMZxdIDUPQ6K9y12Cl47JeioDf7qXUoCD0gNbOvDw-iLUDbprbLgzE
 
 infrastructure:
+  internet_dns: 8.8.8.8
   # dual-stack, ipv4-only, ipv6-only
   addressing_schema: "dual-stack"
   networks:
@@ -50,7 +51,7 @@ workloads:
     dcgw-grp1:
       vlans:
         itfce: {vlan_id: 45, kind: routed, ipv4_cidr: 10.100.40.0/24, ipv6_cidr: 2010:100:40::/48, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
-  multus_mgmt:
+  multus-mgmt:
     servers:
       vlans:
         ipvlan: {vlan_id: 101, kind: irb, ipv4_cidr: 10.1.11.0/24, ipv6_cidr: 2010:100:11::/64,}
@@ -61,7 +62,7 @@ workloads:
     dcgw-grp1:
       vlans:
         itfce: {vlan_id: 105, kind: routed, ipv4_cidr: 10.100.15.0/24, ipv6_cidr: 2010:100:15::/48, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
-  multus_internal:
+  multus-internal:
     servers:
       vlans:
         ipvlan: {vlan_id: 201, kind: irb, ipv4_cidr: 10.1.21.0/24, ipv6_cidr: 2010:100:21::/64}
@@ -72,7 +73,7 @@ workloads:
     dcgw-grp1:
       vlans:
         itfce: {vlan_id: 205, kind: routed, ipv4_cidr: 10.100.25.0/24, ipv6_cidr: 2010:100:25::/48, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
-  multus_external:
+  multus-external:
     servers:
       vlans:
         ipvlan: {vlan_id: 301, kind: irb, ipv4_cidr: 10.1.31.0/24, ipv6_cidr: 2010:100:31::/64}
@@ -83,7 +84,7 @@ workloads:
     dcgw-grp1:
       vlans:
         itfce: {vlan_id: 305, kind: routed, ipv4_cidr: 10.100.35.0/24, ipv6_cidr: 2010:100:35::/48, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
-  multus_sba:
+  multus-sba:
     servers:
       vlans:
         ipvlan: {vlan_id: 401, kind: irb, ipv4_cidr: 10.1.41.0/24, ipv6_cidr: 2010:100:41::/64}
@@ -94,7 +95,7 @@ workloads:
     dcgw-grp1:
       vlans:
         itfce: {vlan_id: 405, kind: routed, ipv4_cidr: 10.100.45.0/24, ipv6_cidr: 2010:100:45::/48, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
-  multus_internet:
+  multus-internet:
     servers:
       vlans:
         ipvlan: {vlan_id: 501, kind: irb, ipv4_cidr: 10.1.51.0/24, ipv6_cidr: 2010:100:51::/64}
@@ -108,122 +109,64 @@ workloads:
 
 application:
   paco:
-    sig_ref_points: 10.100.11.2/24
-    ue_pool_cidr: 10.0.128.0/17
-    plmn:
-      mcc: 234
-      mnc: 10
-    elements: [smf, amf, upf, apc, default, new-slice-15422]
-    default:
-      namespace: default
-    new-slice-15422:
-      namespace: new-slice-15422
-    apc:
-      namespace: ucore
-    upf:
-      multus_networks:
-        - multus_external
-        - multus_internal
-        - multus_internet
-      loam:
-        cpu: 4
-        memory: 8Gi
-        nodeSelector:
-      lmg:
-        tag: B-12.0.R7
-        cpu: 8
-        memory: 16Gi
-        hugepages1Gi: 1Gi
-        nodeSelector:
-      llb:
-        total: 3
-        enable: 0
-        cpu: 6
-        memory: 16Gi
-        hugepages1Gi: 1Gi
-        nodeSelector:
-      nasc:
-        enable: 0
-        tag: B-12.0.R7
-        cpu: 1
-        memory: 1Gi
-      logging:
-        enable: 1
-        tag: I3889B
-        cpu: 1
-        memory: 1Gi
-      awsSideCar:
-        enable: 0
-        tag: B0-3852
-        cpu: 100m
-        memory: 100Mi
-      network:
-        type: sriov
-      nat:
-        enable: true
-    smf:
-      multus: 
-      - 
-      loam:
-        cpu: 4
-        memory: 4Gi
-        nodeSelector:
-      lmg:
-        tag: I3889B
-        cpu: 6
-        memory: 16Gi
-      llb:
-        enable: 0
-        cpu: 6
-        memory: 16Gi
-      nasc:
-        enable: 0
-        tag: test1
-        cpu: 100m
-        memory: 100Mi
-      logging:
-        enable: 1
-        tag: I3889B
-        cpu: 100m
-        memory: 100Mi
-      awsSideCar:
-        enable: 0
-        tag: B0-3852
-        cpu: 100m
-        memory: 100Mi
-      network:
-        type: sriov
-    amf:
-      dbs:
-        tag: CMM21.0.0
-        cpu: 4
-        memory: 8Gi
-        nodeSelector:
-      emms_amms:
-        tag: CMM21.0.0
-        cpu: 4
-        memory: 16Gi
-        nodeSelector:
-      ipds:
-        tag: CMM21.0.0
-        cpu: 6
-        memory: 12Gi
-        nodeSelector:
-      ipps:
-        tag: CMM21.0.0
-        cpu: 8
-        memory: 12Gi
-        nodeSelector:
-      necc:
-        tag: CMM21.0.0
-        cpu: 4
-        memory: 12Gi
-        nodeSelector:
-      paps:
-        tag: CMM21.0.0
-        cpu: 4
-        memory: 12Gi
-        nodeSelector:
+    deployment:
+      networkname: NokiaDemo
+      networkshortname: NOKIA
+      nat: true
+      sigrefpoints: 10.100.11.2/24
+      uepoolcidr: 10.0.128.0/17
+      supi: 
+      - ["234100000000000", "234100200000000"]
+      - ["234100000000000", "234100200000000"]
+      plmn: {mcc: 234, mnc: 10}
+      dnn: [demo.nokia.mnc100.mcc234.gprs, test.demo.nokia.mnc100.mcc234.gprs]
+      tac: [1, 2, 9999, 3111, 3112, 3113, 3114]
+      slices:
+        sst1: {value: 1, diff: [sd1: ABCDEF, sd2: XCVGH]}
+        sst2: {value: 2, diff: [sd3: AAAAAA]}
+    cnfs: 
+      upf:
+        enabled: true
+        namespace: upf
+        networking: 
+          type: sriov
+          multus: {external: multus_external, internal: multus_internal, internet: multus_internet}
+        pods:
+          loam: {tag: B-12.0.R7, cpu: 4, memory: 8Gi, nodeSelector: "{}", enabled: true }
+          lmg: {tag: B-12.0.R7, cpu: 8, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: true}
+          llb: {tag: B-12.0.R7, cpu: 6, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: false, total: 3}
+          nasc: {tag: B-12.0.R7, cpu: 1, memory: 16Gi, enabled: true}
+          logging: {tag: B-12.0.R7, cpu: 1, memory: 1Gi, enabled: true}
+          awsSideCar: {tag: B-12.0.R7, cpu: 100m, memory: 100Mi, enabled: false}
+      smf:
+        enabled: true
+        namespace: smf
+        networking: 
+          type: sriov
+          multus: {external: multus_external, internal: multus_internal}
+        pods:
+          loam: {tag: B-12.0.R7, cpu: 4, memory: 4Gi, nodeSelector: "{}", enabled: true}
+          lmg: {tag: B-12.0.R7, cpu: 6, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: true}
+          llb: {tag: B-12.0.R7, cpu: 6, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: false, total: 3}
+          nasc: {tag: B-12.0.R7, cpu: 100m, memory: 100Mi, enabled: true}
+          logging: {tag: B-12.0.R7, cpu: 100m, memory: 100Mi, enabled: true}
+          awsSideCar: {tag: B-12.0.R7, cpu: 100m, memory: 100Mi, enabled: false}
+      amf:
+        enabled: true
+        namespace: amf
+        storage_class: nfs-csi
+        prometheus_ip: 192.168.5.14
+        networking: 
+          type: ipvlan
+          # oam is mandatory, other networks can be renamed or deleted/added
+          multus: {oam: multus-mgmt, 3GPP_External: multus-external, 3GPP_SBA: multus-sba}
+        pods:
+          dbs: {tag: CMM21.0.0P1, cpu: 4, memory: 8Gi, nodeSelector: "{}", antiaffinity: [dbs], initialDelaySeconds: 15, periodSeconds: 20, enabled: true}
+          emms_amms: {tag: CMM21.0.0P1, cpu: 4, memory: 16Gi, nodeSelector: "{}", antiaffinity: [amms], initialDelaySeconds: 5, periodSeconds: 20, enabled: true}
+          ipds: {tag: CMM21.0.0P1, cpu: 6, memory: 12Gi, nodeSelector: "{}", antiaffinity: [ipds], initialDelaySeconds: 30, periodSeconds: 20, enabled: true}
+          ipps: {tag: CMM21.0.0P1, cpu: 8, memory: 12Gi, nodeSelector: "{}", antiaffinity: [], initialDelaySeconds: 30, periodSeconds: 20, enabled: false}
+          necc: {tag: CMM21.0.0P1, cpu: 4, memory: 12Gi, nodeSelector: "{}", antiaffinity: [necc], initialDelaySeconds: 120, periodSeconds: 20, enabled: true}
+          paps: {tag: CMM21.0.0P1, cpu: 4, memory: 12Gi, nodeSelector: "{}", antiaffinity: [], initialDelaySeconds: 30, periodSeconds: 20, enabled: false}
 
 topology:
   kinds:
@@ -289,38 +232,38 @@ topology:
       labels: {"kind": "access", "type": "esi2", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
     - endpoints: ["leaf2:e1-2", "master0:ens2f1"]
       labels: {"kind": "access", "type": "esi2", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G"}
-    - endpoints: ["leaf1:e1-3", "worker0:eno5"]
-      labels: {"kind": "access", "type": "esi3", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
-    - endpoints: ["leaf2:e1-3", "worker0:eno6"]
-      labels: {"kind": "access", "type": "esi3", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G"}
-    - endpoints: ["leaf1:e1-4", "worker0:ens2f0"]
-      labels: {"kind": "access", "type": "esi4", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
-    - endpoints: ["leaf2:e1-4", "worker0:ens2f1"]
-      labels: {"kind": "access", "type": "esi4", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G"}
-    - endpoints: ["leaf1:e1-5", "worker1:eno5"]
-      labels: {"kind": "access", "type": "esi5", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
-    - endpoints: ["leaf2:e1-5", "worker1:eno6"]
-      labels: {"kind": "access", "type": "esi5", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G"}
-    - endpoints: ["leaf1:e1-6", "worker1:ens2f0"]
-      labels: {"kind": "access", "type": "esi6", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
-    - endpoints: ["leaf2:e1-6", "worker1:ens2f1"]
-      labels: {"kind": "access", "type": "esi6", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G"}
-    - endpoints: ["leaf1:e1-7", "worker2:eno5"]
-      labels: {"kind": "access", "type": "esi7", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
-    - endpoints: ["leaf2:e1-7", "worker2:eno6"]
-      labels: {"kind": "access", "type": "esi7", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G"}
-    - endpoints: ["leaf1:e1-8", "worker2:ens2f0"]
-      labels: {"kind": "access", "type": "esi8", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
-    - endpoints: ["leaf2:e1-8", "worker2:ens2f1"]
-      labels: {"kind": "access", "type": "esi8", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G"}
-    - endpoints: ["leaf1:e1-9", "worker3:eno5"]
-      labels: {"kind": "access", "type": "esi9", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
-    - endpoints: ["leaf2:e1-9", "worker3:eno6"]
-      labels: {"kind": "access", "type": "esi9", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G"}
-    - endpoints: ["leaf1:e1-10", "worker3:ens2f0"]
-      labels: {"kind": "access", "type": "esi10", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
-    - endpoints: ["leaf2:e1-10", "worker3:ens2f1"]
-      labels: {"kind": "access", "type": "esi10", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G"}
+    # - endpoints: ["leaf1:e1-3", "worker0:eno5"]
+    #   labels: {"kind": "access", "type": "esi3", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
+    # - endpoints: ["leaf2:e1-3", "worker0:eno6"]
+    #   labels: {"kind": "access", "type": "esi3", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G"}
+    # - endpoints: ["leaf1:e1-4", "worker0:ens2f0"]
+    #   labels: {"kind": "access", "type": "esi4", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
+    # - endpoints: ["leaf2:e1-4", "worker0:ens2f1"]
+    #   labels: {"kind": "access", "type": "esi4", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G"}
+    # - endpoints: ["leaf1:e1-5", "worker1:eno5"]
+    #   labels: {"kind": "access", "type": "esi5", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
+    # - endpoints: ["leaf2:e1-5", "worker1:eno6"]
+    #   labels: {"kind": "access", "type": "esi5", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G"}
+    # - endpoints: ["leaf1:e1-6", "worker1:ens2f0"]
+    #   labels: {"kind": "access", "type": "esi6", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
+    # - endpoints: ["leaf2:e1-6", "worker1:ens2f1"]
+    #   labels: {"kind": "access", "type": "esi6", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G"}
+    # - endpoints: ["leaf1:e1-7", "worker2:eno5"]
+    #   labels: {"kind": "access", "type": "esi7", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
+    # - endpoints: ["leaf2:e1-7", "worker2:eno6"]
+    #   labels: {"kind": "access", "type": "esi7", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G"}
+    # - endpoints: ["leaf1:e1-8", "worker2:ens2f0"]
+    #   labels: {"kind": "access", "type": "esi8", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
+    # - endpoints: ["leaf2:e1-8", "worker2:ens2f1"]
+    #   labels: {"kind": "access", "type": "esi8", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G"}
+    # - endpoints: ["leaf1:e1-9", "worker3:eno5"]
+    #   labels: {"kind": "access", "type": "esi9", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
+    # - endpoints: ["leaf2:e1-9", "worker3:eno6"]
+    #   labels: {"kind": "access", "type": "esi9", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G"}
+    # - endpoints: ["leaf1:e1-10", "worker3:ens2f0"]
+    #   labels: {"kind": "access", "type": "esi10", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
+    # - endpoints: ["leaf2:e1-10", "worker3:ens2f1"]
+    #   labels: {"kind": "access", "type": "esi10", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G"}
     # switch interconnect links
     - endpoints: ["leaf1:e1-49", "leaf2:e1-49"]
     # dcgw connectivity

@@ -33,31 +33,33 @@ func NewIPAM(netwInfo *NetworkInfo) (*Ipam, error) {
 	ipam.IP = make(map[string]*IpamAlloc)
 
 	// initialize prefix Length
-	if *netwInfo.AddressingSchema == "dual-stack" || *netwInfo.AddressingSchema == "ipv4-only" {
-		if err = initiailizeIPAM(netwInfo.Kind,
-			StringPtr("ipv4"),
-			netwInfo.Ipv4Cidr,              // IPv4 CIDR
-			netwInfo.Ipv4ItfcePrefixLength, // IPv4 prefix length
-			ipam); err != nil {
-			return nil, err
-		}
-
-	}
-	if *netwInfo.AddressingSchema == "dual-stack" || *netwInfo.AddressingSchema == "ipv6-only" {
-		if err = initiailizeIPAM(netwInfo.Kind,
-			StringPtr("ipv6"),
-			netwInfo.Ipv6Cidr,              // IPv6 CIDR
-			netwInfo.Ipv6ItfcePrefixLength, // IPv6 prefix length
-			ipam); err != nil {
-			return nil, err
+	for _, Ipv4Cidr := range netwInfo.Ipv4Cidr {
+		if *netwInfo.AddressingSchema == "dual-stack" || *netwInfo.AddressingSchema == "ipv4-only" {
+			if err = initializeIPAM(netwInfo.Kind,
+				StringPtr("ipv4"),
+				Ipv4Cidr,                       // IPv4 CIDR
+				netwInfo.Ipv4ItfcePrefixLength, // IPv4 prefix length
+				ipam); err != nil {
+				return nil, err
+			}
 		}
 	}
-
+	for _, Ipv6Cidr := range netwInfo.Ipv6Cidr {
+		if *netwInfo.AddressingSchema == "dual-stack" || *netwInfo.AddressingSchema == "ipv6-only" {
+			if err = initializeIPAM(netwInfo.Kind,
+				StringPtr("ipv6"),
+				Ipv6Cidr,                       // IPv6 CIDR
+				netwInfo.Ipv6ItfcePrefixLength, // IPv6 prefix length
+				ipam); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return ipam, nil
 }
 
 // IPAMInit initializes the ipam struct per link Kind; kind = network, acess, loopback
-func initiailizeIPAM(kind, version, prefix *string, prefixLength *int, ipam *Ipam) error {
+func initializeIPAM(kind, version, prefix *string, prefixLength *int, ipam *Ipam) error {
 	log.Debugf("InitializeIPAM: %s, %s, %s ...", *kind, *version, *prefix)
 	ipam.IP[*prefix] = new(IpamAlloc)
 
@@ -198,25 +200,28 @@ func (ipam *Ipam) IPAMAllocPrefixPerLink(version, prefix *string, link *Link) (e
 
 // IPAMAllocateAddress - allocated address kind = network, access, loopback
 // typically being used for loopback address allocation of the network elements
-func (ipam *Ipam) IPAMAllocateAddress(kind, ipv4Cidr, ipv6Cidr *string) (*Endpoint, error) {
+func (ipam *Ipam) IPAMAllocateAddress(kind *string, ipv4Cidrs, ipv6Cidrs []*string) (*Endpoint, error) {
 	log.Debug("AllocateIPEndpoint ...")
 	var err error
 	e := new(Endpoint)
 
-	ipv4Prefix := ipv4Cidr
-	ipv6Prefix := ipv6Cidr
-	log.Debugf("Kind: %s, ipv4Prefix: %s", kind, ipv4Prefix)
-	log.Debugf("Kind: %s, ipv6Prefix: %s", kind, ipv6Prefix)
-	if *ipv4Prefix != "" {
-		err = ipam.IPEndpointAlloc(*kind, "ipv4", *ipv4Prefix, e)
-		if err != nil {
-			return nil, err
+	log.Debugf("Kind: %s, ipv4Cidrs: %v", kind, ipv4Cidrs)
+	log.Debugf("Kind: %s, ipv6Cidrs: %v", kind, ipv4Cidrs)
+	for _, ipv4Prefix := range ipv4Cidrs {
+		if *ipv4Prefix != "" {
+			err = ipam.IPEndpointAlloc(*kind, "ipv4", *ipv4Prefix, e)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
-	if *ipv6Prefix != "" {
-		err = ipam.IPEndpointAlloc(*kind, "ipv6", *ipv6Prefix, e)
-		if err != nil {
-			return nil, err
+
+	for _, ipv6Prefix := range ipv6Cidrs {
+		if *ipv6Prefix != "" {
+			err = ipam.IPEndpointAlloc(*kind, "ipv6", *ipv6Prefix, e)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	return e, nil
@@ -306,4 +311,16 @@ func getLastIPPrefixInIPnet(ipNet net.IPNet) (*string, error) {
 	ipAddr = decrementIP(ipAddr)
 
 	return StringPtr(ipAddr.String() + "/" + strconv.Itoa(ipMask)), nil
+}
+
+func ip4or6(s string) string {
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '.':
+			return "ipv4"
+		case ':':
+			return "ipv6"
+		}
+	}
+	return "unknown"
 }
