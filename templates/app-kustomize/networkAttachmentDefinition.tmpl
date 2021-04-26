@@ -1,0 +1,36 @@
+{{- range .Values.multus.attachDef }}
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: {{ .name }}
+{{- if .resourceName }}
+  annotations:
+    k8s.v1.cni.cncf.io/resourceName: {{ .resourceName }}
+{{- end }}
+spec:
+  config: |
+    {
+{{- if .type }}
+        "type": "{{ .type }}",
+{{- else }}
+        "type": "host-device",
+{{- end }}
+        "cniVersion": "{{ .cniVersion }}",
+        "name": "{{ .name }}",
+{{- if .pciBusID }}
+        "pciBusID": "{{ .pciBusID }}",
+{{- end }}
+{{- if .deviceID }}
+        "deviceID": "{{ .deviceID }}",
+{{- end }}
+{{- if .device }}
+        "device": "{{ .device }}",
+{{- end }}
+{{- if .vlan }}
+        "vlan": {{ .vlan }},
+{{- end }}
+        "ipam": {}
+    }
+
+---
+{{- end }}

@@ -200,17 +200,17 @@ application:
   paco:
     global:
       multus: 
-        3GPP_SBA: {wl-name: multus-sba, vrfcp-id: 17001, vrfup-id: 1000}
-        oam: {wl-name: multus-mgmt, vrfcp-id: 17002, vrfup-id: 2000}
-        3GPP_Internal: {wl-name: multus-internal, vrfcp-id: 17003, vrfup-id: 3000}
-        3GPP_External: {wl-name: multus-external, vrfcp-id: 17004, vrfup-id: 4000}
-        3GPP_Internet: {wl-name: multus-internet, vrfcp-id: 17005, vrfup-id: 5000}
+        3GPP_SBA: {wl-name: multus-sba, vrfcp-id: 17001, vrfup-id: 1000, shortname: sba}
+        oam: {wl-name: multus-mgmt, vrfcp-id: 17002, vrfup-id: 2000, shortname: oam}
+        3GPP_Internal: {wl-name: multus-internal, vrfcp-id: 17003, vrfup-id: 3000, shortname: int}
+        3GPP_External: {wl-name: multus-external, vrfcp-id: 17004, vrfup-id: 4000, shortname: ext}
+        3GPP_Internet: {wl-name: multus-internet, vrfcp-id: 17005, vrfup-id: 5000, shortname: gilan}
     deployment:
-      #multiNet, vlanInApp
-      connectivitymode: vlanInApp 
+      #multiNet, vlanAwareApp
+      connectivitymode: vlanAwareApp 
       networkname: NokiaDemo
       networkshortname: NOKIA
-      nat: true
+      nat: false
       sigrefpoints: 10.100.11.2/24
       apn: demo.nokia
       uepoolcidr: 100.64.0.0/16
@@ -225,9 +225,9 @@ application:
         sst2: {value: 2, diff: [sd3: AAAAAA]}
     cnfs: 
       upf:
+        enabled: true
         deployment: ntok
         k: 1
-        enabled: true
         namespace: upf
         networking: 
           type: sriov
@@ -339,9 +339,9 @@ topology:
   links:
     # server connectivity
     - endpoints: ["leaf1:e1-1", "master0:ens5f0"]
-      labels: {"kind": "access", "type": "esi1", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true, "numa": 0}
+      labels: {"kind": "access", "type": "esi1", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true, "numa": 0}
     - endpoints: ["leaf2:e1-1", "master0:ens5f1"]
-      labels: {"kind": "access", "type": "esi1", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "numa": 0}
+      labels: {"kind": "access", "type": "esi1", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "numa": 0}
     # - endpoints: ["leaf1:e1-3", "worker0:eno5"]
     #   labels: {"kind": "access", "type": "esi3", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
     # - endpoints: ["leaf2:e1-3", "worker0:eno6"]
