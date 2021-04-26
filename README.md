@@ -1,11 +1,17 @@
-go run *.go -c conf/paco-deployment.yaml -o out/ parse
+# Paco parser
 
-go run *.go -c conf/paco-deployment-telenet.yaml -o out/ parse
+generates the values.yml files for the Nokia Packet core from the IaaC Yaml files
 
+## Example
 
+Multi-netting example:
 
-gcloud container hub memberships register anthos-admin-cluster \
-            --context=anthos-admin-cluster-admin@anthos-admin-cluster \
-            --service-account-key-file=/home/nokia/baremetal/bmctl-workspace/.sa-keys/anthos-bm-nokia-anthos-baremetal-connect.json \
-            --kubeconfig=/home/nokia/baremetal/bmctl-workspace/anthos-admin-cluster/anthos-admin-cluster-kubeconfig \
-            --project=anthos-bm-nokia
+```
+go run *.go -c conf/paco-deployment-telenet-multinet.yaml -o out/ parse
+```
+
+VlanAwareApp example:
+
+```
+go run *.go -c conf/paco-deployment-telenet-vlanawareapp.yaml -o out/ parse
+```
