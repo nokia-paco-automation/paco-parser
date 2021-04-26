@@ -1,0 +1,304 @@
+{{- /* appc.Networks variable*/}}
+{{- /* appc.Networks[wlName][group][switchIndex][itfceType][itfceSubType] */}}
+{{- /* appc.Networks; wlName: oam, 3GPP_Internal, 3GPP_External, 3GPP_SBA, 3GPP_Internet */}}
+{{- /* appc.Networks; group: 0: used for LLB/UPF-SMF, AMF, etc; 1..16 used for LMG/UPF */}}
+{{- /* appc.Networks; switchIndex: 0: used for loopback and ipvlan, 1 or 2: used for sriov */}}
+{{- /* appc.Networks; itfceType: loopback or itfce */}}
+{{- /* appc.Networks; itfceSubType: loopback; sigLbk, sysLbk, llbLbk, lmgLbk  */}}
+{{- /* appc.Networks; itfceSubType: loopback; group 0: sigLbk, sysLbk, llbLbk  */}}
+{{- /* appc.Networks; itfceSubType: loopback; group 1..16: sigLbk, lmgLbk  */}}
+{{- /* appc.Networks; itfceSubType: itfce; intIP  */}}
+{{- /* appc.Networks; itfceSubType: itfce; group 0: intIP(SMG-LLB, UPF-LLB, AMF)  */}}
+{{- /* appc.Networks; itfceSubType: itfce; group 1..16: intIP(UPF-LMG)  */}}
+{{- $appc := .Appc}}
+{{- $appipmap := .AppIPMap}}
+tags:
+  all: true
+  amms: {{ $appc.Amms}}
+  dbs: {{ $appc.Dbs}}
+  emms: {{ $appc.Emms}}
+  ipds: {{ $appc.Ipds}}
+  ipps: {{ $appc.Ipps}}
+  necc: {{ $appc.Necc}}
+  paps: {{ $appc.Paps}}
+  networkcrd: true
+  pvc: true
+global:
+  env_name: amf
+  k8s_apiserver_endpoints:
+    - "{{ $appc.K8sApiServer }}"
+  k8s_apiserver_port: 443
+  env_separator: '-'
+  ne_type: amf
+  cmm_uuid: ef4c4186-275b-40ee-afb9-6aeaf317b042
+  necccount: 2
+  storageclass: {{ $appc.StorageClass}}
+  timezone: Europe/Brussels
+  stdout_logging: true
+  aws_ip_mgmt: {{$appc.Aws}}
+  aws_ip_mgmt_image: {{$appc.ContainerRepo.ImageRepo}}/aws_ip_mgmt:2.3
+  disable_hpa: false
+  disable_apparmor: true
+  rbac_resourcename:
+  openshift: false
+  cbam: false
+  bcmt: false
+  multi_container: false
+  cluster_cidr: []
+  scale:
+    amms:
+      minReplicas: 2
+      maxReplicas: 3
+      cpu_utilization: 80
+      memory_utilization: 91
+    emms:
+      minReplicas: 0
+      maxReplicas: 0
+      cpu_utilization: 80
+      memory_utilization: 91
+    dbs:
+      minReplicas: 2
+      maxReplicas: 3
+      cpu_utilization: 80
+      memory_utilization: 91
+    ipds:
+      minReplicas: 2
+      maxReplicas: 2
+      cpu_utilization: 80
+    ipps:
+      minReplicas: 0
+      maxReplicas: 0
+      cpu_utilization: 81
+    paps:
+      minReplicas: 0
+      maxReplicas: 0
+      cpu_utilization: 82
+  kubeDNS:
+    ip: {{ $appc.K8sDns }}
+  prometheus:
+    namespaceLabel:
+      permission: talk-to-all
+    podLabel:
+      app: Prometheus
+  sbi_net_container_native: true
+  sbi_net_container_lb: none
+  pvc_hostpath_prefix: /opt/amf
+  skipNeccPvcCleanupJob: true
+  seLinuxOptions:
+    user: false
+    role: false
+    type: false
+    level: false
+  dbs_duplex:  false
+  neccvolumes:
+    pcmd_pvc: 1Gi
+    perf_pvc: 1Gi
+    logs_pvc: 1Gi
+    kafka_pvc: 1Gi
+    influx_pvc: 1Gi
+    redis_pvc: 1Gi
+    charging_pvc: 1Gi
+    pm_pvc: 1Gi
+    shared_pvc: 1Gi
+    store_pvc: 5Gi
+    mariadb_pvc: 5Gi
+{{- /* process interface IPs on NECC/OAM workload in ipvlan start */}}
+{{- $workloads := index $appc.Networks "oam"}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "itfce" }}
+{{- $networkTypes := index $networks "intIP" }}
+{{- $networkInfo := index $networkTypes 0 }}
+  oam:
+    type: ipv4
+    ipv4:
+      ip:
+{{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+      - {{$allocatedIP.IPAddress}}
+{{- end}}
+      floating_ip: {{ $networkInfo.Ipv4FloatingIP}}
+      cidr: {{ $networkInfo.Ipv4Cidr}}
+      gw: {{ $networkInfo.Ipv4Gw}}
+    interface: {{ $networkInfo.InterfaceEthernetName}}
+    host_interface: {{$networkInfo.InterfaceName}}.{{$networkInfo.VlanID}}
+  external_cni: {{$networkInfo.Cni}}
+{{- /* process interface IPs on NECC/OAM workload in ipvlan finished */}}
+{{- /* process interface IPs on IPDS workload in ipvlan start */}}
+  external:
+    ipds:
+{{- range $wlName, $workloads := $appc.Networks}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "itfce" }}
+{{- $networkTypes := index $networks "intIP" }}
+{{- range $ni, $networkInfo := $networkTypes}}
+{{- if ne $wlName "oam"}}
+    - name: {{$wlName}}
+      type: ipv4
+      host_interface: {{$networkInfo.InterfaceName}}.{{$networkInfo.VlanID}}
+      interface: {{$networkInfo.InterfaceEthernetName}}
+      ipv4:
+        cidr: {{ $networkInfo.Ipv4Cidr}}
+        gw: {{ $networkInfo.Ipv4Gw}}
+        ip:
+{{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+          - {{$allocatedIP.IPAddress}}
+{{- end}}
+{{- end}}
+{{- end}}
+
+{{- end}}
+  secrets:
+    users:
+      cmm_passwd: Nuage_7890
+      cbamuser_passwd:
+      sam5620_passwd:
+      cgw_passwd:
+      dcae_dfc_passwd:
+      rsp_passwd:
+      diagnostic_passwd:
+      trainee_passwd:
+      ca4mn_passwd:
+      cmmsecurity_passwd:
+      root_passwd:
+  provisioning:
+    # Site specific config
+    network_name: {{ $appc.NetworkName }}
+    network_short_name: {{ $appc.NetworkShortName }}
+    mcc: "{{ $appc.Mcc }}"
+    mnc: "{{ $appc.Mnc }}"
+    # start/end supi must be enclosed in quotes
+{{- range $mainIndex , $supiList := $appc.Supi}}
+{{- range $index , $supi := $supiList}}
+{{- if eq $mainIndex 0 }}
+{{- if eq (mod $index 2) 0}}
+    start_supi: "{{ $supi }}"
+{{- else}}
+    end_supi: "{{ $supi }}"
+{{- end}}
+{{- else }}
+{{- if eq (mod $index 2) 0}}
+    start_supi{{$mainIndex}}: "{{ $supi }}"
+{{- else }}
+    end_supi{{$mainIndex}}: "{{ $supi }}"
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+    # min 1 DNN
+{{- range $index, $dnn := $appc.Dnn}}
+    dnn{{ $index | inc }}: {{$dnn}}
+{{- end}}
+    # min 1 slice
+{{- range $sliceType, $sliceInfo := $appc.Slices}}
+    {{ $sliceType}}: {{ $sliceInfo.Value}}
+{{- range $sliceDiff := $sliceInfo.Diff }}
+{{- range $sliceDiffKey, $sliceDiffValue := $sliceDiff}}
+    {{ $sliceDiffKey}}:  {{ $sliceDiffValue }}
+{{- end}}
+{{- end}}
+{{- end}}
+    # min 1 tac
+    tac:
+{{- range $tac := $appc.TrackingArea }}
+    - {{ $tac }}
+{{- end }}
+    # local IP addresses:
+{{- $appipmapExternal := index $appipmap.IPinfo "3GPP_External"}}
+{{- $appipmapSBA := index $appipmap.IPinfo "3GPP_SBA"}}
+{{- $appipmapOam := index $appipmap.IPinfo "oam"}}
+    ipv4:
+      n2_ip: {{ $appipmapExternal.N2Ipv4}}
+      n8_ip: {{ $appipmapSBA.N8Ipv4}}
+      n11_ip: {{ $appipmapSBA.N11Ipv4}}
+      n12_ip: {{ $appipmapSBA.N12Ipv4}}
+      n14_ip: {{ $appipmapSBA.N14Ipv4}}
+      n15_ip: {{ $appipmapSBA.N15Ipv4}}
+      n17_ip: {{ $appipmapSBA.N17Ipv4}}
+      n22_ip: {{ $appipmapSBA.N22Ipv4}}
+      n20_ip: {{ $appipmapSBA.N20Ipv4}}
+      n26_ip: {{ $appipmapSBA.N26Ipv4}}
+      nnrf_ip: {{ $appipmapSBA.NnrfIpv4}}
+      nsms_ip: {{ $appipmapSBA.NsmsIPv4}}
+      amf_svc_default_ip: {{ $appipmapSBA.AmfSvcDefaultIPv4}}
+      amf_svc_loc_ip: {{ $appipmapSBA.AmfSvcLocIPv4}}
+      amf_svc_com_ip: {{ $appipmapSBA.AmfSvcComIPv4}}
+      amf_svc_ee_ip: {{ $appipmapSBA.AmfSvcEeIPv4}}
+      amf_svc_mt_ip: {{ $appipmapSBA.AmfSvcMtIPv4}}
+      nfy_eir_ip: {{ $appipmapSBA.NfyEirIPv4}}
+      nfy_amf_ip: {{ $appipmapSBA.NfyAmfIPv4}}
+      nfy_ausf_ip: {{ $appipmapSBA.NfyAusfIPv4}}
+      nfy_nrf_ip: {{ $appipmapSBA.NfyNrfIPv4}}
+      nfy_nssf_ip: {{ $appipmapSBA.NfyNssfIPv4}}
+      nfy_pcf_ip: {{ $appipmapSBA.NfyPcfIPv4}}
+      nfy_smf_ip: {{ $appipmapSBA.NfySmfIPv4}}
+      nfy_udm_ip: {{ $appipmapSBA.NfyUdmIPv4}}
+    ipv6:
+      n2_ip:
+      n8_ip:
+      n11_ip:
+      n12_ip:
+      n14_ip:
+      n15_ip:
+      n17_ip:
+      n22_ip:
+      n26_ip:
+      nnrf_ip:
+      nsms_ip:
+      amf_svc_default_ip:
+      amf_svc_loc_ip:
+      amf_svc_com_ip:
+      amf_svc_ee_ip:
+      amf_svc_mt_ip:
+      nfy_eir_ip:
+      nfy_amf_ip:
+      nfy_ausf_ip:
+      nfy_nrf_ip:
+      nfy_nssf_ip:
+      nfy_pcf_ip:
+      nfy_smf_ip:
+      nfy_udm_ip:
+    dns_ipds_ip1: {{ $appipmapSBA.DnsIpdsIPv41}}
+    dns_ipds_ip2: {{ $appipmapSBA.DnsIpdsIPv42}}
+    # remote endpoints AMF talks to:
+    primary_dns_ip: {{ $appipmapOam.InternetDNS}}
+    #nrf_endpoint_ip: 100.112.3.129
+    #nrf_endpoint_fqdn:
+    #nrf_endpoint_port: 8080
+    #nssf_endpoint_ip: 100.112.3.129
+    #nssf_endpoint_fqdn:
+    #nssf_endpoint_port: 8080
+    ausf_endpoint_ip: {{ $appipmapSBA.AusfIPv4}}
+    ausf_endpoint_port: 8080
+    udm_endpoint_ip: {{ $appipmapSBA.UdmIPv4}}
+    udm_endpoint_port: 8080
+    smf_endpoint_ip: {{ $appipmapSBA.SmfIPv4}}
+    smf_endpoint_port: 8080
+    prometheus_ip: {{ $appipmapOam.PrometheusIP}}
+  containers:
+{{- range $podName, $podInfo := $appc.Containers }}
+    {{ $podName }}:
+      imageName: {{$appc.ContainerRepo.ImageRepo}}/{{ $podInfo.ImageName}}:{{ $podInfo.ImageTag}}
+      resources:
+        cpu: {{ $podInfo.CPU }}
+        memory: {{ $podInfo.Memory }}
+      nodeSelector: {{ $podInfo.NodeSelector }}
+{{- if eq $podName "necc"}}
+      pvc: false
+{{- end}}
+{{- $aalength := len $podInfo.Antiaffinity }}
+{{- if eq  $aalength 0}}
+      antiaffinity: []
+{{- else}}
+      antiaffinity:
+{{- range $antiaffinity := $podInfo.Antiaffinity }}
+        - {{ $antiaffinity }}
+{{- end }}
+{{- end }}
+      initialDelaySeconds: {{ $podInfo.InitialDelaySeconds }}
+      periodSeconds: {{ $podInfo.PeriodSeconds }}
+{{- end }}
+cmm-config-map:
+  security_level: 3
+  ipds_env_multi: false
+  cmm_env_l3ns: false

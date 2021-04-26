@@ -16,13 +16,72 @@ const (
 
 // Config defines lab configuration as it is provided in the YAML file
 type Config struct {
-	Name              *string                             `json:"name,omitempty"`
-	Credentials       *Credentials                        `json:"credentials,omitempty"`
-	Topology          *Topology                           `json:"topology,omitempty"`
-	Cluster           *Cluster                            `json:"cluster,omitempty"`
-	ContainerRegistry *ContainerRegistry                  `json:"container_registry,omitempty"`
-	Infrastructure    *Infrastructure                     `json:"infrastructure,omitempty"`
-	Workloads         map[string]map[string]*WorkloadInfo `json:"workloads,omitempty"`
+	Name              *string                               `yaml:"name,omitempty"`
+	Credentials       *Credentials                          `yaml:"credentials,omitempty"`
+	Topology          *Topology                             `yaml:"topology,omitempty"`
+	Cluster           *Cluster                              `yaml:"cluster,omitempty"`
+	ContainerRegistry *ContainerRegistry                    `yaml:"container_registry,omitempty"`
+	Infrastructure    *Infrastructure                       `yaml:"infrastructure,omitempty"`
+	Workloads         map[string]map[string]*WorkloadInfo   `yaml:"workloads,omitempty"`
+	Application       map[string]*PacoInfo                  `yaml:"application,omitempty"`
+	AppNetworkIndexes map[string]map[string]map[string]*int `yaml:"appnetwindexes,omitempty"`
+}
+
+// PacoInfo
+type PacoInfo struct {
+	Global     *GlobalParameters   `yaml:"global,omitempty"`
+	Deployment *PacoDeploymentInfo `yaml:"deployment,omitempty"`
+	Cnfs       map[string]*CnfInfo `yaml:"cnfs,omitempty"`
+}
+
+type GlobalParameters struct {
+	Multus map[string]*MultusInfo `yaml:"multus,omitempty"`
+}
+
+// PacoDeployemntInfo
+type PacoDeploymentInfo struct {
+	ConnectivityMode *string               `yaml:"connectivitymode,omitempty"`
+	NetworkName      *string               `yaml:"networkname,omitempty"`
+	NetworkShortName *string               `yaml:"networkshortname,omitempty"`
+	Nat              *bool                 `yaml:"nat,omitempty"`
+	SigRefPoints     *string               `yaml:"sigrefpoints,omitempty"`
+	UePoolCidr       *string               `yaml:"uepoolcidr,omitempty"`
+	Supi             [][]*string           `yaml:"supi,omitempty"`
+	Plmn             map[string]*int       `yaml:"plmn,omitempty"`
+	Dnn              []*string             `yaml:"dnn,omitempty"`
+	TrackingArea     []*string             `yaml:"tac,omitempty"`
+	Slices           map[string]*SliceInfo `yaml:"slices,omitempty"`
+	Apn              *string               `yaml:"apn,omitempty"`
+}
+
+// SliceInfo
+type SliceInfo struct {
+	Value int                 `yaml:"value,omitempty"`
+	Diff  []map[string]string `yaml:"diff,omitempty"`
+}
+
+// CnfInfo
+type CnfInfo struct {
+	Enabled      *bool                             `yaml:"enabled,omitempty"`
+	Deployment   *string                           `yaml:"deployment,omitempty"`
+	K            *int                              `yaml:"k,omitempty"`
+	NameSpace    *string                           `yaml:"namespace,omitempty"`
+	StorageClass *string                           `yaml:"storage_class,omitempty"`
+	PrometheusIP *string                           `yaml:"prometheus_ip,omitempty"`
+	Networking   *PacoNetworkInfo                  `yaml:"networking,omitempty"`
+	Pods         map[string]map[string]interface{} `yaml:"pods,omitempty"`
+}
+
+type PacoNetworkInfo struct {
+	Type   *string                `yaml:"type,omitempty"`
+	AS     *uint32                `yaml:"as,omitempty"`
+	Multus map[string]*MultusInfo `yaml:"multus,omitempty"`
+}
+
+type MultusInfo struct {
+	WorkloadName *string `yaml:"wl-name,omitempty"`
+	VrfCpId        *int    `yaml:"vrfcp-id,omitempty"`
+	VrfUpId        *int    `yaml:"vrfup-id,omitempty"`
 }
 
 // Credentials
@@ -45,18 +104,19 @@ type Cluster struct {
 
 // ContainerRegistry
 type ContainerRegistry struct {
-	ImageDir *string `yaml:"image_dir,omitempty"`
-	Email    *string `yaml:"email,omitempty"`
-	Username *string `yaml:"username,omitempty"`
-	Secret   *string `yaml:"secret,omitempty"`
 	Kind     *string `yaml:"kind,omitempty"`
 	Name     *string `yaml:"name,omitempty"`
 	Url      *string `yaml:"url,omitempty"`
 	Server   *string `yaml:"server,omitempty"`
+	ImageDir *string `yaml:"image_dir,omitempty"`
+	Email    *string `yaml:"email,omitempty"`
+	Username *string `yaml:"username,omitempty"`
+	Secret   *string `yaml:"secret,omitempty"`
 }
 
 // Infrastructure
 type Infrastructure struct {
+	InternetDns      *string                 `yaml:"internet_dns,omitempty"`
 	Protocols        *Protocols              `yaml:"protocols,omitempty"`
 	AddressingSchema *string                 `yaml:"addressing_schema,omitempty"`
 	Networks         map[string]*NetworkInfo `yaml:"networks,omitempty"`
@@ -64,15 +124,50 @@ type Infrastructure struct {
 
 // NetworkInfo
 type NetworkInfo struct {
-	Ipv4Cidr              *string `yaml:"ipv4_cidr,omitempty"`
-	Ipv4ItfcePrefixLength *int    `yaml:"ipv4_itfce_prefix_length,omitempty"`
-	Ipv6Cidr              *string `yaml:"ipv6_cidr,omitempty"`
-	Ipv6ItfcePrefixLength *int    `yaml:"ipv6_itfce_prefix_length,omitempty"`
-	AddressingSchema      *string `yaml:"addressing_schema,omitempty"`
-	Type                  *string `yaml:"type,omitempty"`
-	VlanID                *int    `yaml:"vlan_id,omitempty"`
-	Kind                  *string `yaml:"kind,omitempty"`
-	Target                *string `yaml:"target,omitempty"`
+	Ipv4Cidr              []*string `yaml:"ipv4_cidr,omitempty"`
+	Ipv4ItfcePrefixLength *int      `yaml:"ipv4_itfce_prefix_length,omitempty"`
+	Ipv6Cidr              []*string `yaml:"ipv6_cidr,omitempty"`
+	Ipv6ItfcePrefixLength *int      `yaml:"ipv6_itfce_prefix_length,omitempty"`
+	AddressingSchema      *string   `yaml:"addressing_schema,omitempty"`
+	Type                  *string   `yaml:"type,omitempty"`
+	VlanID                *int      `yaml:"vlan_id,omitempty"`
+	Kind                  *string   `yaml:"kind,omitempty"`
+	Target                *string   `yaml:"target,omitempty"`
+	NetworkIndex          *int
+	SwitchIndex           *int
+
+	TemplateKind       string
+	Ipv4ItfceAddresses []*AllocatedIPInfo
+	Ipv6ItfceAddresses []*AllocatedIPInfo
+	//Ipv4UpItfceAddresses  map[int][]*AllocatedIPInfo // key is the group
+	//Ipv6UpItfceAddresses  map[int][]*AllocatedIPInfo // key is the group
+	Ipv4CpAddresses       []*AllocatedIPInfo
+	Ipv6CpAddresses       []*AllocatedIPInfo
+	Ipv4UpAddresses       map[int][]*AllocatedIPInfo // key is the group
+	Ipv6UpAddresses       map[int][]*AllocatedIPInfo // key is the group
+	Ipv4FloatingIP        *string
+	Ipv6FloatingIP        *string
+	Ipv4Gw                *string
+	Ipv6Gw                *string
+	Ipv4GwPerWl           map[int][]string
+	Ipv6GwPerWl           map[int][]string
+	InterfaceName         *string
+	InterfaceEthernetName *string
+	Cni                   *string
+	NetworkShortName      *string
+	ResShortName          *string
+	IPv4BGPPeers          map[int]*BGPPeerInfo
+	IPv6BGPPeers          map[int]*BGPPeerInfo
+	IPv4BGPAddress        *string
+	IPv6BGPAddress        *string
+	VrfCpId               *int
+	VrfUpId               *int
+	AS                    *uint32
+}
+
+type BGPPeerInfo struct {
+	IP *string
+	AS *uint32
 }
 
 // Protocols
@@ -85,8 +180,8 @@ type Protocols struct {
 
 // WorkloadInfo
 type WorkloadInfo struct {
-	Vlans    map[string]*NetworkInfo `yaml:"vlans,omitempty"`
-	Networks map[string]*NetworkInfo `yaml:"networks,omitempty"`
+	Itfces    map[string]*NetworkInfo `yaml:"itfces,omitempty"`
+	Loopbacks map[string]*NetworkInfo `yaml:"loopbacks,omitempty"`
 }
 
 // Topology represents a lab topology
@@ -106,6 +201,7 @@ type NodeConfig struct {
 	Position *string            `yaml:"position,omitempty"`
 	MgmtIPv4 *string            `yaml:"mgmt_ipv4,omitempty"` // user-defined IPv4 address in the management network
 	MgmtIPv6 *string            `yaml:"mgmt_ipv6,omitempty"` // user-defined IPv6 address in the management network
+	AS       *uint32            `yaml:"as,omitempty"`
 }
 
 type LinkConfig struct {
@@ -145,6 +241,7 @@ type Link struct {
 	LagMemberLink *bool   // indication if a link is a member link of a LAG; e.g. ethernet-1/1 is a memer of lag1
 	LagName       *string // name of a lag, clientname is used on linux
 	ClientName    *string // used in linux as the lag name
+	Numa          *int    // used to describe the numa
 	Sriov         *bool   // inidcation if the link is sriov enabled
 	IPVlan        *bool   // inidcation if the link is ipvlan enabled
 	Speed         *string // link speed
@@ -320,6 +417,9 @@ func (p *Parser) NewNode(nodeName string, nodeCfg *NodeConfig) (*Node, error) {
 	node.MgmtIPv4Address = nodeCfg.MgmtIPv4
 	node.MgmtIPv6Address = nodeCfg.MgmtIPv6
 	node.Labels = nodeCfg.Labels
+	if nodeCfg.AS != nil {
+		*node.AS = *nodeCfg.AS
+	}
 
 	// initialize kind, based on hierarchical information in the config file
 	// most specific information is selected
@@ -364,14 +464,17 @@ func (p *Parser) NewNode(nodeName string, nodeCfg *NodeConfig) (*Node, error) {
 			log.Debugf("Node Loopback: %s, ipv4: %s, ipv6: %s", *node.ShortName, *node.Endpoints["lo0"].IPv4Prefix, *node.Endpoints["lo0"].IPv6Prefix)
 			log.Debugf("Position: %s %d", node.Position, p.NextAS)
 
-			switch *p.Config.Infrastructure.Protocols.Protocol {
-			case "ebgp":
-				// update the AS from the original parser
-				*node.AS = *p.NextAS
-				*p.NextAS++
-			default:
-				// update the AS from the original parser
-				*node.AS = *p.NextAS
+			// dont apply the AS auto-config if the AS is supplied by config
+			if nodeCfg.AS == nil {
+				switch *p.Config.Infrastructure.Protocols.Protocol {
+				case "ebgp":
+					// update the AS from the original parser
+					*node.AS = *p.NextAS
+					*p.NextAS++
+				default:
+					// update the AS from the original parser
+					*node.AS = *p.NextAS
+				}
 			}
 		}
 	}
@@ -394,6 +497,7 @@ func (p *Parser) NewLink(l *LinkConfig) error {
 		LagMemberLink: new(bool),
 		LagName:       new(string),
 		ClientName:    new(string),
+		Numa:          new(int),
 		Sriov:         new(bool),
 		IPVlan:        new(bool),
 		Speed:         new(string),
@@ -502,6 +606,17 @@ func (p *Parser) NewLink(l *LinkConfig) error {
 		link.ClientName = link.Labels["client-name"]
 	}
 
+	// initialize Numa defaults -> 0
+	// used in App to define the connectivity and numa definiton
+	link.Numa = IntPtr(0)
+	if _, ok := link.Labels["numa"]; ok {
+		n, err := strconv.Atoi(*link.Labels["numa"])
+		if err != nil {
+			log.WithError(err).Errorf("issue converting numa into string")
+		}
+		link.Numa = IntPtr(n)
+	}
+
 	// When a link is a lag we have to expand the links to represent the LAG
 	if *link.Lag {
 		found := false
@@ -534,7 +649,7 @@ func (p *Parser) NewLink(l *LinkConfig) error {
 				lag.A = p.NewEndpoint(nodeShortNameA, lag.LagName, lag, nodeB)
 			}
 			if *nodeB.Kind == "linux" {
-				log.Infof("New Endpoint: %s", *link.ClientName)
+				log.Debugf("New Endpoint: %s", *link.ClientName)
 				// override the lag name with the client-name supplied in the labels field
 				lag.B = p.NewEndpoint(nodeShortNameB, link.ClientName, lag, nodeA)
 			} else {
@@ -544,9 +659,15 @@ func (p *Parser) NewLink(l *LinkConfig) error {
 			p.Nodes[*nodeShortNameA].Endpoints[*lag.LagName] = lag.A
 			p.Nodes[*nodeShortNameB].Endpoints[*lag.LagName] = lag.B
 			p.Links = append(p.Links, lag)
-			// Allocate IP addresses on the link
-			if err := p.IPAM["isl"].IPAMAllocateLinkPrefix(lag, p.Config.Infrastructure.Networks["isl"].Ipv4Cidr, p.Config.Infrastructure.Networks["isl"].Ipv6Cidr); err != nil {
-				log.Error(err)
+			// Allocate IP addresses on the link if the link is of kind isl
+			if *lag.Kind == "isl" {
+				for _, ipv4Cidr := range p.Config.Infrastructure.Networks["isl"].Ipv4Cidr {
+					for _, ipv6Cidr := range p.Config.Infrastructure.Networks["isl"].Ipv6Cidr {
+						if err := p.IPAM["isl"].IPAMAllocateLinkPrefix(lag, ipv4Cidr, ipv6Cidr); err != nil {
+							log.Error(err)
+						}
+					}
+				}
 			}
 		}
 	}
@@ -568,14 +689,16 @@ func (p *Parser) NewLink(l *LinkConfig) error {
 	p.Links = append(p.Links, link)
 	// Allocate IP addresses on the link
 	// only allocate IP link prefixes for LAG link bundle and links not part of a lag bundle
-	if link.LagMemberLink != nil && !*link.LagMemberLink {
-		if err := p.IPAM["isl"].IPAMAllocateLinkPrefix(link, p.Config.Infrastructure.Networks["isl"].Ipv4Cidr, p.Config.Infrastructure.Networks["isl"].Ipv6Cidr); err != nil {
-			log.Error(err)
+	if link.LagMemberLink != nil && !*link.LagMemberLink && *link.Kind == "isl" {
+		for _, ipv4Cidr := range p.Config.Infrastructure.Networks["isl"].Ipv4Cidr {
+			for _, ipv6Cidr := range p.Config.Infrastructure.Networks["isl"].Ipv6Cidr {
+				if err := p.IPAM["isl"].IPAMAllocateLinkPrefix(link, ipv4Cidr, ipv6Cidr); err != nil {
+					log.Error(err)
+				}
+			}
 		}
 	}
-
 	return nil
-
 }
 
 // NewEndpoint initializes a new endpoint object
@@ -610,7 +733,7 @@ func (p *Parser) NewEndpoint(nodeShortName, epShortName *string, l *Link, peerNo
 	}
 
 	ep.PeerNode = peerNode
-	log.Infof("NewEndpoint Node Short Name: %s", *nodeShortName)
+	log.Debugf("NewEndpoint Node Short Name: %s", *nodeShortName)
 	//ep.Node = p.Nodes[*nodeShortName]
 	*ep.Kind = *l.Kind
 
@@ -667,18 +790,21 @@ func (p *Parser) NewEndpoint(nodeShortName, epShortName *string, l *Link, peerNo
 // ShowTopology show the topology that was initialized
 func (p *Parser) ShowTopology() {
 	for nName, n := range p.Nodes {
-		log.Infof("Node Name: %s, Kind: %s, Type: %s, Mgmt IPv4 Address: %s, ShortName: %s, AS: %d", nName, *n.Kind, *n.Type, *n.MgmtIPv4Address, *n.ShortName, *n.AS)
-		for epName, ep := range n.Endpoints {
-			log.Infof("Endpoint Name: %s, %s, %s", epName, *ep.RealName, *ep.Kind)
-			if ep.Lag != nil && *ep.Lag {
-				//log.Infof("Endpoint Name: %s, LAG info: %t", epName, *ep.Lag)
-				//*ep.LagName
-				//*ep.LagMemberLink
-			}
-			if *ep.Kind == "loopback" {
-				log.Infof("IP Info loopback: IPv4 info: %s, IPv6 info: %s", *ep.IPv4Address, *ep.IPv6Address)
-			} else {
-				log.Infof("IP Info: IPv4 info: %s, %s, IPv6 info: %s, %s", *ep.IPv4Address, *ep.IPv4NeighborAddress, *ep.IPv6Address, *ep.IPv6NeighborAddress)
+		if *n.Position == "network" {
+			log.Infof("Node Name: %s, Kind: %s, Type: %s, Mgmt IPv4 Address: %s, ShortName: %s, AS: %d", nName, *n.Kind, *n.Type, *n.MgmtIPv4Address, *n.ShortName, *n.AS)
+			for epName, ep := range n.Endpoints {
+				log.Infof("Endpoint Name: %s, %s, %s", epName, *ep.RealName, *ep.Kind)
+				if ep.Lag != nil && *ep.Lag {
+					//log.Infof("Endpoint Name: %s, LAG info: %t", epName, *ep.Lag)
+					//*ep.LagName
+					//*ep.LagMemberLink
+				}
+				if *ep.Kind == "loopback" {
+					log.Infof("IP Info loopback: IPv4 info: %s, IPv6 info: %s", *ep.IPv4Address, *ep.IPv6Address)
+				} else {
+					log.Infof("IP Info: IPv4 info: %s, %s, IPv6 info: %s, %s", *ep.IPv4Address, *ep.IPv4NeighborAddress, *ep.IPv6Address, *ep.IPv6NeighborAddress)
+					log.Infof("IP Info: IPv4 info: %s, %s, IPv6 info: %s, %s", *ep.IPv4Prefix, *ep.IPv4NeighborPrefix, *ep.IPv6Prefix, *ep.IPv6NeighborPrefix)
+				}
 			}
 		}
 	}
@@ -706,7 +832,7 @@ func (p *Parser) ParseClientGroup() (err error) {
 				if *l.A.Node.Target == cgName {
 					// Also include the member links
 					//if !*l.B.LagMemberLink {
-					log.Infof("Enpoint %s %s %s %s", *l.B.Node.ShortName, *l.B.Node.Target, *l.B.ShortName, *l.B.RealName)
+					log.Debugf("Enpoint %s %s %s %s", *l.B.Node.ShortName, *l.B.Node.Target, *l.B.ShortName, *l.B.RealName)
 					*p.ClientGroups[cgName].TargetGroup = *l.B.Node.Target
 					interfaceDetails := &InterfaceDetails{
 						Endpoint: l.B,
@@ -740,7 +866,7 @@ func (p *Parser) ParseClientGroup() (err error) {
 				}
 				if *l.B.Node.Target == cgName {
 					//if !*l.A.LagMemberLink {
-					log.Infof("Enpoint %s %s %s %s", *l.A.Node.ShortName, *l.A.Node.Target, *l.A.ShortName, *l.A.RealName)
+					log.Debugf("Enpoint %s %s %s %s", *l.A.Node.ShortName, *l.A.Node.Target, *l.A.ShortName, *l.A.RealName)
 					*p.ClientGroups[cgName].TargetGroup = *l.A.Node.Target
 					interfaceDetails := &InterfaceDetails{
 						Endpoint: l.A,
@@ -1004,7 +1130,7 @@ func (p *Parser) InitializeIPAMWorkloads() (err error) {
 
 	for wlName, clients := range p.Config.Workloads {
 		for cgName, wlInfo := range clients {
-			for _, netwInfo := range wlInfo.Vlans {
+			for _, netwInfo := range wlInfo.Itfces {
 				if *netwInfo.Kind == "routed" {
 					ipamName := wlName + cgName + strconv.Itoa(*netwInfo.VlanID)
 					netwInfo := &NetworkInfo{

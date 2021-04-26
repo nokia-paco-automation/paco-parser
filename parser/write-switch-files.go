@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,6 +13,14 @@ import (
 )
 
 var (
+	goK8sKustomizeTemplate = `
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+{{- range $index, $element := .Resources}}
+- {{$element}}
+{{- end}}
+`
 	goK8sSrlinterfaceTemplate = `
 apiVersion: srlinux.henderiw.be/v1alpha1
 kind: K8sSrlNokiaInterfacesInterface
@@ -21,34 +30,36 @@ metadata:
     target: {{.Target}}
 spec:
   interface:
-{{range $index, $element := .Interfaces}}
+{{- range $index, $element := .Interfaces}}
   - name: {{$element.Name}}
     admin-state: enable
     description: "paco-{{$element.Name}}"
-{{if eq $element.Kind "isl" "access"}}
+{{- if $element.VlanTagging}}
     vlan-tagging: {{$element.VlanTagging}}
-{{end}}
-{{if ne $element.PortSpeed ""}}
+{{- end}}
+{{- if ne $element.PortSpeed ""}}
+{{- if not $element.Lag}}
     ethernet:
       port-speed: {{$element.PortSpeed}}
-{{if eq $element.LagMember true }}
+{{- if eq $element.LagMember true }}
       aggregate-id: {{$element.LagName}}
-{{end}}
-{{end}}
-{{if eq $element.Lag true}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- if eq $element.Lag true}}
     lag:
       lag-type: lacp
       member-speed: {{$element.PortSpeed}}
-{{if eq $element.Pxe true}}
+{{- if eq $element.Pxe true}}
       lacp-fallback-mode: static
-{{end}}
+{{- end}}
       lacp:
         interval: FAST
         lacp-mode: ACTIVE
         admin-key: {{$element.AdminKey}}
         system-id-mac: {{$element.SystemMac}}
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
 `
 	goK8sSrlTunnelInterfaceTemplate = `
 apiVersion: srlinux.henderiw.be/v1alpha1
@@ -59,9 +70,9 @@ metadata:
     target: {{.Target}}
 spec:
   tunnel-interface:
-  {{range $index, $element := .TunnelInterfaces}}
-    name: {{$element.Name}}
-  {{end}}
+{{- range $index, $element := .TunnelInterfaces}}
+  - name: {{$element.Name}}
+{{- end}}
 `
 
 	goK8sSrlVxlanInterfaceTemplate = `
@@ -74,14 +85,18 @@ metadata:
 spec:
   tunnel-interface-name: {{.TunnelInterfaceName}}
   vxlan-interface:
-{{range $index, $element := .VxlanInterfaces}}
+{{- range $index, $element := .VxlanInterfaces}}
   - index: {{$element.VlanID}}
     type: {{$element.Kind}}
     ingress:
+{{- if eq $element.VlanID "0"}}
+      vni: 1
+{{- else}}
       vni: {{$element.VlanID}}
+{{- end}}
     egress:
       source-ip: use-system-ipv4-address
-{{end}}
+{{- end}}
 `
 
 	goK8sSrlsubinterfaceTemplate = `
@@ -90,36 +105,37 @@ kind: K8sSrlNokiaInterfacesInterfaceSubinterface
 metadata:
   name: {{.ResourceName}}
   labels:
-  target: {{.Target}}
+    target: {{.Target}}
 spec:
   interface-name: {{.InterfaceName}}
-  {{ $target := .Target}}
+{{- $target := .Target}}
   subinterface:
-  {{range $index, $element := .SubInterfaces}}
+{{- range $index, $element := .SubInterfaces}}
   - index: {{$element.VlanID}}
-  {{if ne $element.Kind "loopback"}}
+{{- if ne $element.Kind "loopback"}}
     type: {{$element.Kind}}
-  {{end}}
+{{- end}}
     admin-state: enable
     description: "paco-{{$element.InterfaceShortName}}-{{$element.VlanID}}-{{$target}}"
-  {{if eq $element.Kind "bridged"}}
+{{- if $element.VlanTagging}}
     vlan:
       encap:
-      {{if eq $element.VlanID "0"}}
-        untagged
-      {{else}}
+{{- if eq $element.VlanID "0"}}
+        untagged: {}
+{{- else}}
         single-tagged:
-          vlan-id: {{$element.VlanID}}
-      {{end}}
-  {{else}}
+          vlan-id: "{{$element.VlanID}}"
+{{- end}}
+{{- end}}
+{{- if eq $element.Kind "routed" "loopback"}}
     ipv4:
       address: 
       - ip-prefix: {{$element.IPv4Prefix}}
     ipv6:
       address: 
       - ip-prefix: {{$element.IPv6Prefix}}
-  {{end}}
-  {{end}}
+{{- end}}
+{{- end}}
 `
 
 	goK8sSrlIrbSubInterfaceTemplate = `
@@ -128,52 +144,56 @@ kind: K8sSrlNokiaInterfacesInterfaceSubinterface
 metadata:
   name: {{.ResourceName}}
   labels:
-  target: {{.Target}}
+    target: {{.Target}}
 spec:
   interface-name: {{.InterfaceName}}
-  {{ $target := .Target}}
+{{- $target := .Target}}
   subinterface:
-{{range $index, $element := .SubInterfaces}}
+{{- range $index, $element := .SubInterfaces}}
   - index: {{$element.VlanID}}
     admin-state: enable
     description: "{{$element.Description}}"
-{{if ne (len $element.IPv4Prefix) 0 }}
+{{- if ne (len $element.IPv4Prefix) 0 }}
     ipv4:
       address: 
-{{range $index, $ipv4prefix := $element.IPv4Prefix}}
+{{- range $index, $ipv4prefix := $element.IPv4Prefix}}
       - ip-prefix: {{$ipv4prefix}}
-{{if eq $element.AnycastGW true}}
+{{- if eq $element.AnycastGW true}}
         anycast-gw: true
-{{end}}
-{{end}}
+{{- end}}
+{{- end}}
       arp:
         learn-unsolicited: true
         host-route:
-          populate: dynamic
+          populate:
+          - route-type: dynamic
         evpn:
-          advertise: dynamic
-{{end}}
-{{if eq $element.AnycastGW true}}
+          advertise: 
+          - route-type: dynamic
+{{- end}}
+{{- if eq $element.AnycastGW true}}
     anycast-gw:
       virtual-router-id: {{$element.VrID}}
-{{end}}
-{{if ne (len $element.IPv6Prefix) 0 }}
+{{- end}}
+{{- if ne (len $element.IPv6Prefix) 0 }}
     ipv6:
       address: 
-{{range $index, $ipv6prefix := $element.IPv6Prefix}}
+{{- range $index, $ipv6prefix := $element.IPv6Prefix}}
       - ip-prefix: {{$ipv6prefix}}
-{{if eq $element.AnycastGW true}}
+{{- if eq $element.AnycastGW true}}
         anycast-gw: true
-{{end}}
-{{end}}
-      arp:
-        learn-unsolicited: true
+{{- end}}
+{{- end}}
+      neighbor-discovery:
+        learn-unsolicited: both
         host-route:
-          populate: dynamic
+          populate:
+          - route-type: dynamic
         evpn:
-          advertise: dynamic
-{{end}}
-{{end}}
+          advertise: 
+          - route-type: dynamic
+{{- end}}
+{{- end}}
 `
 
 	goK8sSrlnetworkinstanceTemplate = `
@@ -182,7 +202,7 @@ kind: K8sSrlNokiaNetworkInstanceNetworkInstance
 metadata:
   name: {{.ResourceName}}
   labels:
-  target: {{.Target}}
+    target: {{.Target}}
 spec:
   network-instance:
   - name: {{.NetworkInstance.Name}}
@@ -190,19 +210,19 @@ spec:
     admin-state: enable
     description: paco-{{.NetworkInstance.Name}}
     interface:
-{{range $index, $element := .NetworkInstance.SubInterfaces}}
+{{- range $index, $element := .NetworkInstance.SubInterfaces}}
     - name: {{$element.InterfaceRealName}}.{{$element.VlanID}}
-{{end}}
-{{if .NetworkInstance.TunnelInterfaceName}}
+{{- end}}
+{{- if .NetworkInstance.TunnelInterfaceName}}
     vxlan-interface:
     - name: {{.NetworkInstance.TunnelInterfaceName}}
-{{end}}
-{{if eq .NetworkInstance.Kind "mac-vrf"}}
+{{- end}}
+{{- if eq .NetworkInstance.Kind "mac-vrf"}}
     bridge-table:
       mac-duplication:
         admin-state: enable
         action: blackhole
-{{end}}
+{{- end}}
 `
 
 	goK8sSrlprotocolsbgpTemplate = `
@@ -219,18 +239,21 @@ spec:
     autonomous-system: {{.ProtocolBgp.AS}}
     router-id: {{.ProtocolBgp.RouterID}}
     ebgp-default-policy:
-      import-reject-all: true
-      export-reject-all: true
+      import-reject-all: false
+      export-reject-all: false
     group: 
-    {{range $index, $element := .ProtocolBgp.PeerGroups}}
+{{- range $index, $element := .ProtocolBgp.PeerGroups}}
     - group-name: {{$element.Name}}
+{{- if $element.PolicyName }}
+      export-policy: {{$element.PolicyName}}
+{{- end}}
       admin-state: enable
       next-hop-self: true
-      {{range $index, $protocol := $element.Protocols}}
+{{- range $index, $protocol := $element.Protocols}}
       {{$protocol}}:
         admin-state: enable
-      {{end}}
-    {{end}}
+{{- end}}
+{{- end}}
     ipv4-unicast:
       admin-state: enable
       multipath:
@@ -244,19 +267,19 @@ spec:
         max-paths-level-1: 64
         max-paths-level-2: 64
     neighbor:
-    {{range $index, $element := .ProtocolBgp.Neighbors}}
+{{- range $index, $element := .ProtocolBgp.Neighbors}}
     - peer-address: {{$element.PeerIP}}
       peer-as: {{$element.PeerAS}}
       peer-group: {{$element.PeerGroup}}
-      {{if ne $element.LocalAS 0}}
+{{- if ne $element.LocalAS 0}}
       local-as:
-        as-number: {{$element.LocalAS}}
-      {{end}}
-      {{if ne $element.TransportAddress ""}}
+      - as-number: {{$element.LocalAS}}
+{{- end}}
+{{- if ne $element.TransportAddress ""}}
       transport:
         local-address: {{$element.TransportAddress}}
-      {{end}}
-    {{end}}
+{{- end}}
+{{- end}}
 `
 	goK8sSrlSystemNetworkInstanceTemplate = `
 apiVersion: srlinux.henderiw.be/v1alpha1
@@ -270,28 +293,123 @@ spec:
     protocols:
       bgp-vpn:
         bgp-instance:
-          id: 1
+        - id: 1
       evpn:
         ethernet-segments:
           bgp-instance:
-            id: 1
+          - id: "1"
             ethernet-segment:
-            {{range $index, $element := .ESIs}}
-            - esi: {{$element.ESI}}
+{{- range $index, $element := .ESIs}}
+            - name: {{$element.ESI}}
               admin-state: enable
               interface: {{$element.LagName}}
-            {{end}}
+{{- end}}
+`
+	goK8sSrlNetworkInstanceBgpVpnTemplate = `
+apiVersion: srlinux.henderiw.be/v1alpha1
+kind: K8sSrlNokiaNetworkInstanceNetworkInstanceProtocolsBgpVpn
+metadata:
+  name: {{.ResourceName}}
+  labels:
+    target: {{.Target}}
+spec:
+  network-instance-name: {{.NetworkInstanceProtocol.Name}}
+  bgp-vpn:
+    bgp-instance:
+    - id: 1
+      route-target:
+        export-rt: {{.NetworkInstanceProtocol.RouteTarget}}
+        import-rt: {{.NetworkInstanceProtocol.RouteTarget}}
+`
+
+	goK8sSrlNetworkInstanceBgpEvpnTemplate = `
+apiVersion: srlinux.henderiw.be/v1alpha1
+kind: K8sSrlNokiaNetworkInstanceNetworkInstanceProtocolsBgpevpn
+metadata:
+  name: {{.ResourceName}}
+  labels:
+    target: {{.Target}}
+spec:
+  network-instance-name: {{.NetworkInstanceProtocol.Name}}
+  bgp-evpn:
+    bgp-instance:
+    - id: "1"
+      admin-state: enable
+      ecmp: 8
+      evi: {{.NetworkInstanceProtocol.Evi}}
+      vxlan-interface: {{.NetworkInstanceProtocol.TunnelInterfaceName}}
+`
+
+	goK8sSrlNetworkInstanceLinuxTemplate = `
+apiVersion: srlinux.henderiw.be/v1alpha1
+kind: K8sSrlNokiaNetworkInstanceNetworkInstanceProtocolsLinux
+metadata:
+  name: {{.ResourceName}}
+  labels:
+    target: {{.Target}}
+spec:
+  network-instance-name: {{.NetworkInstanceProtocol.Name}}
+  linux:
+    export-neighbors: true
+    export-routes: true
+    import-routes: true
+`
+
+	goK8sSrlRoutingPoliciesTemplate = `
+apiVersion: srlinux.henderiw.be/v1alpha1
+kind: K8sSrlNokiaRoutingPolicyRoutingPolicy
+metadata:
+  name: {{.ResourceName}}
+  labels:
+    target: {{.Target}}
+spec:
+  routing-policy:
+    prefix-set:
+{{- if .RoutingPolicy.IPv4Prefix}}
+    - name: {{.RoutingPolicy.IPv4PrefixSetName}}
+      prefix: 
+      - ip-prefix: {{.RoutingPolicy.IPv4Prefix}}
+        mask-length-range: 32..32
+{{- end }}
+{{- if .RoutingPolicy.IPv6Prefix}}
+    - name: {{.RoutingPolicy.IPv6PrefixSetName}}
+      prefix: 
+      - ip-prefix: {{.RoutingPolicy.IPv6Prefix}}
+        mask-length-range: 128..128
+{{- end }}
+    policy:
+    - name: {{.RoutingPolicy.Name}}
+      statement:
+{{- if .RoutingPolicy.IPv4Prefix}}
+      - sequence-id: 10
+        match:
+          prefix-set: {{.RoutingPolicy.IPv4PrefixSetName}}
+        action:
+          accept: {}
+{{- end }}
+{{- if .RoutingPolicy.IPv6Prefix}}
+      - sequence-id: 20
+        match:
+          prefix-set: {{.RoutingPolicy.IPv6PrefixSetName}}
+        action:
+          accept: {}
+{{- end }}
 `
 
 	goTemplates = map[string]*template.Template{
-		"srlInterface":             makek8sTemplate("srlInterface", goK8sSrlinterfaceTemplate),
-		"srlSubInterface":          makek8sTemplate("srlSubInterface", goK8sSrlsubinterfaceTemplate),
-		"srlIrbSubInterface":       makek8sTemplate("srlIrbSubInterface", goK8sSrlIrbSubInterfaceTemplate),
-		"srlTunnelInterface":       makek8sTemplate("srlTunnelInterface", goK8sSrlTunnelInterfaceTemplate),
-		"srlVxlanInterface":        makek8sTemplate("srlVxlanInterface", goK8sSrlVxlanInterfaceTemplate),
-		"srlNetworkInstance":       makek8sTemplate("srlNetworkInstance", goK8sSrlnetworkinstanceTemplate),
-		"srlProtocolsBgp":          makek8sTemplate("srlProtocolsBgp", goK8sSrlprotocolsbgpTemplate),
-		"srlSystemNetworkInstance": makek8sTemplate("srlSystemNetworkInstance", goK8sSrlSystemNetworkInstanceTemplate),
+		"kustomize":                 makek8sTemplate("kustomize", goK8sKustomizeTemplate),
+		"srlInterface":              makek8sTemplate("srlInterface", goK8sSrlinterfaceTemplate),
+		"srlSubInterface":           makek8sTemplate("srlSubInterface", goK8sSrlsubinterfaceTemplate),
+		"srlIrbSubInterface":        makek8sTemplate("srlIrbSubInterface", goK8sSrlIrbSubInterfaceTemplate),
+		"srlTunnelInterface":        makek8sTemplate("srlTunnelInterface", goK8sSrlTunnelInterfaceTemplate),
+		"srlVxlanInterface":         makek8sTemplate("srlVxlanInterface", goK8sSrlVxlanInterfaceTemplate),
+		"srlNetworkInstance":        makek8sTemplate("srlNetworkInstance", goK8sSrlnetworkinstanceTemplate),
+		"srlProtocolsBgp":           makek8sTemplate("srlProtocolsBgp", goK8sSrlprotocolsbgpTemplate),
+		"srlSystemNetworkInstance":  makek8sTemplate("srlSystemNetworkInstance", goK8sSrlSystemNetworkInstanceTemplate),
+		"srlNetworkInstanceBgpVpn":  makek8sTemplate("srlNetworkInstanceBgpVpn", goK8sSrlNetworkInstanceBgpVpnTemplate),
+		"srlNetworkInstanceBgpEvpn": makek8sTemplate("srlNetworkInstanceBgpEvpn", goK8sSrlNetworkInstanceBgpEvpnTemplate),
+		"srlNetworkInstanceLinux":   makek8sTemplate("srlNetworkInstanceLinux", goK8sSrlNetworkInstanceLinuxTemplate),
+		"srlRoutingPolicy":          makek8sTemplate("srlRoutingPolicy", goK8sSrlRoutingPoliciesTemplate),
 	}
 
 	// templateHelperFunctions specifies a set of functions that are supplied as
@@ -301,17 +419,33 @@ spec:
 		// to check whether the index of an element within a loop is the last one,
 		// such that special handling can be provided for it (e.g., not following
 		// it with a comma in a list of arguments).
-		"inc": func(i int) int {
-			return i + 1
-		},
-		"dec": func(i int) int {
-			return i - 1
+		"inc":  func(i int) int { return i + 1 },
+		"dec":  func(i int) int { return i - 1 },
+		"mul":  func(p1 int, p2 int) int { return p1 * p2 },
+		"mul3": func(p1, p2, p3 int) int { return p1 * p2 * p3 },
+		"boolValue": func(b bool) int {
+			if b {
+				return 1
+			} else {
+				return 0
+			}
 		},
 		"toUpperCamelCase": strcase.UpperCamelCase,
 		"toLowerCamelCase": strcase.LowerCamelCase,
 		"toKebabCase":      strcase.KebabCase,
 		"toLower":          strings.ToLower,
 		"toUpper":          strings.ToUpper,
+		"mod":              func(i, j int) bool { return i%j == 0 },
+		"deref":            func(s *string) string { return *s },
+		"derefInt":         func(i *int) int { return *i },
+		"rtCommExpr": func(vrfUpId, lmgs int, wlShortname string) string {
+			// if we come here there should be at least 1 element
+			rtCommExpr := fmt.Sprintf("rt-lmg%d-%d-%s", 1, vrfUpId+1, wlShortname)
+			for i := 2; i <= lmgs; i++ {
+				rtCommExpr += fmt.Sprintf(" OR rt-lmg%d-%d-%s", i, vrfUpId+i, wlShortname)
+			}
+			return rtCommExpr
+		},
 	}
 )
 
@@ -319,6 +453,26 @@ spec:
 // template; with a common set of helper functions.
 func makek8sTemplate(name, src string) *template.Template {
 	return template.Must(template.New(name).Funcs(templateHelperFunctions).Funcs(sprig.TxtFuncMap()).Parse(src))
+}
+
+// WriteKustomize function writes the kustomize resource file
+func (p *Parser) WriteKustomize(dirName, fileName *string, resources []string) error {
+	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
+	if err != nil {
+		return err
+	}
+
+	s := struct {
+		Resources []string
+	}{
+		Resources: resources,
+	}
+
+	if err := goTemplates["kustomize"].Execute(file, s); err != nil {
+		log.Error(err)
+	}
+	file.Close()
+	return nil
 }
 
 // WriteSrlInterface function writes the k8s srl interface resource
@@ -448,7 +602,7 @@ func (p *Parser) WriteSrlVxlanInterface(dirName, fileName, resName, target *stri
 }
 
 // WriteSrlNetworkInstance function writes the k8s srl network-instance resource
-func (p *Parser) WriteSrlNetworkInstance(dirName, fileName, resName, target *string, netwinstance *k8ssrlnetworkinstance) error {
+func (p *Parser) WriteSrlNetworkInstance(dirName, fileName, resName, target *string, netwinstance *k8ssrlNetworkInstance) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -457,7 +611,7 @@ func (p *Parser) WriteSrlNetworkInstance(dirName, fileName, resName, target *str
 	s := struct {
 		ResourceName    string
 		Target          string
-		NetworkInstance *k8ssrlnetworkinstance
+		NetworkInstance *k8ssrlNetworkInstance
 	}{
 		ResourceName:    *resName,
 		Target:          *target,
@@ -512,6 +666,102 @@ func (p *Parser) WriteSrlSystemNetworkInstance(dirName, fileName, resName, targe
 	}
 
 	if err := goTemplates["srlSystemNetworkInstance"].Execute(file, s); err != nil {
+		log.Error(err)
+	}
+	file.Close()
+	return nil
+}
+
+// WriteSrlNetworkInstanceBgpVpn function writes the k8s srl network-instance bgpvpn protocol resource
+func (p *Parser) WriteSrlNetworkInstanceBgpVpn(dirName, fileName, resName, target *string, netwInstanceProtocol *k8ssrlNetworkInstance) error {
+	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
+	if err != nil {
+		return err
+	}
+
+	s := struct {
+		ResourceName            string
+		Target                  string
+		NetworkInstanceProtocol *k8ssrlNetworkInstance
+	}{
+		ResourceName:            *resName,
+		Target:                  *target,
+		NetworkInstanceProtocol: netwInstanceProtocol,
+	}
+
+	if err := goTemplates["srlNetworkInstanceBgpVpn"].Execute(file, s); err != nil {
+		log.Error(err)
+	}
+	file.Close()
+	return nil
+}
+
+// WriteSrlNetworkInstanceBgpEvpn function writes the k8s srl network-instance bgpevpn protocol resource
+func (p *Parser) WriteSrlNetworkInstanceBgpEvpn(dirName, fileName, resName, target *string, netwInstanceProtocol *k8ssrlNetworkInstance) error {
+	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
+	if err != nil {
+		return err
+	}
+
+	s := struct {
+		ResourceName            string
+		Target                  string
+		NetworkInstanceProtocol *k8ssrlNetworkInstance
+	}{
+		ResourceName:            *resName,
+		Target:                  *target,
+		NetworkInstanceProtocol: netwInstanceProtocol,
+	}
+
+	if err := goTemplates["srlNetworkInstanceBgpEvpn"].Execute(file, s); err != nil {
+		log.Error(err)
+	}
+	file.Close()
+	return nil
+}
+
+// WriteSrlNetworkInstanceLinux function writes the k8s srl network-instance bgpevpn protocol resource
+func (p *Parser) WriteSrlNetworkInstanceLinux(dirName, fileName, resName, target *string, netwInstanceProtocol *k8ssrlNetworkInstance) error {
+	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
+	if err != nil {
+		return err
+	}
+
+	s := struct {
+		ResourceName            string
+		Target                  string
+		NetworkInstanceProtocol *k8ssrlNetworkInstance
+	}{
+		ResourceName:            *resName,
+		Target:                  *target,
+		NetworkInstanceProtocol: netwInstanceProtocol,
+	}
+
+	if err := goTemplates["srlNetworkInstanceLinux"].Execute(file, s); err != nil {
+		log.Error(err)
+	}
+	file.Close()
+	return nil
+}
+
+// WriteSrlNetworkInstanceLinux function writes the k8s srl network-instance bgpevpn protocol resource
+func (p *Parser) WriteSrlRoutingPolicy(dirName, fileName, resName, target *string, routingPolicy *k8ssrlRoutingPolicy) error {
+	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
+	if err != nil {
+		return err
+	}
+
+	s := struct {
+		ResourceName  string
+		Target        string
+		RoutingPolicy *k8ssrlRoutingPolicy
+	}{
+		ResourceName:  *resName,
+		Target:        *target,
+		RoutingPolicy: routingPolicy,
+	}
+
+	if err := goTemplates["srlRoutingPolicy"].Execute(file, s); err != nil {
 		log.Error(err)
 	}
 	file.Close()

@@ -1,0 +1,560 @@
+{{- /* appc.Networks variable*/}}
+{{- /* appc.Networks[wlName][group][switchIndex][itfceType][itfceSubType] */}}
+{{- /* appc.Networks; wlName: oam, 3GPP_Internal, 3GPP_External, 3GPP_SBA, 3GPP_Internet */}}
+{{- /* appc.Networks; group: 0: used for LLB/UPF-SMF, AMF, etc; 1..16 used for LMG/UPF */}}
+{{- /* appc.Networks; switchIndex: 0: used for loopback and ipvlan, 1 or 2: used for sriov */}}
+{{- /* appc.Networks; itfceType: loopback or itfce */}}
+{{- /* appc.Networks; itfceSubType: loopback; sigLbk, sysLbk, llbLbk, lmgLbk  */}}
+{{- /* appc.Networks; itfceSubType: loopback; group 0: sigLbk, sysLbk, llbLbk  */}}
+{{- /* appc.Networks; itfceSubType: loopback; group 1..16: sigLbk, lmgLbk  */}}
+{{- /* appc.Networks; itfceSubType: itfce; intIP  */}}
+{{- /* appc.Networks; itfceSubType: itfce; group 0: intIP(SMG-LLB, UPF-LLB, AMF)  */}}
+{{- /* appc.Networks; itfceSubType: itfce; group 1..16: intIP(UPF-LMG)  */}}
+{{- $appc := .Appc}}
+{{- $appipmap := .AppIPMap}}
+{{- $lenWl := len $appc.Networks}}
+{{- $lenSwitch := len $appc.Switches}}
+{{- $lenLlb := $appc.Llbs}}
+{{- $lenLinks := len $appc.ClientLinks}}
+{{- $appcontype := deref $appc.ConnType}}
+service:
+  loam:
+    telnet:
+      nodePort: 31023
+      port: 2323
+      targetPort: 2323
+    ssh:
+      nodePort: 31221
+      port: 2222
+      targetPort: 2222
+    snmp1:
+      nodePort: 31164
+      port: 164
+      targetPort: 164
+  loamA:
+    console:
+      nodePort: 31000
+      port: 2000
+      targetPort: 2000
+  loamB:
+    console:
+      nodePort: 31000
+      port: 2000
+      targetPort: 2000
+  lmg:
+    console:
+      nodePort: 31000
+      port: 2000
+      targetPort: 2000
+  llb:
+    console:
+      nodePort: 31000
+      port: 2000
+      targetPort: 2000
+imagePullSecret: paco-harbor
+{{- /* loop over all containers and provide the necessary info */}}
+{{- /* special case for llb/loam/lmg -> they are all aggregated in the same image since they share the same code */}}
+{{- range $podName, $podInfo := $appc.Containers }}
+{{- if or (eq $podName "llb") (eq $podName "loam") }}
+{{- else }}
+{{- if eq $podName "lmg" }}
+image:
+  repository: {{ $appc.ContainerRepo.ImageRepo }}
+  name: lmg
+  tag: {{ $podInfo.ImageTag }}
+  pullPolicy: IfNotPresent
+{{- else }}
+{{$podName }}:
+  enable: {{boolValue $podInfo.Enabled}}
+  imageRepository: {{ $appc.ContainerRepo.ImageRepo }}
+  imageName: {{ $podInfo.ImageName }}
+  imageTag: {{ $podInfo.ImageTag }}
+  imagePullPolicy: IfNotPresent
+{{- end}}  
+{{- if eq $podName "nasc"}}
+  configReadInterval: 300
+  scrapeInterval:
+    loam:
+      kciInfo:
+      - name: KCISystemCPM
+        interval: 60
+      - name: KCIControlPlaneIpPool
+        interval: 60
+      kpiInfo:
+    lmg:
+      kciInfo:
+      - name: KCISystem
+        interval: 60
+      - name: KCIBearerManagementSmf
+        interval: 60
+      - name: KCIBearerManagementSmfDnn
+        interval: 60
+      - name: KCIBearerManagementSmfNssai
+        interval: 60
+      kpiInfo:
+      - name: KPIBearerManagementSmf
+        interval: 60
+      - name: KPIBearerManagementSmfNssai
+        interval: 60
+      - name: KPIBearerManagementSmfDnn
+        interval: 60
+      - name: KPIBearerTrafficQci
+        interval: 60
+      - name: KPIServiceNpcfSmPolicyControl
+        interval: 60
+      - name: KPIServiceNudmUecm
+        interval: 60
+      - name: KPIReferencePointPFCP
+        interval: 60
+      - name: KPIPathManagementPFCP
+        interval: 60
+      - name: KPIPfcpSessionProcedureCauseCode
+        interval: 60
+      - name: KPIPfcpNodeProcedureCauseCode
+        interval: 60
+{{- end }}
+{{- end }}
+{{- end}}
+multus:
+  lmg:
+    numDevices: 0
+    netNames:
+  llb:
+    numDevices: {{ mul $lenWl $lenSwitch}}
+    netNames:
+{{- /* identify the interfaces and vlans required per workload and per switch in the pod */}}
+{{- /* Loop over workload and pick the interface info pe switch */}}
+{{- range $wlName, $workloads := $appc.Networks}}
+{{- $groups := index $workloads 0}}
+{{- range $switchIndex, $switchGroups := $groups}}
+{{- /* switch 1 */}}
+{{- if eq $switchIndex 1}}
+{{- $networks := index $switchGroups "itfce" }}
+{{- $networkTypes := index $networks "intIP" }}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
+    - numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}-{{$networkInfo.VlanID}}
+{{- else}}
+{{- /* For ConnectivityMode == vlanInApp -> no vlan required since the vlan is in the app */}}
+    - numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
+{{- end }} 
+{{- end }} 
+{{- /* switch 1 finished */}}
+{{- /* switch 2 start */}}
+{{- if eq $switchIndex 2}}
+{{- $networks := index $switchGroups "itfce" }}
+{{- $networkTypes := index $networks "intIP" }}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
+    - numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}-{{$networkInfo.VlanID}}
+{{- else}}
+{{- /* For ConnectivityMode == vlanInApp -> no vlan required since the vlan is in the app */}}
+    - numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
+{{- end }} 
+{{- end }}
+{{- /* switch 2 finsihed */}}
+{{- end }}
+{{- end }}
+{{- /* -> old solution works nice in vlaninApp but not in multinetting scenario since the vlan is only present in the workload
+{{- range $wlName, $networkGroups := $appc.Networks}}
+{{- $wlShortName := index $appc.WorkloadShortNames $wlName}}
+{{- range $switchidx, $switchName := $appc.Switches}}
+{{- range $connType, $clientLinks := $appc.ClientLinks}}
+{{- if eq $connType $appcontype}}
+{{- range $podName, $clientinfo := $clientLinks}}
+{{- if eq $podName "llb"}}
+    - numa{{$clientinfo.Numa}}-{{$clientinfo.InterfaceName}}-{{$switchName}}-{{$wlShortName}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+*/}}
+  attachDef:
+{{- /* identify the interfaces and vlans required per workload and per switch in the pod */}}
+{{- /* Loop over workload and pick the interface info pe switch */}}
+{{- range $wlName, $workloads := $appc.Networks}}
+{{- $groups := index $workloads 0}}
+{{- range $switchIndex, $switchGroups := $groups}}
+{{- /* switch 1 */}}
+{{- if eq $switchIndex 1}}
+{{- $networks := index $switchGroups "itfce" }}
+{{- $networkTypes := index $networks "intIP" }}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
+    - name: numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}-{{$networkInfo.VlanID}}
+{{- else}}
+{{- /* For ConnectivityMode == vlanInApp -> no vlan required since the vlan is in the app */}}
+    - name: numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
+{{- end }}
+      cniVersion: 0.3.1
+      resourceName: gke/{{$appcontype}}_numa{{$networkInfo.Numa}}_{{$networkInfo.InterfaceName}}_{{$networkInfo.Target}}
+      vlan: {{ $networkInfo.VlanID}}
+{{- end }} 
+{{- /* switch 2 */}}
+{{- if eq $switchIndex 2}}
+{{- $networks := index $switchGroups "itfce" }}
+{{- $networkTypes := index $networks "intIP" }}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
+    - name: numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}-{{$networkInfo.VlanID}}
+{{- else}}
+{{- /* For ConnectivityMode == vlanInApp -> no vlan required since the vlan is in the app */}}
+    - name: numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
+{{- end }}
+      cniVersion: 0.3.1
+      resourceName: gke/{{$appcontype}}_numa{{$networkInfo.Numa}}_{{$networkInfo.InterfaceName}}_{{$networkInfo.Target}}
+      vlan: {{ $networkInfo.VlanID}}
+{{- end }} 
+
+{{- end }}
+{{- end }}
+{{- /* -> old solution works nice in vlaninApp but not in multinetting scenario since the vlan is only present in the workload
+{{- range $wlName, $networkGroups := $appc.Networks}}
+{{- $wlShortName := index $appc.WorkloadShortNames $wlName}}
+{{- range $switchidx, $switchName := $appc.Switches}}
+{{- range $connType, $clientLinks := $appc.UniqueClientLinks}}
+{{- if eq $connType $appcontype}}
+{{- range $clientIndex, $clientinfo := $clientLinks}}
+  - name: numa{{$clientinfo.Numa}}-{{$clientinfo.InterfaceName}}-{{$switchName}}-{{$wlShortName}}
+    cniVersion: 0.3.1
+    resourceName: gke/{{$appcontype}}_numa{{$clientinfo.Numa}}_{{$clientinfo.InterfaceName}}_{{$switchName}}
+    type: {{$appcontype}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+*/}}
+  groFlag: 1
+  dsf:
+    enable: 0
+    numDsfDevices: 0
+  xdp:
+    enable: 0
+  dpdk:
+    enable: 0
+gwConfig: smf
+gwRedundancy:
+  active: 2
+lmgScale:
+  minReplicas: 2
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 90
+llbScale:
+  minReplicas: 2
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 90
+resources:
+{{- /* identify the resources per pod */}}
+{{- range $podName, $podInfo := $appc.Containers }}
+{{- if $podInfo.Enabled }}
+  {{$podName}}:
+    cpu: {{ $podInfo.CPU}}
+    memory: {{ $podInfo.Memory}}
+{{- if ne $podInfo.Hugepages1Gi ""}}
+    hugepages1Gi: {{ $podInfo.Hugepages1Gi}}
+{{- end }}
+{{- if or (eq $podName "llb") (eq $podName "lmg")}}
+    multus:
+{{- range $switchidx, $switchName := $appc.Switches}}
+{{- range $connType, $clientLinks := $appc.UniqueClientLinks}}
+{{- if eq $connType $appcontype}}
+{{- range $clientIndex, $clientinfo := $clientLinks}}
+    - resourceName: gke/{{$appcontype}}_numa{{$clientinfo.Numa}}_{{$clientinfo.InterfaceName}}_{{$switchName}}
+      numDevices: {{ len $appc.Networks}}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if ne $podInfo.NodeSelector ""}}
+    nodeSelector: {{ $podInfo.NodeSelector}}
+{{- end }}
+{{- end }}
+{{- end }}
+storage:
+#pvCreation to be set to 0 in case Persistent Volume already created
+  pvCreation: 1
+  parentPath: /mnt/glusterfs/
+  pvLogsName: logs-volume-smf
+  pvStorageClass: manual
+  pvLogsClaimName: logs-volume-claim
+  pvSize: 1Gi
+  cfSize: 1Gi
+  cfAInfo:
+  - pvName: smf-cf1-a-volume
+    pvcName: cf1-a-volume-claim
+  - pvName: smf-cf2-a-volume
+    pvcName: cf2-a-volume-claim
+  cfBInfo:
+  - pvName: smf-cf1-b-volume
+    pvcName: cf1-b-volume-claim
+  - pvName: smf-cf2-b-volume
+    pvcName: cf2-b-volume-claim
+rtScheduling:
+  enable: 0
+  cgroupHostPath: /sys/fs/cgroup/cpu,cpuacct/
+loamB:
+  enable: 1
+bootString:
+  ht: 3
+  fswo: 300
+  lmg:
+    cpcores: 6
+    cfp: 1
+  llb:
+    cpcores: 4
+    cfp: 1
+podsecuritypolicy:
+  create: false
+isa:
+  nat:
+    enable: false
+{{- /* identify the interface port, router to be used for sba*/}}
+{{- $workloads := index $appc.Networks "3GPP_SBA"}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "loopback" }}
+{{- $networkTypes := index $networks "sysLbk" }}
+{{- range $ni, $networkInfo := $networkTypes}}
+sba_interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+sba_router: vprn{{$networkInfo.VrfCpId }}
+sba_port: 8080
+{{- end }} 
+peers:
+#  cdbx:
+#    ip: 10.100.11.9
+#    port: 5679
+#    interface: sx
+  upf:
+    peerList:
+{{ /* TODO IS THIS NEEDED */}}
+{{- $appIPMapInternal := index $appipmap.IPinfo "3GPP_Internal"}}
+{{- $workloads := index $appc.Networks "3GPP_Internal"}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "loopback" }}
+{{- $networkTypes := index $networks "sysLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+    - ip: {{ $appIPMapInternal.UpfCpIPv4}}
+      apn:
+      - name: {{ $appc.Apn}}.mnc{{ $appc.Mnc}}.mcc{{ $appc.Mcc}}.gprs
+        uepool:
+          name: pool1
+          ipv4Prefix: {{ $appc.UePoolCidr}}
+    interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+    router: vprn{{$networkInfo.VrfCpId }}
+
+{{- $networkTypes := index $networks "sysLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+  s5:
+    interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+    router: vprn{{$networkInfo.VrfCpId }} 
+
+{{- $networkTypes := index $networks "sysLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+  s11:
+    interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+    router: vprn{{$networkInfo.VrfCpId }}
+plmn:
+- mcc: "{{$appc.Mcc}}"
+  mnc: "{{$appc.Mnc}}"
+uuid: 842887ce-329d-4add-9a1c-e7dd03faa00f
+network:
+  interface:
+{{- /* identify the interfaces to be used in SMF in the Base instance*/}}
+{{- /* system IP */}}
+{{- $workloads := index $appc.Networks "3GPP_Internal"}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "loopback" }}
+{{- $networkTypes := index $networks "sysLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+  - name: system
+    ip: {{ $allocatedIP.IPAddress}}
+    subnet: 32
+    port: system
+    bfd: true
+{{- end }}  
+  staticRoute:
+  bgp:
+{{- /* Policies and prefix lists to be used in the workload VRFs */}}
+  policyOptions:
+    prefixList:
+{{- range $wlName, $workloads := $appc.Networks}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "loopback" }}
+{{- $networkTypes := index $networks "sigLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+    - name: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+      prefix: {{ $allocatedIP.IPAddress}}/32
+{{- end }}
+{{- end }}
+    policyStatement:
+{{- range $wlName, $workloads := $appc.Networks}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "loopback" }}
+{{- $networkTypes := index $networks "sigLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- /*export expression exports the signalling loopbacks*/}}
+    - name: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
+      entryList:
+      - id: 10
+        from:
+          prefixList: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+{{- end}}
+apn:
+- name: {{$appc.Apn}}
+  uepool:
+{{- $workloads := index $appc.Networks "3GPP_Internal"}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "loopback" }}
+{{- $networkTypes := index $networks "llbLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+  - router: vprn{{add $networkInfo.VrfUpId $groups}}
+    name: pool1
+uepool:
+{{- $workloads := index $appc.Networks "3GPP_Internal"}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "loopback" }}
+{{- $networkTypes := index $networks "llbLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+  name: pool1
+  ipv4Prefix: 
+cnfName: upf
+vprn:
+{{- /*per workload process first loopback information and after interface information */}}
+{{- /*loopback: static routes, bgp loopback, llb loopback, sig loopback */}}
+{{- /*itfce: llb interface*/}}
+#####LLB
+{{- range $wlName, $workloads := $appc.Networks}}
+#VPRN LLB {{$wlName}}
+{{- /* process loopback related parameters: static routes, bg[/llb loopback */}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "loopback" }}
+{{- $networkTypes := index $networks "bgpLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- /* bgp loopback processing start */}}
+- id: {{$networkInfo.VrfCpId}}
+  ecmp: 8
+  as: {{$networkInfo.AS}}
+  staticRoute:
+  - subnet: 0.0.0.0/0
+    nextHop:
+
+{{- /* static route 0.0.0.0/0, loop over all gws start */}}
+{{- range $switchId, $gws := $networkInfo.Ipv4GwPerWl}}
+{{- if ne $switchId 0}}
+{{- range $index, $gw := $gws}}
+    - {{$gw}}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- /* static route 0.0.0.0/0, loop over all gws stop*/}}
+    bfd: true
+
+{{- /* static route, loop over all BGP peers and associated GWs start */}}
+{{- range $sId, $bgpPeer := $networkInfo.IPv4BGPPeers}}
+  - subnet: {{ $bgpPeer.IP}}/32
+    nextHop:
+{{- range $switchId, $gws := $networkInfo.Ipv4GwPerWl}}
+{{- if eq $switchId $sId}}
+{{- range $gwidx, $gw := $gws}}
+    - {{$gw}}
+{{- end }}
+{{- end }}
+{{- end }}
+    bfd: true
+{{- end}}
+{{- /* static route, loop over all BGP peers and associated GWs finished */}}
+  bgp:
+{{- /* bgp peers, loop over bgp peers start */}}
+{{- range $sId, $bgpPeer := $networkInfo.IPv4BGPPeers}}
+  - subnet: {{ $bgpPeer.IP}}
+    export: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
+    peerAs: {{ $bgpPeer.AS}}
+    localAddress: {{$networkInfo.IPv4BGPAddress}}
+    multiHop: 10
+{{- end}}
+{{- /* bgp peers, loop over bgp peers finished */}}
+  interface:
+{{- /* interface bgp-loopback start */}}
+{{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+  - name: bgp-loopback-{{$networkInfo.NetworkShortName}}
+    ip: {{ $allocatedIP.IPAddress}}
+    subnet: {{$networkInfo.Ipv4PrefixLength}}
+    sap: loopback
+    bfd: false
+{{- end}}  
+{{- /* interface bgp-loopback finished */}}   
+{{- /* bgp loopback processing finished */}}
+
+{{- /* interface llbx-pod-loopback start */}}
+{{- $networkTypes := index $networks "llbLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+  - name: llb{{ $ipIndex | inc }}-pod--loopback-{{$networkInfo.NetworkShortName}}
+    ip: {{ $allocatedIP.IPAddress}}
+    subnet: {{$networkInfo.Ipv4PrefixLength}}
+    sap: loopback
+    bfd: false
+{{- end}}
+{{- /* loopback llbx-pod-loopback  processing finished */}}
+{{- /* loopback llb-sig-loopback start */}}
+{{- $networkTypes := index $networks "sigLbk" }}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+  - name: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+    ip: {{ $allocatedIP.IPAddress}}
+    subnet: {{$networkInfo.Ipv4PrefixLength}}
+    sap: loopback
+    bfd: false
+{{- end}}
+{{- /* loopback  llb-sig-loopback processing finished */}}
+
+{{- /* itfce processing */}}
+{{- $groups := index $workloads 0}}
+{{- range $switchIndex, $switchGroups := $groups }}
+{{- if ne $switchIndex 0}}
+{{- $networks := index $switchGroups "itfce" }}
+{{- $networkTypes := index $networks "intIP" }}
+{{- /* For ConnectivityMode == multiNet -> app sap does not contain a vlan */}}
+{{- /* For ConnectivityMode == multiNet -> all ip addresses are contained within networkType 0 */}}
+{{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
+{{- $networkInfo := index $networkTypes 0 }}
+{{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+  - name: llb{{ $ipIndex | inc }}-{{$networkInfo.InterfaceName }}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
+    ip: {{ $allocatedIP.IPAddress}}
+    subnet: {{$networkInfo.Ipv4PrefixLength}}
+    sap: {{add $networkInfo.SwitchIndex 16 }}/1/{{$ipIndex | inc}}
+    bfd: true
+{{- end}}
+{{- /* For ConnectivityMode == vlanInApp -> app sap contains a vlan */}}
+{{- /* For ConnectivityMode == vlanInApp -> all ip addresses are seperated accross networkTypes */}}
+{{- else}}
+{{- range $ni, $networkInfo := $networkTypes }}
+{{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+  - name: llb{{ $ipIndex | inc }}-{{$networkInfo.InterfaceName }}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
+    ip: {{ $allocatedIP.IPAddress}}
+    subnet: {{$networkInfo.Ipv4PrefixLength}}
+    sap: {{add $networkInfo.SwitchIndex 16 }}/1/{{$networkInfo.NetworkIndex}}:{{$networkInfo.VlanID}}
+    bfd: true
+{{- end}}
+{{- end}}
+{{- end}}
+
+{{- end}}
+{{- end}}
+{{- /* interface processing finished */}}
+
+{{- end}}
+{{- /* workload processing finished */}}

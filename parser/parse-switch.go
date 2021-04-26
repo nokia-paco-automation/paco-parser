@@ -7,14 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/giantswarm/ipam"
 	log "github.com/sirupsen/logrus"
 	"github.com/stoewer/go-strcase"
 )
-
-func (p *Parser) WriteBase() {
-	p.CreateDirectory(*p.BaseDir, 0777)
-}
 
 type k8ssrlinterface struct {
 	Kind        string
@@ -32,6 +27,7 @@ type k8ssrlinterface struct {
 type k8ssrlsubinterface struct {
 	InterfaceRealName  string
 	InterfaceShortName string
+	VlanTagging        bool
 	VlanID             string
 	Kind               string // routed or bridged
 	IPv4Prefix         string
@@ -59,12 +55,14 @@ type k8ssrlVxlanInterface struct {
 	VlanID              string
 }
 
-type k8ssrlnetworkinstance struct {
+type k8ssrlNetworkInstance struct {
 	Name                string
 	Type                string // bridged, irb, routed -> used to distinguish what to do with the interfaces
 	Kind                string // default, mac-vrf, ip-vrf
 	SubInterfaces       []*k8ssrlsubinterface
 	TunnelInterfaceName string
+	RouteTarget         string
+	Evi                 int
 }
 
 type k8ssrlprotocolsbgp struct {
@@ -76,8 +74,9 @@ type k8ssrlprotocolsbgp struct {
 }
 
 type PeerGroup struct {
-	Name      string
-	Protocols []string
+	Name       string
+	PolicyName string
+	Protocols  []string
 }
 
 type Neighbor struct {
@@ -93,10 +92,34 @@ type k8ssrlESI struct {
 	LagName string
 }
 
-func (p *Parser) WriteInfrastructure() {
-	log.Infof("Writing infrastructure k8s yaml objects...")
-	dirName := filepath.Join(*p.BaseDir, "infra")
+type k8ssrlRoutingPolicy struct {
+	Name              string
+	IPv4Prefix        string
+	IPv4PrefixSetName string
+	IPv6Prefix        string
+	IPv6PrefixSetName string
+}
+
+func (p *Parser) WriteBase() {
+	p.CreateDirectory(*p.BaseSwitchDir, 0777)
+}
+
+func (p *Parser) WriteFinalBase(kdirs []string) {
+	dirName := filepath.Join(*p.BaseSwitchDir, "base")
 	p.CreateDirectory(dirName, 0777)
+	p.WriteKustomize(StringPtr(dirName), StringPtr("kustomization.yaml"), kdirs)
+}
+
+func (p *Parser) WriteInfrastructure() (kuztomizedirs []string) {
+	var fileName string
+	log.Infof("Writing infrastructure k8s yaml objects...")
+	dirName := filepath.Join(*p.BaseSwitchDir, "infra")
+	p.CreateDirectory(dirName, 0777)
+
+	kuztomizedirs = append(kuztomizedirs, "../infra")
+
+	// this variable is used to write the kustomize file with all resources
+	resources := make([]string, 0)
 
 	k8ssrlinterfaces := make([]*k8ssrlinterface, 0)
 
@@ -116,11 +139,13 @@ func (p *Parser) WriteInfrastructure() {
 	}
 	k8ssrlinterfaces = append(k8ssrlinterfaces, irbInterface)
 
+	fileName = "interface-system.yaml"
 	p.WriteSrlInterface(&dirName,
-		StringPtr("interface-system.yaml"),
-		StringPtr("interface-paco-system"),
+		StringPtr(fileName),
+		StringPtr("infra-interface-system0"),
 		StringPtr("leaf-grp1"),
 		k8ssrlinterfaces)
+	resources = append(resources, fileName)
 
 	tunnelinterfaces := make([]*k8ssrlTunnelInterface, 0)
 	tunnelInterface := &k8ssrlTunnelInterface{
@@ -128,13 +153,40 @@ func (p *Parser) WriteInfrastructure() {
 	}
 	tunnelinterfaces = append(tunnelinterfaces, tunnelInterface)
 
+	fileName = "tunnel-interface-vxlan0.yaml"
 	p.WriteSrlTunnelInterface(&dirName,
-		StringPtr("tunnel-interface-vxlan0.yaml"),
-		StringPtr("tunnel-interface-vxlan0-paco"),
+		StringPtr(fileName),
+		StringPtr("infra-tunnel-interface-vxlan0"),
 		StringPtr("leaf-grp1"),
 		tunnelinterfaces)
+	resources = append(resources, fileName)
+
+	// TODO need to add supernet
+	var ipv4Cidr *string
+	var ipv6Cidr *string
+	for i := 0; i < len(p.Config.Infrastructure.Networks["loopback"].Ipv4Cidr); i++ {
+		ipv4Cidr = p.Config.Infrastructure.Networks["loopback"].Ipv4Cidr[i]
+		ipv6Cidr = p.Config.Infrastructure.Networks["loopback"].Ipv4Cidr[i]
+	}
+
+	routingPolicy := &k8ssrlRoutingPolicy{
+		Name:              "export-underlay-local",
+		IPv4Prefix:        *ipv4Cidr,
+		IPv6Prefix:        *ipv6Cidr,
+		IPv4PrefixSetName: "system-v4",
+		IPv6PrefixSetName: "system-v6",
+	}
+
+	fileName = "routing-policy.yaml"
+	p.WriteSrlRoutingPolicy(&dirName,
+		StringPtr(fileName),
+		StringPtr("infra-routing-policy"),
+		StringPtr("leaf-grp1"),
+		routingPolicy)
+	resources = append(resources, fileName)
 
 	for nodeName, n := range p.Nodes {
+		// reinitialize parameters per node
 		found := false
 		islinterfaces := make([]*k8ssrlinterface, 0)
 		islsubinterfaces := make([]*k8ssrlsubinterface, 0)
@@ -147,7 +199,7 @@ func (p *Parser) WriteInfrastructure() {
 			for epName, ep := range n.Endpoints {
 				if *ep.Kind == "isl" {
 					found = true
-					log.Infof("Node name: %s, Interface: %s, %s, %t", nodeName, *ep.RealName, *ep.IPv4Prefix, *ep.VlanTagging)
+					log.Debugf("Node name: %s, Interface: %s, %s, %t", nodeName, *ep.RealName, *ep.IPv4Prefix, *ep.VlanTagging)
 					islinterface := &k8ssrlinterface{
 						Kind:        "isl",
 						Name:        *ep.RealName,
@@ -156,13 +208,18 @@ func (p *Parser) WriteInfrastructure() {
 						Lag:         false,
 						LagMember:   false,
 					}
+					//log.Infof("Ip Prefix: %s",  *ep.IPv4Address + "/" + strconv.Itoa(*ep.IPv4PrefixLength))
+					//for _, ep := range ep.PeerNode.Endpoints {
+					//	log.Infof("neighbor node Ip Prefix: %s %s %s",  *ep.IPv4Address + "/" + strconv.Itoa(*ep.IPv4PrefixLength), *ep.RealName, *ep.Kind)
+					//}
 					islsubinterface := &k8ssrlsubinterface{
 						InterfaceRealName:  *ep.RealName,
 						InterfaceShortName: epName,
+						VlanTagging:        *ep.VlanTagging,
 						VlanID:             *ep.VlanID,
 						Kind:               "routed",
-						IPv4Prefix:         *ep.IPv4Prefix,
-						IPv6Prefix:         *ep.IPv6Prefix,
+						IPv4Prefix:         *ep.IPv4Address + "/" + strconv.Itoa(*ep.IPv4PrefixLength),
+						IPv6Prefix:         *ep.IPv6Address + "/" + strconv.Itoa(*ep.IPv6PrefixLength),
 					}
 					neighbor := &Neighbor{
 						PeerIP:           *ep.IPv4NeighborAddress,
@@ -185,10 +242,11 @@ func (p *Parser) WriteInfrastructure() {
 					systemsubinterface := &k8ssrlsubinterface{
 						InterfaceRealName:  "system0",
 						InterfaceShortName: "system0",
+						VlanTagging:        false,
 						VlanID:             "0",
 						Kind:               "loopback", // used to indicate not to write the routed or bridged type
-						IPv4Prefix:         *ep.IPv4Prefix,
-						IPv6Prefix:         *ep.IPv6Prefix,
+						IPv4Prefix:         *ep.IPv4Address + "/" + strconv.Itoa(*ep.IPv4PrefixLength),
+						IPv6Prefix:         *ep.IPv6Address + "/" + strconv.Itoa(*ep.IPv6PrefixLength),
 					}
 					systemsubinterfaces = append(systemsubinterfaces, systemsubinterface)
 					allsubinterfaces = append(allsubinterfaces, systemsubinterface)
@@ -197,7 +255,7 @@ func (p *Parser) WriteInfrastructure() {
 		}
 		if found {
 			for neighborNodeName, neighborIP := range neighborLoopBackIPv4s {
-				log.Infof("Node Name: %s, Neighbor Node Name: %s", *n.ShortName, neighborNodeName)
+				log.Debugf("Node Name: %s, Neighbor Node Name: %s", *n.ShortName, neighborNodeName)
 				neighbor := &Neighbor{
 					PeerIP:           neighborIP,
 					PeerAS:           *p.Config.Infrastructure.Protocols.OverlayAs,
@@ -208,30 +266,36 @@ func (p *Parser) WriteInfrastructure() {
 				neighbors = append(neighbors, neighbor)
 			}
 			// write isl interfaces
-			// we have to send per device sicen the ip addresses are unique
+			// we have to send per device since the ip addresses are unique
+			fileName = "interface-isl-" + nodeName + ".yaml"
 			p.WriteSrlInterface(&dirName,
-				StringPtr("interface-"+nodeName+".yaml"),
-				StringPtr("interface-paco-"+nodeName),
+				StringPtr(fileName),
+				StringPtr("infra-isl-interface"+nodeName),
 				StringPtr(nodeName),
 				islinterfaces)
+			resources = append(resources, fileName)
 
 			// write isl subinterfaces
 			// we have to send per device since the ip addresses are unique
+			fileName = "subinterface-isl-" + islsubinterfaces[0].InterfaceShortName + "-" + nodeName + ".yaml"
 			p.WriteSrlSubInterface(&dirName,
-				StringPtr("subinterface-"+islsubinterfaces[0].InterfaceShortName+"-"+nodeName+".yaml"),
-				StringPtr("subinterface-paco-"+islsubinterfaces[0].InterfaceShortName+"-"+nodeName),
+				StringPtr(fileName),
+				StringPtr("infra-isl-subinterface"+islsubinterfaces[0].InterfaceShortName+"-"+nodeName),
 				StringPtr(nodeName),
 				islsubinterfaces)
+			resources = append(resources, fileName)
 
 			// write system0 subinterface
 			// we have to send per device since the ip addresses are unique
+			fileName = "subinterface-" + "system0" + "-" + nodeName + ".yaml"
 			p.WriteSrlSubInterface(&dirName,
-				StringPtr("subinterface-"+"system0"+"-"+nodeName+".yaml"),
-				StringPtr("subinterface-paco-"+"system0"+"-"+nodeName),
+				StringPtr(fileName),
+				StringPtr("infra-system0-subinterface"+"-"+nodeName),
 				StringPtr(nodeName),
 				systemsubinterfaces)
+			resources = append(resources, fileName)
 
-			defaultNetworkInstance := &k8ssrlnetworkinstance{
+			defaultNetworkInstance := &k8ssrlNetworkInstance{
 				Name:          "default",
 				Kind:          "default",
 				SubInterfaces: allsubinterfaces,
@@ -239,18 +303,21 @@ func (p *Parser) WriteInfrastructure() {
 
 			// write network instance default
 			// we assume symetric config, so we send to all devices at once
+			fileName = "network-instance-default" + "-" + nodeName + ".yaml"
 			p.WriteSrlNetworkInstance(&dirName,
-				StringPtr("network-instance-default.yaml"),
-				StringPtr("network-instance-paco-default"),
-				StringPtr("leaf-grp1"), // we send it to all leafs at once assuming the configuration is symmetric
+				StringPtr(fileName),
+				StringPtr("infra-default-network-instance"+"-"+nodeName),
+				StringPtr(nodeName), // we send it to all leafs at once assuming the configuration is symmetric
 				defaultNetworkInstance)
+			resources = append(resources, fileName)
 
 			peerGroups := make([]*PeerGroup, 0)
 			switch *p.Config.Infrastructure.AddressingSchema {
 			case "dual-stack":
 				underlayPeerGroup := &PeerGroup{
-					Name:      "underlay",
-					Protocols: []string{"ipv4-unicast", "ipv6-unicast"},
+					Name:       "underlay",
+					PolicyName: "export-underlay-local",
+					Protocols:  []string{"ipv4-unicast", "ipv6-unicast"},
 				}
 				peerGroups = append(peerGroups, underlayPeerGroup)
 			case "v4-only":
@@ -285,21 +352,29 @@ func (p *Parser) WriteInfrastructure() {
 
 			// TODO Add Policies
 			// write protocols bgp
+			fileName = "protocols-bgp-default" + nodeName + ".yaml"
 			p.WriteSrlProtocolsBgp(&dirName,
-				StringPtr("protocols-bgp-default"+nodeName+".yaml"),
-				StringPtr("protocols-bgp-paco-default"+nodeName),
+				StringPtr(fileName),
+				StringPtr("infra-default-protocols-bgp"+nodeName),
 				StringPtr(nodeName),
 				defaultProtocolBgp)
+			resources = append(resources, fileName)
 		}
 	}
+	p.WriteKustomize(&dirName, StringPtr("kustomization.yaml"), resources)
+	return kuztomizedirs
 }
 
-func (p *Parser) WriteClientsGroups() {
+func (p *Parser) WriteClientsGroups() (kuztomizedirs []string) {
 	log.Infof("Writing Client group k8s yaml objects...")
 
 	for cgName, clients := range p.ClientGroups {
-		dirName := filepath.Join(*p.BaseDir, "client-"+cgName)
+		dirName := filepath.Join(*p.BaseSwitchDir, "client-"+cgName)
 		p.CreateDirectory(dirName, 0777)
+
+		kuztomizedirs = append(kuztomizedirs, "../client-"+cgName)
+
+		resources := make([]string, 0)
 
 		// we add all clientinterfaces to a list which we write at the end of the loop
 		// to the respective file/directory
@@ -330,25 +405,40 @@ func (p *Parser) WriteClientsGroups() {
 						}
 						clientInterfaces = append(clientInterfaces, clientInterface)
 					} else {
-						clientInterface := &k8ssrlinterface{
-							Kind:        "access",
-							Name:        *itfce.Endpoint.RealName,
-							VlanTagging: true,
-							PortSpeed:   *itfce.Endpoint.Speed,
-							Lag:         *itfce.Endpoint.Lag,
-							LagMember:   *itfce.Endpoint.LagMemberLink,
-							LagName:     *itfce.Endpoint.LagName,
+						if *itfce.Endpoint.LagMemberLink {
+							// no VLAN Tagging for member links
+							clientInterface := &k8ssrlinterface{
+								Kind:      "access",
+								Name:      *itfce.Endpoint.RealName,
+								PortSpeed: *itfce.Endpoint.Speed,
+								Lag:       *itfce.Endpoint.Lag,
+								LagMember: *itfce.Endpoint.LagMemberLink,
+								LagName:   *itfce.Endpoint.LagName,
+							}
+							clientInterfaces = append(clientInterfaces, clientInterface)
+						} else {
+							clientInterface := &k8ssrlinterface{
+								Kind:        "access",
+								Name:        *itfce.Endpoint.RealName,
+								VlanTagging: true,
+								PortSpeed:   *itfce.Endpoint.Speed,
+								Lag:         *itfce.Endpoint.Lag,
+								LagMember:   *itfce.Endpoint.LagMemberLink,
+								LagName:     *itfce.Endpoint.LagName,
+							}
+							clientInterfaces = append(clientInterfaces, clientInterface)
 						}
-						clientInterfaces = append(clientInterfaces, clientInterface)
 					}
 				}
 				// write client interfaces
 				// we need to write per device since pxe/lacp-fallback is different per node
+				fileName := "interface-cg-" + cgName + "-" + nodeName + ".yaml"
 				p.WriteSrlInterface(&dirName,
-					StringPtr("interface-"+cgName+"-"+nodeName+".yaml"),
-					StringPtr("interface-paco-"+cgName+"-"+nodeName),
+					StringPtr(fileName),
+					StringPtr("cg-"+cgName+"-"+"interface-"+nodeName),
 					StringPtr(nodeName),
 					clientInterfaces)
+				resources = append(resources, fileName)
 			} else {
 				// Target group Name
 				// we check the esifound to see if we have to write the object
@@ -374,27 +464,35 @@ func (p *Parser) WriteClientsGroups() {
 					}
 				}
 				if esifound {
+					// TODO we need to make this more flexible and have a resource per client group
+					// so split in infra part + client group part
+					fileName := "system-network-instance-" + cgName + ".yaml"
 					p.WriteSrlSystemNetworkInstance(&dirName,
-						StringPtr("system-network-instance-"+cgName+".yaml"),
-						StringPtr("system-network-instance-paco"+cgName),
+						StringPtr(fileName),
+						StringPtr("cg-"+cgName+"-"+"system-network-instance-"+nodeName),
 						StringPtr(*clients.TargetGroup),
 						esis)
+					resources = append(resources, fileName)
 				}
 			}
 		}
+		p.WriteKustomize(&dirName, StringPtr("kustomization.yaml"), resources)
 	}
+	return kuztomizedirs
 }
 
-func (p *Parser) WriteWorkloads() {
+func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
 	log.Infof("Writing workload k8s yaml objects...")
 
 	for wlName, clients := range p.Config.Workloads {
-		log.Infof("Workload Name: %s", wlName)
-		dirName := filepath.Join(*p.BaseDir, "workload-"+wlName)
+		log.Debugf("Workload Name: %s", wlName)
+		dirName := filepath.Join(*p.BaseSwitchDir, "workload-"+wlName)
 		p.CreateDirectory(dirName, 0777)
+		kuztomizedirs = append(kuztomizedirs, "../workload-"+wlName)
 
 		// subinterface vxlan
-		vxlanSubInterfaces := make([]*k8ssrlVxlanInterface, 0)
+		// first (string) key represents node name, interface is always vxlan0
+		vxlanSubInterfaces := make(map[string][]*k8ssrlVxlanInterface, 0)
 		// subinterface lag or real interface
 		// first (string) key represents node name, 2nd string is interface name
 		clientSubInterfaces := make(map[string]map[string][]*k8ssrlsubinterface)
@@ -405,15 +503,13 @@ func (p *Parser) WriteWorkloads() {
 		// first (string) key represents node name, 2nd key represents the VlanId or network instance Id
 		niIrbSubInterfaces := make(map[string]map[int][]*k8ssrlsubinterface)
 		niCsiSubInterfaces := make(map[string]map[int][]*k8ssrlsubinterface)
-		networkInstance := make(map[string]map[int]*k8ssrlnetworkinstance)
+		networkInstance := make(map[string]map[int]*k8ssrlNetworkInstance)
 
 		// records the target group, such that we can write to the target group for the resources that allow it
 		var targetGroup string
-		// controls if the vxlan subinterface needs to be written
-		var vxlan bool
 		for cgName, wlInfo := range clients {
 			// netwType = itfce, ipvlan, sriov; netwInfo:
-			for netwType, netwInfo := range wlInfo.Vlans {
+			for netwType, netwInfo := range wlInfo.Itfces {
 				// used for vxlan write operation, so that we can send it to all devices in the group at once
 				targetGroup = *p.ClientGroups[cgName].TargetGroup
 				switch netwType {
@@ -422,25 +518,39 @@ func (p *Parser) WriteWorkloads() {
 					case "bridged":
 
 						// no irb interface required for bridged networks
-						vxlanSubInterface := &k8ssrlVxlanInterface{
-							TunnelInterfaceName: "vxlan0",
-							VlanID:              strconv.Itoa(*netwInfo.VlanID),
-							Kind:                "bridged",
-						}
-						vxlanSubInterfaces = append(vxlanSubInterfaces, vxlanSubInterface)
-						vxlan = true
+
 						for nodeName, itfces := range p.ClientGroups[cgName].Interfaces {
 							// client interfaces are implemented individually per node
 							if nodeName != targetGroup {
+								if _, ok := vxlanSubInterfaces[nodeName]; !ok {
+									vxlanSubInterfaces[nodeName] = make([]*k8ssrlVxlanInterface, 0)
+								}
+								vxlanSubInterface := &k8ssrlVxlanInterface{
+									TunnelInterfaceName: "vxlan0",
+									VlanID:              strconv.Itoa(*netwInfo.VlanID),
+									Kind:                "bridged",
+								}
+								vxlanSubInterfaces[nodeName] = append(vxlanSubInterfaces[nodeName], vxlanSubInterface)
+
 								if _, ok := networkInstance[nodeName]; !ok {
-									networkInstance[nodeName] = make(map[int]*k8ssrlnetworkinstance)
+									networkInstance[nodeName] = make(map[int]*k8ssrlNetworkInstance)
 								}
 								if _, ok := networkInstance[nodeName][*netwInfo.VlanID]; !ok {
-									networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlnetworkinstance{
-										Name: strcase.LowerCamelCase(wlName) + "MacVrf" + strcase.LowerCamelCase(netwType) + strconv.Itoa(*netwInfo.VlanID),
-										Kind: "mac-vrf",
-										Type: "bridged",
-										TunnelInterfaceName: "vxlan0"+ "." + strconv.Itoa(*netwInfo.VlanID),
+									evi := *netwInfo.VlanID
+									if evi == 0 {
+										evi = 1
+									}
+									// remove 1 and 2 from sriov1 and sriov2
+									netwTypeName := strings.TrimRight(netwType, "1")
+									netwTypeName = strings.TrimRight(netwTypeName, "2")
+									niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
+									networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlNetworkInstance{
+										Name:                niName,
+										Kind:                "mac-vrf",
+										Type:                "bridged",
+										TunnelInterfaceName: "vxlan0" + "." + strconv.Itoa(*netwInfo.VlanID),
+										RouteTarget:         "target:" + strconv.Itoa(int(*p.Config.Infrastructure.Protocols.OverlayAs)) + ":" + strconv.Itoa(*netwInfo.VlanID),
+										Evi:                 evi,
 									}
 								}
 								// check if clientSubInterfaces[nodeName] was already initialized, if not initialize it
@@ -456,7 +566,7 @@ func (p *Parser) WriteWorkloads() {
 								for _, itfce := range itfces {
 									// exclude the interfaces with member link since they will be covered as a lag
 									if !*itfce.Endpoint.LagMemberLink {
-										log.Infof("Interface name: %s", *itfce.Endpoint.RealName)
+										log.Debugf("Interface name: %s", *itfce.Endpoint.RealName)
 										// check if clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 										if _, ok := clientSubInterfaces[nodeName][*itfce.Endpoint.RealName]; !ok {
 											clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] = make([]*k8ssrlsubinterface, 0)
@@ -481,25 +591,37 @@ func (p *Parser) WriteWorkloads() {
 						}
 					case "routed":
 						// bridged part of the config, also the irb part
-						vxlanSubInterface := &k8ssrlVxlanInterface{
-							TunnelInterfaceName: "vxlan0",
-							VlanID:              strconv.Itoa(*netwInfo.VlanID),
-							Kind:                "routed",
-						}
-						vxlanSubInterfaces = append(vxlanSubInterfaces, vxlanSubInterface)
-						vxlan = true
+
 						for nodeName, itfces := range p.ClientGroups[cgName].Interfaces {
 							// client interfaces are implemented individually per node
 							if nodeName != targetGroup {
+								if _, ok := vxlanSubInterfaces[nodeName]; !ok {
+									vxlanSubInterfaces[nodeName] = make([]*k8ssrlVxlanInterface, 0)
+								}
+								vxlanSubInterface := &k8ssrlVxlanInterface{
+									TunnelInterfaceName: "vxlan0",
+									VlanID:              strconv.Itoa(*netwInfo.VlanID),
+									Kind:                "routed",
+								}
+								vxlanSubInterfaces[nodeName] = append(vxlanSubInterfaces[nodeName], vxlanSubInterface)
 								if _, ok := networkInstance[nodeName]; !ok {
-									networkInstance[nodeName] = make(map[int]*k8ssrlnetworkinstance)
+									networkInstance[nodeName] = make(map[int]*k8ssrlNetworkInstance)
 								}
 								if _, ok := networkInstance[nodeName][*netwInfo.VlanID]; !ok {
-									networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlnetworkinstance{
-										Name: strcase.LowerCamelCase(wlName) + "IpVrf" + strcase.LowerCamelCase(netwType) + strconv.Itoa(*netwInfo.VlanID),
-										Kind: "ip-vrf",
-										Type: "routed",
-										TunnelInterfaceName: "vxlan0"+ "." + strconv.Itoa(*netwInfo.VlanID),
+									evi := *netwInfo.VlanID
+									if evi == 0 {
+										evi = 1
+									}
+									netwTypeName := strings.TrimRight(netwType, "1")
+									netwTypeName = strings.TrimRight(netwTypeName, "2")
+									niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-ipvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
+									networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlNetworkInstance{
+										Name:                niName,
+										Kind:                "ip-vrf",
+										Type:                "routed",
+										TunnelInterfaceName: "vxlan0" + "." + strconv.Itoa(*netwInfo.VlanID),
+										RouteTarget:         "target:" + strconv.Itoa(int(*p.Config.Infrastructure.Protocols.OverlayAs)) + ":" + strconv.Itoa(*netwInfo.VlanID),
+										Evi:                 evi,
 									}
 								}
 								// check if clientSubInterfaces[nodeName] was already initialized is not initialize it
@@ -533,20 +655,26 @@ func (p *Parser) WriteWorkloads() {
 											}
 										}
 										if foundA || foundB {
-											log.Infof("Link Found")
+											log.Debugf("Link Found")
 											ipamName := wlName + cgName + strconv.Itoa(*netwInfo.VlanID)
-											if err := p.IPAM[ipamName].IPAMAllocateLinkPrefix(link, netwInfo.Ipv4Cidr, netwInfo.Ipv6Cidr); err != nil {
-												log.Error(err)
-											}
-											if foundA {
-												ipv4prefix = *link.A.IPv4Prefix
-												ipv6prefix = *link.A.IPv6Prefix
-												log.Infof("IP Address: %s %s %s", *link.A.IPv4Prefix, *link.A.RealName, *link.B.RealName)
-											}
-											if foundB {
-												ipv4prefix = *link.A.IPv4Prefix
-												ipv6prefix = *link.A.IPv6Prefix
-												log.Infof("IP Address: %s %s %s", *link.B.IPv4Prefix, *link.B.RealName, *link.A.RealName)
+											var ipv4Cidr *string
+											var ipv6Cidr *string
+											for i := 0; i < len(netwInfo.Ipv4Cidr); i++ {
+												ipv4Cidr = netwInfo.Ipv4Cidr[i]
+												ipv6Cidr = netwInfo.Ipv6Cidr[i]
+												if err := p.IPAM[ipamName].IPAMAllocateLinkPrefix(link, ipv4Cidr, ipv6Cidr); err != nil {
+													log.Error(err)
+												}
+												if foundA {
+													ipv4prefix = *link.A.IPv4Prefix
+													ipv6prefix = *link.A.IPv6Prefix
+													log.Debugf("IP Address: %s %s %s", *link.A.IPv4Prefix, *link.A.RealName, *link.B.RealName)
+												}
+												if foundB {
+													ipv4prefix = *link.A.IPv4Prefix
+													ipv6prefix = *link.A.IPv6Prefix
+													log.Debugf("IP Address: %s %s %s", *link.B.IPv4Prefix, *link.B.RealName, *link.A.RealName)
+												}
 											}
 										} else {
 											log.Fatalf("Link Not found")
@@ -559,7 +687,7 @@ func (p *Parser) WriteWorkloads() {
 										} else {
 											newName = *itfce.Endpoint.ShortName
 										}
-										log.Infof("Interface name: %s", newName)
+										log.Debugf("Interface name: %s", newName)
 										// check if clientSubInterfaces[nodeName][newName] was already initialized if not initialize it
 										if _, ok := clientSubInterfaces[nodeName][newName]; !ok {
 											clientSubInterfaces[nodeName][newName] = make([]*k8ssrlsubinterface, 0)
@@ -567,6 +695,7 @@ func (p *Parser) WriteWorkloads() {
 										csi := &k8ssrlsubinterface{
 											InterfaceRealName:  *itfce.Endpoint.RealName,
 											InterfaceShortName: *itfce.Endpoint.ShortName,
+											VlanTagging:        true,
 											VlanID:             strconv.Itoa(*netwInfo.VlanID),
 											Kind:               "routed",
 											IPv4Prefix:         ipv4prefix,
@@ -587,25 +716,37 @@ func (p *Parser) WriteWorkloads() {
 						}
 					case "irb":
 						// bridged part of the config
-						vxlanSubInterface := &k8ssrlVxlanInterface{
-							TunnelInterfaceName: "vxlan0",
-							VlanID:              strconv.Itoa(*netwInfo.VlanID),
-							Kind:                "bridged",
-						}
-						vxlanSubInterfaces = append(vxlanSubInterfaces, vxlanSubInterface)
-						vxlan = true
+
 						for nodeName, itfces := range p.ClientGroups[cgName].Interfaces {
 							// client interfaces are implemented individually per node
 							if nodeName != targetGroup {
+								if _, ok := vxlanSubInterfaces[nodeName]; !ok {
+									vxlanSubInterfaces[nodeName] = make([]*k8ssrlVxlanInterface, 0)
+								}
+								vxlanSubInterface := &k8ssrlVxlanInterface{
+									TunnelInterfaceName: "vxlan0",
+									VlanID:              strconv.Itoa(*netwInfo.VlanID),
+									Kind:                "bridged",
+								}
+								vxlanSubInterfaces[nodeName] = append(vxlanSubInterfaces[nodeName], vxlanSubInterface)
 								if _, ok := networkInstance[nodeName]; !ok {
-									networkInstance[nodeName] = make(map[int]*k8ssrlnetworkinstance)
+									networkInstance[nodeName] = make(map[int]*k8ssrlNetworkInstance)
 								}
 								if _, ok := networkInstance[nodeName][*netwInfo.VlanID]; !ok {
-									networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlnetworkinstance{
-										Name: strcase.LowerCamelCase(wlName) + "MacVrf" + strcase.LowerCamelCase(netwType) + strconv.Itoa(*netwInfo.VlanID),
-										Kind: "mac-vrf",
-										Type: "irb",
-										TunnelInterfaceName: "vxlan0"+ "." + strconv.Itoa(*netwInfo.VlanID),
+									evi := *netwInfo.VlanID
+									if evi == 0 {
+										evi = 1
+									}
+									netwTypeName := strings.TrimRight(netwType, "1")
+									netwTypeName = strings.TrimRight(netwTypeName, "2")
+									niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
+									networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlNetworkInstance{
+										Name:                niName,
+										Kind:                "mac-vrf",
+										Type:                "irb",
+										TunnelInterfaceName: "vxlan0" + "." + strconv.Itoa(*netwInfo.VlanID),
+										RouteTarget:         "target:" + strconv.Itoa(int(*p.Config.Infrastructure.Protocols.OverlayAs)) + ":" + strconv.Itoa(*netwInfo.VlanID),
+										Evi:                 evi,
 									}
 								}
 								// check if clientSubInterfaces[nodeName] was already initialized, if not initialize it
@@ -625,7 +766,7 @@ func (p *Parser) WriteWorkloads() {
 								for _, itfce := range itfces {
 									// exclude the interfaces with member link since they will be covered as a lag
 									if !*itfce.Endpoint.LagMemberLink {
-										log.Infof("Interface name: %s", *itfce.Endpoint.RealName)
+										log.Debugf("Interface name: %s", *itfce.Endpoint.RealName)
 										// check if clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 										if _, ok := clientSubInterfaces[nodeName][*itfce.Endpoint.RealName]; !ok {
 											clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] = make([]*k8ssrlsubinterface, 0)
@@ -633,6 +774,7 @@ func (p *Parser) WriteWorkloads() {
 										csi := &k8ssrlsubinterface{
 											InterfaceRealName:  *itfce.Endpoint.RealName,
 											InterfaceShortName: *itfce.Endpoint.ShortName,
+											VlanTagging:        true,
 											VlanID:             strconv.Itoa(*netwInfo.VlanID),
 											Kind:               "bridged",
 										}
@@ -652,22 +794,32 @@ func (p *Parser) WriteWorkloads() {
 									irbSubInterfaces[nodeName] = make([]*k8ssrlirbsubinterface, 0)
 								}
 
-								ipv4prefixlist := make([]string, 0)
-								ipv4prefix, err := getLastIPPrefixInCidr(netwInfo.Ipv4Cidr)
-								if err != nil {
-									log.Fatal(err)
-								}
-								ipv4prefixlist = append(ipv4prefixlist, *ipv4prefix)
+								var ipv4Cidr *string
+								var ipv6Cidr *string
+								var ipv4prefixlist []string
+								var ipv6prefixlist []string
+								for i := 0; i < len(netwInfo.Ipv4Cidr); i++ {
+									ipv4Cidr = netwInfo.Ipv4Cidr[i]
+									ipv6Cidr = netwInfo.Ipv6Cidr[i]
 
-								ipv6prefixlist := make([]string, 0)
-								ipv6prefix, err := getLastIPPrefixInCidr(netwInfo.Ipv6Cidr)
-								if err != nil {
-									log.Fatal(err)
+									ipv4prefixlist := make([]string, 0)
+									ipv4prefix, err := getLastIPPrefixInCidr(ipv4Cidr)
+									if err != nil {
+										log.Fatal(err)
+									}
+									ipv4prefixlist = append(ipv4prefixlist, *ipv4prefix)
+
+									ipv6prefixlist := make([]string, 0)
+									ipv6prefix, err := getLastIPPrefixInCidr(ipv6Cidr)
+									if err != nil {
+										log.Fatal(err)
+									}
+									ipv6prefixlist = append(ipv6prefixlist, *ipv6prefix)
 								}
-								ipv6prefixlist = append(ipv6prefixlist, *ipv6prefix)
 
 								irb := &k8ssrlirbsubinterface{
 									InterfaceRealName: "irb0",
+									Description:       "irb0",
 									VlanID:            strconv.Itoa(*netwInfo.VlanID),
 									Kind:              "routed",
 									AnycastGW:         true,
@@ -686,6 +838,7 @@ func (p *Parser) WriteWorkloads() {
 								nii := &k8ssrlsubinterface{
 									InterfaceRealName:  "irb0",
 									InterfaceShortName: "irb0",
+									VlanTagging:        false,
 									VlanID:             strconv.Itoa(*netwInfo.VlanID),
 									Kind:               "routed",
 								}
@@ -702,15 +855,34 @@ func (p *Parser) WriteWorkloads() {
 						// client interfaces are implemented individually per node
 						// we only add the interface if they belong to a target group in the netwInfo
 						if nodeName != targetGroup && netwInfo.Target != nil && *netwInfo.Target == nodeName {
+							if _, ok := vxlanSubInterfaces[nodeName]; !ok {
+								vxlanSubInterfaces[nodeName] = make([]*k8ssrlVxlanInterface, 0)
+							}
+							vxlanSubInterface := &k8ssrlVxlanInterface{
+								TunnelInterfaceName: "vxlan0",
+								VlanID:              strconv.Itoa(*netwInfo.VlanID),
+								Kind:                "bridged",
+							}
+							vxlanSubInterfaces[nodeName] = append(vxlanSubInterfaces[nodeName], vxlanSubInterface)
+
 							if _, ok := networkInstance[nodeName]; !ok {
-								networkInstance[nodeName] = make(map[int]*k8ssrlnetworkinstance)
+								networkInstance[nodeName] = make(map[int]*k8ssrlNetworkInstance)
 							}
 							if _, ok := networkInstance[nodeName][*netwInfo.VlanID]; !ok {
-								networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlnetworkinstance{
-									Name: strcase.LowerCamelCase(wlName) + "MacVrf" + strcase.LowerCamelCase(netwType) + strconv.Itoa(*netwInfo.VlanID),
-									Kind: "mac-vrf",
-									Type: "irb",
-									TunnelInterfaceName: "vxlan0"+ "." + strconv.Itoa(*netwInfo.VlanID),
+								evi := *netwInfo.VlanID
+								if evi == 0 {
+									evi = 1
+								}
+								netwTypeName := strings.TrimRight(netwType, "1")
+								netwTypeName = strings.TrimRight(netwTypeName, "2")
+								niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
+								networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlNetworkInstance{
+									Name:                niName,
+									Kind:                "mac-vrf",
+									Type:                "irb",
+									TunnelInterfaceName: "vxlan0" + "." + strconv.Itoa(*netwInfo.VlanID),
+									RouteTarget:         "target:" + strconv.Itoa(int(*p.Config.Infrastructure.Protocols.OverlayAs)) + ":" + strconv.Itoa(*netwInfo.VlanID),
+									Evi:                 evi,
 								}
 							}
 							// check if clientSubInterfaces[nodeName] was already initialized is not initialize it
@@ -731,7 +903,7 @@ func (p *Parser) WriteWorkloads() {
 							for _, itfce := range itfces {
 								// exclude the interfaces with member link since they will be covered as a lag
 								if !*itfce.Endpoint.LagMemberLink {
-									log.Infof("Interface name: %s", *itfce.Endpoint.RealName)
+									log.Debugf("Interface name: %s", *itfce.Endpoint.RealName)
 									// check if clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 									if _, ok := clientSubInterfaces[nodeName][*itfce.Endpoint.RealName]; !ok {
 										clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] = make([]*k8ssrlsubinterface, 0)
@@ -739,6 +911,7 @@ func (p *Parser) WriteWorkloads() {
 									csi := &k8ssrlsubinterface{
 										InterfaceRealName:  *itfce.Endpoint.RealName,
 										InterfaceShortName: *itfce.Endpoint.ShortName,
+										VlanTagging:        true,
 										VlanID:             strconv.Itoa(*netwInfo.VlanID),
 										Kind:               "bridged",
 									}
@@ -759,18 +932,59 @@ func (p *Parser) WriteWorkloads() {
 
 							}
 
-							_, ipNet, err := net.ParseCIDR(*netwInfo.Ipv4Cidr)
-							ipNetList, err := ipam.Split(*ipNet, 8)
-							if err != nil {
-								log.Fatal(err)
-							}
 							ipv4prefixlist := make([]string, 0)
-							for _, ipnet := range ipNetList {
-								ipv4prefix, err := getLastIPPrefixInIPnet(ipnet)
+							ipv6prefixlist := make([]string, 0)
+							var ipNet *net.IPNet
+							var err error
+							//var ipNetList []net.IPNet
+							for i := 0; i < len(netwInfo.Ipv4Cidr); i++ {
+								_, ipNet, err = net.ParseCIDR(*netwInfo.Ipv4Cidr[i])
+								if err != nil {
+									log.Fatal(err)
+								}
+								/*
+									ipNetList, err = ipam.Split(*ipNet, 8)
+									if err != nil {
+										log.Fatal(err)
+									}
+									ipv4prefixlist = make([]string, 0)
+									for _, ipnet := range ipNetList {
+										ipv4prefix, err := getLastIPPrefixInIPnet(ipnet)
+										if err != nil {
+											log.Fatal(err)
+										}
+										ipv4prefixlist = append(ipv4prefixlist, *ipv4prefix)
+									}
+								*/
+								ipv4prefix, err := getLastIPPrefixInIPnet(*ipNet)
 								if err != nil {
 									log.Fatal(err)
 								}
 								ipv4prefixlist = append(ipv4prefixlist, *ipv4prefix)
+
+								_, ipNet, err = net.ParseCIDR(*netwInfo.Ipv6Cidr[i])
+								if err != nil {
+									log.Fatal(err)
+								}
+								/*
+									ipNetList, err = ipam.Split(*ipNet, 8)
+									if err != nil {
+										log.Fatal(err)
+									}
+									ipv6prefixlist = make([]string, 0)
+									for _, ipnet := range ipNetList {
+										ipv4prefix, err := getLastIPPrefixInIPnet(ipnet)
+										if err != nil {
+											log.Fatal(err)
+										}
+										ipv6prefixlist = append(ipv6prefixlist, *ipv4prefix)
+									}
+								*/
+								ipv6prefix, err := getLastIPPrefixInIPnet(*ipNet)
+								if err != nil {
+									log.Fatal(err)
+								}
+								ipv6prefixlist = append(ipv6prefixlist, *ipv6prefix)
 							}
 
 							// TODO SPLIT FUNCTIOn FOR IPv6 needs to be added for SRIOV
@@ -793,6 +1007,7 @@ func (p *Parser) WriteWorkloads() {
 
 							irb := &k8ssrlirbsubinterface{
 								InterfaceRealName: "irb0",
+								Description:       "irb0",
 								VlanID:            strconv.Itoa(*netwInfo.VlanID),
 								Kind:              "routed",
 								AnycastGW:         false,
@@ -809,6 +1024,7 @@ func (p *Parser) WriteWorkloads() {
 							nii := &k8ssrlsubinterface{
 								InterfaceRealName:  "irb0",
 								InterfaceShortName: "irb0",
+								VlanTagging:        false,
 								VlanID:             strconv.Itoa(*netwInfo.VlanID),
 								Kind:               "routed",
 							}
@@ -819,39 +1035,46 @@ func (p *Parser) WriteWorkloads() {
 				}
 			}
 		}
-
-		if vxlan {
-			p.WriteSrlVxlanInterface(&dirName,
-				StringPtr("vxlaninterface-"+"vxlan0"+".yaml"),
-				StringPtr("vxlaninterface-paco-"+"vxlan0"),
-				StringPtr(targetGroup),
-				vxlanSubInterfaces)
-		}
+		resources := make([]string, 0)
 
 		// we have to create seperate files, since the interface is unique
 		for nodeName, clientSubInterface := range clientSubInterfaces {
+			if _, ok := vxlanSubInterfaces[nodeName]; ok {
+				fileName := "vxlaninterface" + "-" + "vxlan0" + "-" + nodeName + ".yaml"
+				p.WriteSrlVxlanInterface(&dirName,
+					StringPtr(fileName),
+					StringPtr(wlName+"-vxlaninterface-"+"vxlan0"+"-"+nodeName),
+					StringPtr(nodeName),
+					vxlanSubInterfaces[nodeName])
+				resources = append(resources, fileName)
+			}
+
 			for itfceName, csi := range clientSubInterface {
+				fileName := "subinterface" + "-" + itfceName + "-" + nodeName + ".yaml"
 				p.WriteSrlSubInterface(&dirName,
-					StringPtr("subinterface-"+itfceName+"-"+nodeName+".yaml"),
-					StringPtr("subinterface-paco-"+itfceName+"-"+nodeName),
+					StringPtr(fileName),
+					StringPtr(wlName+"-subinterface-"+itfceName+"-"+nodeName),
 					StringPtr(nodeName),
 					csi)
+				resources = append(resources, fileName)
 			}
 			if _, ok := irbSubInterfaces[nodeName]; ok {
-				log.Infof("IRB %v", irbSubInterfaces[nodeName])
+				fileName := "subinterface" + "-" + "irb0" + "-" + nodeName + ".yaml"
 				p.WriteSrlIrbSubInterface(&dirName,
-					StringPtr("subinterface-"+"irb0"+"-"+nodeName+".yaml"),
-					StringPtr("subinterface-paco-"+"irb0"+"-"+nodeName),
+					StringPtr(fileName),
+					StringPtr(wlName+"-subinterface-"+"irb0"+"-"+nodeName),
 					StringPtr(nodeName),
 					irbSubInterfaces[nodeName])
+				resources = append(resources, fileName)
 			}
 
 			if _, ok := networkInstance[nodeName]; ok {
 				for id, niInfo := range networkInstance[nodeName] {
-					log.Infof("NetworkInstance Info: %s, %v %v", nodeName, id, niInfo)
+					log.Debugf("NetworkInstance Info: %s, %v %v", nodeName, id, niInfo)
 					switch niInfo.Type {
-					case "brdiged":
+					case "bridged":
 						niInfo.SubInterfaces = append(niInfo.SubInterfaces, niCsiSubInterfaces[nodeName][id]...)
+						log.Debugf("Subinterfaces bridged: %v", niInfo.SubInterfaces)
 					case "routed":
 						niInfo.SubInterfaces = append(niInfo.SubInterfaces, niCsiSubInterfaces[nodeName][id]...)
 						// add all irb interfaces of this workload to the routed interface/IPvrf
@@ -862,13 +1085,45 @@ func (p *Parser) WriteWorkloads() {
 						niInfo.SubInterfaces = append(niInfo.SubInterfaces, niCsiSubInterfaces[nodeName][id]...)
 						niInfo.SubInterfaces = append(niInfo.SubInterfaces, niIrbSubInterfaces[nodeName][id]...)
 					}
+					fileName := "network-instance-" + strconv.Itoa(id) + "-" + nodeName + ".yaml"
 					p.WriteSrlNetworkInstance(&dirName,
-						StringPtr("network-instance-"+strconv.Itoa(id)+"-"+nodeName+".yaml"),
-						StringPtr(niInfo.Name),
+						StringPtr(fileName),
+						StringPtr(wlName+"-"+strconv.Itoa(niInfo.Evi)+"-network-instance"+"-"+nodeName),
 						StringPtr(nodeName),
 						niInfo)
+					resources = append(resources, fileName)
+
+					if strings.Contains(niInfo.Name, "provisioning") {
+						log.Debugf("Subinterfaces: %v", niInfo.SubInterfaces)
+					}
+
+					fileName = "network-instance-protocol-bgpvpn" + strconv.Itoa(id) + "-" + nodeName + ".yaml"
+					p.WriteSrlNetworkInstanceBgpVpn(&dirName,
+						StringPtr(fileName),
+						StringPtr(wlName+"-"+strconv.Itoa(niInfo.Evi)+"-protocolbgpvpn"+"-"+nodeName),
+						StringPtr(nodeName),
+						niInfo)
+					resources = append(resources, fileName)
+
+					fileName = "network-instance-protocol-bgpevpn" + strconv.Itoa(id) + "-" + nodeName + ".yaml"
+					p.WriteSrlNetworkInstanceBgpEvpn(&dirName,
+						StringPtr(fileName),
+						StringPtr(wlName+"-"+strconv.Itoa(niInfo.Evi)+"-protocolbgpevpn"+"-"+nodeName),
+						StringPtr(nodeName),
+						niInfo)
+					resources = append(resources, fileName)
+
+					fileName = "network-instance-protocol-linux" + strconv.Itoa(id) + "-" + nodeName + ".yaml"
+					p.WriteSrlNetworkInstanceLinux(&dirName,
+						StringPtr(fileName),
+						StringPtr(wlName+"-"+strconv.Itoa(niInfo.Evi)+"-protocollinux"+"-"+nodeName),
+						StringPtr(nodeName),
+						niInfo)
+					resources = append(resources, fileName)
 				}
 			}
+			p.WriteKustomize(&dirName, StringPtr("kustomization.yaml"), resources)
 		}
 	}
+	return kuztomizedirs
 }
