@@ -1,0 +1,401 @@
+{{- $loamBDict := (default dict .Values.LoamB) }}
+{{- $loamBEnable := ($loamBDict.Enable | int) }}
+{{- $lmgMinReplicas := (.Values.LmgScale.MinReplicas | int) }}
+{{- $groFlag := (.Values.Multus.GroFlag | int ) }}
+{{- $privileged := ternary "true" "false" (ne (.Values.PodSecurityPolicy.Privileged | toString) "false") }}
+{{- $pvLogsClaimName := (default "logs-volume-claim" .Values.Storage.PvLogsClaimName | toString) }}
+{{- $xdpDict := (default dict .Values.Multus.Xdp) }}
+{{- $nascDict := (default dict .Values.Nasc) }}
+{{- $nodeSelectorDict := (default dict .Values.NodeSelector) }}
+{{- $imageLmgDict := (default dict .Values.Image) }}
+{{- $imageLmgTag := (default .Values.Image.Tag $imageLmgDict.Tag | toString) }}
+{{- $imageLlbDict := (default dict .Values.Image) }}
+{{- $imageLlbTag := (default .Values.Image.Tag $imageLlbDict.Tag | toString) }}
+{{- $affinityDict := (default dict .Values.AntiAffinity) }}
+{{- $lmgAffinity := ternary "soft" "hard" (ne ($affinityDict | toString) "hard") }}
+{{- $llbAffinity := ternary "soft" "hard" (ne ($affinityDict | toString) "hard") }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lmg-statefulset
+spec:
+  replicas: {{ $lmgMinReplicas }}
+  selector:
+    matchLabels:
+      name: lmg
+  serviceName: lmg
+  template:
+    metadata:
+      labels:
+        name: lmg
+        version: v1
+{{- if .Values.Uuid }}
+        uuid: {{ .Values.Uuid }}
+{{- end }}
+{{- $numDevices := (.Values.Multus.Lmg.NumDevices | int) }}
+{{- if ge $numDevices 1 }}
+{{- $numCommas := (sub $numDevices 1) }}
+{{- $releaseNamespace := .Values.Namespace }}
+      annotations:
+{{- if .Values.Multus.Lmg.NetNames }}
+        k8s.v1.cni.cncf.io/networks: {{ range $index, $element := .Values.Multus.Lmg.NetNames }}{{ $releaseNamespace }}/{{ $element }}{{ if lt $index $numCommas }},{{ end }}{{ end }}
+{{- end }}
+{{- if .Values.Multus.Lmg.ResourceName }}
+        k8s.v1.cni.cncf.io/resourceName: {{ range $index, $element := .Values.Multus.Lmg.ResourceName }}{{ $element }}{{ if lt $index $numCommas }},{{ end }}{{ end }}
+{{- end }}
+{{- end }}
+    spec:
+      affinity:
+        podAntiAffinity:
+{{- if eq $lmgAffinity "soft" }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: "kubernetes.io/hostname"
+              labelSelector:
+                matchExpressions:
+                - key: name
+                  operator: In
+                  values:
+                  - lmg
+{{- else }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - lmg
+            topologyKey: "kubernetes.io/hostname"
+{{- end }}
+{{- if eq $loamBEnable 1 }}
+{{- if eq $lmgAffinity "soft" }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: "kubernetes.io/hostname"
+              labelSelector:
+                matchExpressions:
+                - key: loamState
+                  operator: In
+                  values:
+                  - active
+{{- else }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: loamState
+                operator: In
+                values:
+                - active
+            topologyKey: "kubernetes.io/hostname"
+{{- end }}
+{{- else }}
+{{- if eq $lmgAffinity "soft" }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: "kubernetes.io/hostname"
+              labelSelector:
+                matchExpressions:
+                - key: name
+                  operator: In
+                  values:
+                  - loam-a
+{{- else }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - loam-a
+            topologyKey: "kubernetes.io/hostname"
+{{- end }}
+{{- end }}
+      volumes:
+      - name: shared-data
+        persistentVolumeClaim:
+          claimName: {{ $pvLogsClaimName }}
+{{- $rtScheduling_enable := (.Values.RtScheduling.Enable | int) }}
+{{- if eq $rtScheduling_enable 1 }}
+      - name: host-cgroup-cpu
+        hostPath:
+          path: {{ .Values.RtScheduling.CgroupHostPath }}
+{{- end }}
+{{- if $nascDict.Enable }}
+      - name: config-sidecar
+        configMap:
+         name: stats-sidecar-lmg
+{{- end }}
+      - name: config-volume1
+        configMap:
+         name: lmg
+{{- if .Values.Resources.Lmg.Hugepages1Gi }}
+      - name: hugepage
+        emptyDir:
+          medium: HugePages
+{{- end }}
+{{- if eq $privileged "false" }}
+      securityContext:
+        sysctls:
+        - name: net.ipv4.conf.all.rp_filter
+          value: "0"
+        - name: net.ipv4.conf.default.rp_filter
+          value: "0"
+{{- end }}
+      containers:
+      - name: lmg
+        image: {{ .Values.Image.Repository }}/{{ .Values.Image.Name }}:{{ $imageLmgTag }}
+        imagePullPolicy: {{ .Values.Image.PullPolicy }}
+        volumeMounts:
+        - name: shared-data
+          mountPath: /logs/
+{{- if eq $rtScheduling_enable 1 }}
+        - name: host-cgroup-cpu
+          mountPath: /hostCgroupCpu/
+{{- end }}
+        - name: config-volume1
+          mountPath: /etc/sysconfig/
+{{- if .Values.Resources.Lmg.Hugepages1Gi }}
+        - name: hugepage
+          mountPath: /hugepages
+{{- end }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          {{ if eq $groFlag 1 }}{{ range $i, $end := until $numDevices }}ethtool -K net{{ add1 $i }} gro off; {{ end }}{{ end }}{{ if $xdpDict.Enable }}{{ range $i, $end := until $numDevices }}ethtool -L net{{ add1 $i }} combined 1; ethtool -G net{{ add1 $i }}; ip link set dev net{{ add1 $i }} txqueuelen 30000; ethtool -K net{{ add1 $i }} gso off; ethtool -K net{{ add1 $i }} rxvlan off; {{ end }}{{ end }}./iom /etc/sysconfig/lmg.cfg
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_CNF_UUID
+{{- if .Values.Uuid }}
+          value: {{ .Values.Uuid }}
+{{- end }}
+        securityContext:
+{{- if eq $privileged "false" }}
+          privileged: false
+          capabilities:
+            add:
+            - SYS_NICE
+            - SYS_RESOURCE
+{{- if $xdpDict.enable }}
+            - SYS_ADMIN
+{{- end }}
+            - NET_ADMIN
+            - NET_RAW
+            - NET_BIND_SERVICE
+{{- else }}
+          privileged: true
+{{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.Resources.Lmg.Cpu }}
+            memory: {{ .Values.Resources.Lmg.Memory }}
+{{- if .Values.Resources.Lmg.Hugepages1Gi }}
+            hugepages-1Gi: {{ .Values.Resources.Lmg.Hugepages1Gi }}
+{{- end }}
+{{- if ge $numDevices 1 }}
+{{- range .Values.Resources.Lmg.Multus }}
+            {{ .resourceName }}: '{{ .numDevices }}'
+{{- end }}
+{{- end }}
+          limits:
+            cpu: {{ .Values.Resources.Lmg.Cpu }}
+            memory: {{ .Values.Resources.Lmg.Memory }}
+{{- if .Values.Resources.Lmg.Hugepages1Gi }}
+            hugepages-1Gi: {{ .Values.Resources.Lmg.Hugepages1Gi }}
+{{- end }}
+{{- if ge $numDevices 1 }}
+{{- range .Values.Resources.Lmg.Multus }}
+            {{ .resourceName }}: '{{ .numDevices }}'
+{{- end }}
+{{- end }}
+{{- $nasc_enable := ($nascDict.Enable | int) }}
+{{- if eq $nasc_enable 1 }}
+      - name: nok-analytics
+        image: {{ $nascDict.ImageRepository }}/{{ $nascDict.ImageName }}:{{ $nascDict.ImageTag }}
+        imagePullPolicy: {{ $nascDict.ImagePullPolicy }}
+        volumeMounts:
+        - name: config-sidecar
+          mountPath: /etc/stats-exporter-sidecar/
+        terminationMessagePath: "/tmp/nasc-end.log"
+        resources:
+          requests:
+            cpu: {{ .Values.Resources.Nasc.Cpu }}
+            memory: {{ .Values.Resources.Nasc.Memory }}
+          limits:
+            cpu: {{ .Values.Resources.Nasc.Cpu }}
+            memory: {{ .Values.Resources.Nasc.Memory }}
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: CONFIG_READ_INTERVAL
+          value: "{{ $nascDict.ConfigReadInterval }}"
+{{- end }}
+
+---
+{{- $llbMinReplicas := (.Values.LlbScale.MinReplicas | int) }}
+{{- if ge $llbMinReplicas 1 }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: llb-statefulset
+spec:
+  replicas: {{ $llbMinReplicas }}
+  selector:
+    matchLabels:
+      name: llb
+  serviceName: llb
+  template:
+    metadata:
+      labels:
+        name: llb
+        version: v1
+{{- if .Values.Uuid }}
+        uuid: {{ .Values.Uuid }}
+{{- end }}
+{{- $numDevices := (.Values.Multus.Llb.NumDevices | int) }}
+{{- if ge $numDevices 1 }}
+{{- $numCommas := (sub $numDevices 1) }}
+{{- $releaseNamespace := .Values.Namespace }}
+      annotations:
+{{- if .Values.Multus.Llb.NetNames }}
+        k8s.v1.cni.cncf.io/networks: {{ range $index, $element := .Values.Multus.Llb.NetNames }}{{ $releaseNamespace }}/{{ $element }}{{ if lt $index $numCommas }},{{ end }}{{ end }}
+{{- end }}
+{{- if .Values.Multus.Llb.ResourceName }}
+        k8s.v1.cni.cncf.io/resourceName: {{ range $index, $element := .Values.Multus.Llb.ResourceName }}{{ $element }}{{ if lt $index $numCommas }},{{ end }}{{ end }}
+{{- end }}
+{{- end }}
+    spec:
+      affinity:
+        podAntiAffinity:
+{{- if eq $llbAffinity "soft" }}
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              topologyKey: "kubernetes.io/hostname"
+              labelSelector:
+                matchExpressions:
+                - key: name
+                  operator: In
+                  values:
+                  - llb
+{{- else }}
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - llb
+            topologyKey: "kubernetes.io/hostname"
+{{- end }}
+      volumes:
+      - name: shared-data
+        persistentVolumeClaim:
+          claimName: {{ $pvLogsClaimName }}
+{{- $rtScheduling_enable := (.Values.RtScheduling.Enable | int) }}
+{{- if eq $rtScheduling_enable 1 }}
+      - name: host-cgroup-cpu
+        hostPath:
+          path: {{ .Values.RtScheduling.CgroupHostPath }}
+{{- end }}
+      - name: config-volume1
+        configMap:
+         name: llb
+{{- if .Values.Resources.Llb.Hugepages1Gi }}
+      - name: hugepage
+        emptyDir:
+          medium: HugePages
+{{- end }}
+{{- if eq $privileged "false" }}
+      securityContext:
+        sysctls:
+        - name: net.ipv4.conf.all.rp_filter
+          value: "0"
+        - name: net.ipv4.conf.default.rp_filter
+          value: "0"
+{{- end }}
+      containers:
+      - name: llb
+        image: {{ .Values.Image.Repository }}/{{ .Values.Image.Name }}:{{ $imageLlbTag }}
+        imagePullPolicy: {{ .Values.Image.PullPolicy }}
+        volumeMounts:
+        - name: shared-data
+          mountPath: /logs/
+{{- if eq $rtScheduling_enable 1 }}
+        - name: host-cgroup-cpu
+          mountPath: /hostCgroupCpu/
+{{- end }}
+        - name: config-volume1
+          mountPath: /etc/sysconfig/
+{{- if .Values.Resources.Llb.Hugepages1Gi }}
+        - name: hugepage
+          mountPath: /hugepages
+{{- end }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          {{ if eq $groFlag 1 }}{{ range $i, $end := until $numDevices }}ethtool -K net{{ add1 $i }} gro off; {{ end }}{{ end }}{{ if $xdpDict.Enable }}{{ range $i, $end := until $numDevices }}ethtool -L net{{ add1 $i }} combined 1; ethtool -G net{{ add1 $i }}; ip link set dev net{{ add1 $i }} txqueuelen 30000; ethtool -K net{{ add1 $i }} gso off; ethtool -K net{{ add1 $i }} rxvlan off; {{ end }}{{ end }}./iom /etc/sysconfig/llb.cfg
+        env:
+        - name: MY_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: MY_CNF_UUID
+{{- if .Values.Uuid }}
+          value: {{ .Values.Uuid }}
+{{- end }}
+        securityContext:
+{{- if eq $privileged "false" }}
+          privileged: false
+          capabilities:
+            add:
+            - SYS_NICE
+            - SYS_RESOURCE
+{{- if $xdpDict.Enable }}
+            - SYS_ADMIN
+{{- end }}
+            - NET_ADMIN
+            - NET_RAW
+            - NET_BIND_SERVICE
+{{- else }}
+          privileged: true
+{{- end }}
+        resources:
+          requests:
+            cpu: {{ .Values.Resources.Llb.Cpu }}
+            memory: {{ .Values.Resources.Llb.Memory }}
+{{- if .Values.Resources.Llb.Hugepages1Gi }}
+            hugepages-1Gi: {{ .Values.Resources.Llb.Hugepages1Gi }}
+{{- end }}
+{{- if ge $numDevices 1 }}
+{{- range .Values.Resources.Llb.Multus }}
+            {{ .resourceName }}: '{{ .numDevices }}'
+{{- end }}
+{{- end }}
+          limits:
+            cpu: {{ .Values.Resources.Llb.Cpu }}
+            memory: {{ .Values.Resources.Llb.Memory }}
+{{- if .Values.Resources.Llb.Hugepages1Gi }}
+            hugepages-1Gi: {{ .Values.Resources.Llb.Hugepages1Gi }}
+{{- end }}
+{{- if ge $numDevices 1 }}
+{{- range .Values.Resources.Llb.Multus }}
+            {{ .resourceName }}: '{{ .numDevices }}'
+{{- end }}
+{{- end }}
+
+---
+{{- end }}

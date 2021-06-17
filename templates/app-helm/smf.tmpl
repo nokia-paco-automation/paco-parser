@@ -13,9 +13,8 @@
 {{- $appc := .Appc}}
 {{- $appipmap := .AppIPMap}}
 {{- $lenWl := len $appc.Networks}}
-{{- $lenSwitch := len $appc.Switches}}
+{{- $lenSwitch := derefInt $appc.SwitchesPerServer}}
 {{- $lenLlb := $appc.Llbs}}
-{{- $lenLinks := len $appc.ClientLinks}}
 {{- $appcontype := deref $appc.ConnType}}
 service:
   loam:
@@ -190,7 +189,9 @@ multus:
 {{- end }}
       cniVersion: 0.3.1
       resourceName: gke/{{$appcontype}}_numa{{$networkInfo.Numa}}_{{$networkInfo.InterfaceName}}_{{$networkInfo.Target}}
+{{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
       vlan: {{ $networkInfo.VlanID}}
+{{- end }} 
 {{- end }} 
 {{- /* switch 2 */}}
 {{- if eq $switchIndex 2}}
@@ -205,7 +206,9 @@ multus:
 {{- end }}
       cniVersion: 0.3.1
       resourceName: gke/{{$appcontype}}_numa{{$networkInfo.Numa}}_{{$networkInfo.InterfaceName}}_{{$networkInfo.Target}}
+{{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
       vlan: {{ $networkInfo.VlanID}}
+{{- end }} 
 {{- end }} 
 
 {{- end }}
@@ -253,24 +256,23 @@ resources:
   {{$podName}}:
     cpu: {{ $podInfo.CPU}}
     memory: {{ $podInfo.Memory}}
-{{- if ne $podInfo.Hugepages1Gi ""}}
-    hugepages1Gi: {{ $podInfo.Hugepages1Gi}}
+{{- if ne (deref $podInfo.Hugepages1Gi) ""}}
+    hugepages1Gi: {{ deref $podInfo.Hugepages1Gi}}
 {{- end }}
 {{- if or (eq $podName "llb") (eq $podName "lmg")}}
     multus:
-{{- range $switchidx, $switchName := $appc.Switches}}
-{{- range $connType, $clientLinks := $appc.UniqueClientLinks}}
-{{- if eq $connType $appcontype}}
-{{- range $clientIndex, $clientinfo := $clientLinks}}
-    - resourceName: gke/{{$appcontype}}_numa{{$clientinfo.Numa}}_{{$clientinfo.InterfaceName}}_{{$switchName}}
+{{- $sriovLinks := index $appc.UniqueClientServer2NetworkLinks $appcontype}}
+{{- range $interfaceName, $interfaceInfo := $sriovLinks}}
+{{- range $numa, $numaInfo := $interfaceInfo }}
+{{- range $switchName, $switchInfo :=  $numaInfo }}
+    - resourceName: gke/{{$appcontype}}_numa{{$numa}}_{{$interfaceName}}_{{$switchName}}
       numDevices: {{ len $appc.Networks}}
 {{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
-{{- end }}
-{{- if ne $podInfo.NodeSelector ""}}
-    nodeSelector: {{ $podInfo.NodeSelector}}
+{{- if ne (deref $podInfo.NodeSelector) ""}}
+    nodeSelector: {{ deref $podInfo.NodeSelector}}
 {{- end }}
 {{- end }}
 {{- end }}

@@ -1,33 +1,33 @@
-{{- range .Values.multus.attachDef }}
+{{- range .Values.Multus.AttachDef }}
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
 metadata:
-  name: {{ .name }}
-{{- if .resourceName }}
+  name: {{ .Name }}
+{{- if .ResourceName }}
   annotations:
-    k8s.v1.cni.cncf.io/resourceName: {{ .resourceName }}
+    k8s.v1.cni.cncf.io/resourceName: {{ .ResourceName }}
 {{- end }}
 spec:
   config: |
     {
-{{- if .type }}
-        "type": "{{ .type }}",
+{{- if .Type }}
+        "type": "{{ .Type }}",
 {{- else }}
         "type": "host-device",
 {{- end }}
-        "cniVersion": "{{ .cniVersion }}",
-        "name": "{{ .name }}",
-{{- if .pciBusID }}
-        "pciBusID": "{{ .pciBusID }}",
+        "cniVersion": "{{ .CniVersion }}",
+        "name": "{{ .Name }}",
+{{- if .PciBusID }}
+        "pciBusID": "{{ .PciBusID }}",
 {{- end }}
-{{- if .deviceID }}
-        "deviceID": "{{ .deviceID }}",
+{{- if .DeviceID }}
+        "deviceID": "{{ .DeviceID }}",
 {{- end }}
-{{- if .device }}
-        "device": "{{ .device }}",
+{{- if .Device }}
+        "device": "{{ .Device }}",
 {{- end }}
-{{- if .vlan }}
-        "vlan": {{ .vlan }},
+{{- if .Vlan }}
+        "vlan": {{ .Vlan }},
 {{- end }}
         "ipam": {}
     }

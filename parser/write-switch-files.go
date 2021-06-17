@@ -438,6 +438,17 @@ spec:
 		"mod":              func(i, j int) bool { return i%j == 0 },
 		"deref":            func(s *string) string { return *s },
 		"derefInt":         func(i *int) int { return *i },
+		"list2string": func(s []*string) string {
+			var str string
+			for i, v := range s {
+				if i < len(s)-1 {
+					str = str + fmt.Sprintf("%s, ", *v)
+				} else {
+					str = str + fmt.Sprintf("%s", *v)
+				}
+			}
+			return str
+		},
 		"rtCommExpr": func(vrfUpId, lmgs int, wlShortname string) string {
 			// if we come here there should be at least 1 element
 			rtCommExpr := fmt.Sprintf("rt-lmg%d-%d-%s", 1, vrfUpId+1, wlShortname)
@@ -445,6 +456,18 @@ spec:
 				rtCommExpr += fmt.Sprintf(" OR rt-lmg%d-%d-%s", i, vrfUpId+i, wlShortname)
 			}
 			return rtCommExpr
+		},
+		"lastmap": func(s string, x map[string][]*string) bool {
+			i := 0
+			for k := range x {
+				if k == s {
+					if i == len(x)-1 {
+						return true
+					}
+				}
+				i++
+			}
+			return false
 		},
 	}
 )

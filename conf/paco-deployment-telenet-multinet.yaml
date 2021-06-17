@@ -47,10 +47,10 @@ workloads:
   infrastructure:
     servers:
       itfces:
-        itfce: {vlan_id: 0, kind: irb, ipv4_cidr: [10.101.12.0/26], ipv6_cidr: [2a02:1800:80:7000::/64],}
+        itfce: {vlan_id: 1000, kind: irb, ipv4_cidr: [10.101.12.0/26], ipv6_cidr: [2a02:1800:80:7000::/64],}
     dcgw-grp1:
       itfces:
-        itfce: {vlan_id: 0, kind: routed, ipv4_cidr: [10.100.40.0/24], ipv6_cidr: [2a02:1800:80:7050::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
+        itfce: {vlan_id: 1000, kind: routed, ipv4_cidr: [10.100.40.0/24], ipv6_cidr: [2a02:1800:80:7050::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
   multus-mgmt:
     servers:
       itfces:
@@ -106,6 +106,17 @@ workloads:
     dcgw-grp1:
       itfces:
         itfce: {vlan_id: 1550, kind: routed, ipv4_cidr: [10.0.56.0/24], ipv6_cidr: [2a02:1800:80:7560::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
+  multus-enterprise:
+    servers:
+      itfces:
+        ipvlan: {vlan_id: 1600, kind: irb, ipv4_cidr: [10.0.60.0/24], ipv6_cidr: [2a02:1800:80:7600::/64]}
+        sriov1.1: {vlan_id: 1610, kind: irb, ipv4_cidr: [10.0.61.0/27, 10.0.61.32/27, 10.0.51.64/27, 10.0.61.96/27, 10.0.61.128/27, 10.0.61.160/27], ipv6_cidr: [2a02:1800:80:7610::/64, 2a02:1800:80:7611::/64, 2a02:1800:80:7612::/64, 2a02:1800:80:7613::/64, 2a02:1800:80:7614::/64, 2a02:1800:80:7615::/64], target: leaf1}
+        sriov2.1: {vlan_id: 1620, kind: irb, ipv4_cidr: [10.0.62.0/27, 10.0.62.32/27, 10.0.52.64/27, 10.0.62.96/27, 10.0.62.128/27, 10.0.62.160/27], ipv6_cidr: [2a02:1800:80:7620::/64, 2a02:1800:80:7621::/64, 2a02:1800:80:7622::/64, 2a02:1800:80:7623::/64, 2a02:1800:80:7624::/64, 2a02:1800:80:7625::/64], target: leaf2}
+      loopbacks:
+        loopback: {ipv4_cidr: [10.0.65.0/24], ipv6_cidr: [2a02:1800:80:7650::/64]}
+    dcgw-grp1:
+      itfces:
+        itfce: {vlan_id: 1650, kind: routed, ipv4_cidr: [10.0.66.0/24], ipv6_cidr: [2a02:1800:80:7560::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
 
 appnetwindexes:
   itfce:

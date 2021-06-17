@@ -239,8 +239,8 @@ application:
             3GPP_Internet: {wl-name: multus-internet}
         pods:
           loam: {tag: B-12.0.R5-1, cpu: 4, memory: 8Gi, enabled: true }
-          lmg: {tag: B-12.0.R5-1, cpu: 8, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: true, total: 3, numa: 0}
-          llb: {tag: B-12.0.R5-1, cpu: 6, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: true, total: 2, numa: 0}
+          lmg: {tag: B-12.0.R5-1, cpu: 8, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: true, total: 15, numa: 0}
+          llb: {tag: B-12.0.R5-1, cpu: 6, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: true, total: 6, numa: 0}
           nasc: {tag: B-12.0.R5-1, cpu: 1, memory: 16Gi, enabled: true}
           logging: {tag: B-12.0.R5-1, cpu: 1, memory: 1Gi, enabled: true}
           awsSideCar: {tag: B-12.0.R5-1, cpu: 100m, memory: 100Mi, enabled: false}
@@ -257,7 +257,7 @@ application:
         pods:
           loam: {tag: B-12.0.R5-1, cpu: 4, memory: 8Gi, enabled: true}
           lmg: {tag: B-12.0.R5-1, cpu: 8, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: false}
-          llb: {tag: B-12.0.R5-1, cpu: 6, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: true, total: 2, numa: 0}
+          llb: {tag: B-12.0.R5-1, cpu: 6, memory: 16Gi, hugepages1Gi: 1Gi, nodeSelector: "{}", enabled: true, total: 16, numa: 0}
           nasc: {tag: B-12.0.R5-1, cpu: 1, memory: 1Gi, enabled: true}
           logging: {tag: B-12.0.R5-1, cpu: 1, memory: 1Gi, enabled: true}
           awsSideCar: {tag: B-12.0.R5-1, cpu: 100m, memory: 100Mi, enabled: false}
@@ -342,10 +342,10 @@ topology:
       labels: {"kind": "access", "type": "esi1", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true, "numa": 0}
     - endpoints: ["leaf2:e1-1", "master0:ens5f1"]
       labels: {"kind": "access", "type": "esi1", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "numa": 0}
-    # - endpoints: ["leaf1:e1-3", "worker0:eno5"]
-    #   labels: {"kind": "access", "type": "esi3", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
-    # - endpoints: ["leaf2:e1-3", "worker0:eno6"]
-    #   labels: {"kind": "access", "type": "esi3", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G"}
+    - endpoints: ["leaf1:e1-3", "worker0:ens2f0"]
+      labels: {"kind": "access", "type": "esi3", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true, "numa": 0}
+    - endpoints: ["leaf2:e1-3", "worker0:ens2f1"]
+      labels: {"kind": "access", "type": "esi3", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "numa": 0}
     # - endpoints: ["leaf1:e1-4", "worker0:ens2f0"]
     #   labels: {"kind": "access", "type": "esi4", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true}
     # - endpoints: ["leaf2:e1-4", "worker0:ens2f1"]

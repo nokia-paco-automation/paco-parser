@@ -5,17 +5,19 @@ import (
 )
 
 type Parser struct {
-	BaseSwitchDir  *string
-	BaseAppDir     *string
-	BaseAppIpamDir *string
-	ConfigFile     *ConfigFile
-	Config         *Config
-	Nodes          map[string]*Node
-	Links          []*Link
-	IPAM           map[string]*Ipam
-	NextAS         *uint32
-	Workloads      map[string]*Workload
-	ClientGroups   map[string]*ClientGroup
+	BaseSwitchDir        *string
+	BaseAppValuesDir     *string
+	BaseAppKustomizesDir *string
+	BaseServerDir        *string
+	BaseAppIpamDir       *string
+	ConfigFile           *ConfigFile
+	Config               *Config
+	Nodes                map[string]*Node
+	Links                []*Link
+	IPAM                 map[string]*Ipam
+	NextAS               *uint32
+	Workloads            map[string]*Workload
+	ClientGroups         map[string]*ClientGroup
 	// DeploymentIPAM is a map where
 	// first string key = multusNetworkName
 	// 2nd Key string = ipvlan, sriov1, sriov2
@@ -27,10 +29,16 @@ type Parser struct {
 	// e.g. map[ipvlan:[bond0] sriov:[bond0]]
 	// clientSriovInfo -> map[key=servername] with list fo switches
 	// e.g. map[master0:[leaf1 leaf2]]
-	ClientLinks map[string][]*ClientLinkInfo
+	//ClientLinks map[string][]*ClientLinkInfo
 	// identify the server nodes and its respective leaf/tor switches
-	ClientSriovInfo map[string][]string
-	SwitchInfo      *switchInfo
+	//ClientSriovInfo map[string][]string
+	// key1: sriov or ipvlan,
+	// key2: ServerLogicalInterfacename (bondx),
+	// key3: numa,
+	// key4: switch-name,
+	// value list of pfNames
+	ClientServer2NetworkLinks map[string]map[string]map[int]map[string][]*string
+	SwitchInfo                *switchInfo
 
 	debug bool
 }
@@ -59,8 +67,10 @@ func WithConfigFile(file *string) ParserOption {
 // WithOutput initializes the output variable
 func WithOutput(o *string) ParserOption {
 	return func(p *Parser) {
-		p.BaseSwitchDir = StringPtr(*o + "/" + "kustomize")
-		p.BaseAppDir = StringPtr(*o + "/" + "app")
+		p.BaseSwitchDir = StringPtr(*o + "/" + "switch/kustomize")
+		p.BaseAppValuesDir = StringPtr(*o + "/" + "app-values")
+		p.BaseAppKustomizesDir = StringPtr(*o + "/" + "app-kustomize")
+		p.BaseServerDir = StringPtr(*o + "/" + "server")
 		p.BaseAppIpamDir = StringPtr(*o + "/" + "app-ipam-csv")
 	}
 }
@@ -68,23 +78,27 @@ func WithOutput(o *string) ParserOption {
 // NewParser function defines a new parser
 func NewParser(opts ...ParserOption) *Parser {
 	p := &Parser{
-		BaseSwitchDir:   new(string),
-		BaseAppDir:      new(string),
-		Config:          new(Config),
-		ConfigFile:      new(ConfigFile),
-		Nodes:           make(map[string]*Node),
-		Links:           make([]*Link, 0),
-		IPAM:            make(map[string]*Ipam),
-		Workloads:       make(map[string]*Workload),
-		ClientGroups:    make(map[string]*ClientGroup),
-		NextAS:          new(uint32),
-		DeploymentIPAM:  make(map[string]map[string]map[string]*IpamApp),
-		ClientSriovInfo: make(map[string][]string),
-		ClientLinks:     make(map[string][]*ClientLinkInfo),
+		BaseSwitchDir:        new(string),
+		BaseAppValuesDir:     new(string),
+		BaseAppKustomizesDir: new(string),
+		Config:               new(Config),
+		ConfigFile:           new(ConfigFile),
+		Nodes:                make(map[string]*Node),
+		Links:                make([]*Link, 0),
+		IPAM:                 make(map[string]*Ipam),
+		Workloads:            make(map[string]*Workload),
+		ClientGroups:         make(map[string]*ClientGroup),
+		NextAS:               new(uint32),
+		DeploymentIPAM:       make(map[string]map[string]map[string]*IpamApp),
+		//ClientSriovInfo: make(map[string][]string), // Key1
+		//ClientLinks:     make(map[string][]*ClientLinkInfo),
+		// key1: sriov or ipvlan, key2: ServerLogicalInterfacename (bond), key3: numa, key4: switch-name,value list of pfNames
+		ClientServer2NetworkLinks: make(map[string]map[string]map[int]map[string][]*string),
 	}
 
 	// initialize the deployment IPAM, only use the ipvlan and sriov networks
 	p.SwitchInfo = &switchInfo{
+		switchesPerServer: new(int),
 		// assign infrastructure/switch IP addresses
 		// key1 = wlName, key2 = switchid -> value is bgp peer; 1 per switch
 		switchBgpPeersIPv4: make(map[string]map[int]*BGPPeerInfo),

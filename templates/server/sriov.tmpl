@@ -1,0 +1,36 @@
+{{- /* .Sriovc map[string]map[string]map[int]map[string][]*string */}}
+{{- /* key1: sriov or ipvlan */}}
+{{- /* key2: ServerLogicalInterfacename (bondx) */}}
+{{- /* key3: numa */}}
+{{- /* key4: switch-name */}}
+{{- /* value list of pfNames */}}
+Name:         sriovdp-config
+Namespace:    kube-system
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+config.json:
+----
+{
+    "resourceList": [
+{{- $sriov := index .Sriovc "sriov"}}
+{{- range $InterfaceName, $interfaceInfo := $sriov  }}
+{{- range $numa, $numaInfo := $interfaceInfo }}
+{{- range $switchName, $switchInfo :=  $numaInfo }}
+        {
+            "resourceName": "sriov_numa{{$numa}}_{{$InterfaceName}}_{{$switchName}}",
+            "resourcePrefix": "gke",
+            "selectors": {
+                "pfNames": [{{list2string $switchInfo }}]
+            }
+        }
+{{- if eq (lastmap $switchName $numaInfo) false}}
+        ,        
+{{- end}}
+{{- end}}
+{{- end}}
+{{- end}}
+    ]
+}

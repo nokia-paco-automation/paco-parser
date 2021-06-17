@@ -1,0 +1,84 @@
+{{- $loamBDict := (default dict .Values.LoamB) }}
+{{- $loamBEnable := ($loamBDict.Enable | int) }}
+{{- if eq $loamBEnable 1 }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: to-active
+data:
+  toActive.py: |
+    #!/usr/bin/python3
+    import sys
+    import kubernetes
+    import subprocess
+    import re
+    import os
+
+
+    def main():
+        kubernetes.config.load_incluster_config()
+        try:
+            podName = os.environ["MY_POD_NAME"]
+        except:
+            print("Cannot access MY_POD_NAME environment variable")
+            sys.exit(1)
+        try:
+            podNamespace = os.environ["MY_POD_NAMESPACE"]
+        except:
+            print("Cannot access MY_POD_NAMESPACE environment variable")
+            sys.exit(1)
+        try:
+            apiresponse = kubernetes.client.CoreV1Api().list_namespaced_pod(podNamespace)
+        except kubernetes.client.rest.ApiException as err:
+            print(err)
+            sys.exit(1)
+        try:
+            temp_list = apiresponse.items
+        except:
+            print("Cannot get pod list from API response")
+            sys.exit(1)
+        for item in temp_list:
+            try:
+                temp_podName = item.metadata.name
+            except:
+                print("Cannot extract pod name from API response")
+                continue
+            print("Pod name : %s" % (temp_podName))
+            temp_re = re.search(r"loam-[a-b]", temp_podName)
+            if temp_re == None:
+                print("Not LOAM pod, skipping")
+                continue
+            try:
+                temp_dict = item.metadata.labels
+            except:
+                print("Cannot extract pod label from API response")
+                continue
+            try:
+                currentPodLabel = temp_dict["loamState"]
+            except:
+                print("Cannot extract pod label from API response dictionary")
+                currentPodLabel = None
+            else:
+                print("Pod label : %s" % (currentPodLabel))
+            if podName == temp_podName and currentPodLabel != "active":
+                newPodLabel = "active"
+            elif podName != temp_podName and currentPodLabel != "standby":
+                newPodLabel = "standby"
+            else:
+                print("Current pod label is correct, no patch required")
+                continue
+            print("Current pod label does not match loam state, modifying with PATCH")
+            body = {"metadata": {"labels": {"loamState": newPodLabel}}}
+            try:
+                apiresponse = kubernetes.client.CoreV1Api().patch_namespaced_pod(temp_podName, podNamespace, body)
+            except kubernetes.client.rest.ApiException as err:
+                print(err)
+                continue
+
+
+    if __name__ == "__main__":
+        main()
+        sys.exit(0)
+
+---
+{{- end }}

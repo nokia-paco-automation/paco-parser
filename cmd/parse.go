@@ -90,6 +90,9 @@ var parseCmd = &cobra.Command{
 		kdirs = append(kdirs, kd...)
 		p.WriteFinalBase(kdirs)
 
+		//Write the server yaml files
+		p.ParseServerData()
+
 		//Write the values.yaml file for the respective applications in k8s
 		p.ParseApplicationData()
 

@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/apparentlymart/go-cidr/cidr"
-	"github.com/google/go-cmp/cmp"
 	log "github.com/sirupsen/logrus"
 )
+
 
 // DeploymentIPAM is a map where
 // first string key = multusNetworkName
@@ -61,12 +61,19 @@ type AppConfig struct {
 	Containers       map[string]*ContainerInfo
 	// key1 is wlGenericName, key2 is group, key3 is swithIndex key4 is loopback or interfce, key6 is kind/type
 	// group: 0 is used for control plane; group 1, etc for LMG user plane
-	Networks           map[string]map[int]map[int]map[string]map[string][]*RenderedNetworkInfo
-	UePoolCidr         *string
-	Apn                *string
-	Switches           []string
-	ClientLinks        map[string]map[string]*ClientLinkInfo
-	UniqueClientLinks  map[string][]*ClientLinkInfo
+	Networks          map[string]map[int]map[int]map[string]map[string][]*RenderedNetworkInfo
+	SwitchesPerServer *int
+	UePoolCidr        *string
+	Apn               *string
+	// key1: sriov or ipvlan,
+	// key2: ServerLogicalInterfacename (bondx),
+	// key3: numa,
+	// key4: switch-name,
+	// value list of pfNames
+	UniqueClientServer2NetworkLinks map[string]map[string]map[int]map[string][]*string
+	//Switches           []string
+	//ClientLinks        map[string]map[string]*ClientLinkInfo
+	//UniqueClientLinks  map[string][]*ClientLinkInfo
 	WorkloadShortNames map[string]*string
 	ConnType           *string
 	Llbs               *int
@@ -80,21 +87,21 @@ type ClientLinkInfo struct {
 }
 
 type ContainerRepo struct {
-	ImageRepo   string
-	ImageSecret string
+	ImageRepo   *string
+	ImageSecret *string
 }
 
 type ContainerInfo struct {
-	ImageName           string
-	ImageTag            string
-	CPU                 int
-	Memory              string
-	Hugepages1Gi        string
-	NodeSelector        string
+	ImageName           *string
+	ImageTag            *string
+	CPU                 *int
+	Memory              *string
+	Hugepages1Gi        *string
+	NodeSelector        *string
 	Antiaffinity        []string
-	InitialDelaySeconds int
-	PeriodSeconds       int
-	Enabled             bool
+	InitialDelaySeconds *int
+	PeriodSeconds       *int
+	Enabled             *bool
 }
 
 type RenderedNetworkInfo struct {
@@ -204,6 +211,7 @@ type IPinfo struct {
 }
 
 type switchInfo struct {
+	switchesPerServer  *int
 	switchBgpPeersIPv4 map[string]map[int]*BGPPeerInfo              // key1 = wlName, key2 = switch id, value is bgp peer info (ip/as)
 	switchBgpPeersIPv6 map[string]map[int]*BGPPeerInfo              // key1 = wlName, key2 = switch id, value is bgp peer info (ip/as)
 	switchGwsIPv4      map[string]map[string]map[int]map[int]string // key1 = wlName, key2 = networktype, key3 = switch id, key4 is cidr index, value is gw
@@ -215,7 +223,7 @@ type switchInfo struct {
 
 func (p *Parser) ParseApplicationData() {
 	log.Infof("Rendering Application Data into Helm values.yaml...")
-	dirName := filepath.Join(*p.BaseAppDir)
+	dirName := filepath.Join(*p.BaseAppValuesDir)
 	p.CreateDirectory(dirName, 0777)
 
 	// Parse the application templates
@@ -240,62 +248,6 @@ func (p *Parser) ParseApplicationData() {
 			}
 		}
 	}
-
-	// get the sriov and ipvlan networks and naming, etc
-	// clientLinks["ipvlan"] -> map with sriov/ipvlan -> interface name of the server (bond0 or bond1 or multiple bonds
-	// e.g. map[ipvlan:[bond0] sriov:[bond0]]
-	// clientSriovInfo -> map[key=servername] with list fo switches
-	// e.g. map[master0:[leaf1 leaf2]]
-	p.ClientLinks["ipvlan"] = make([]*ClientLinkInfo, 0)
-	p.ClientLinks["sriov"] = make([]*ClientLinkInfo, 0)
-
-	// identify the server nodes and its respective leaf/tor switches
-	for _, link := range p.Links {
-		if link.Sriov != nil && *link.Sriov {
-			found := false
-			for _, clientLink := range p.ClientLinks["sriov"] {
-				if *clientLink.InterfaceName == *link.ClientName {
-					found = true
-				}
-			}
-			if !found {
-				cl := &ClientLinkInfo{
-					InterfaceName: link.ClientName,
-					Numa:          link.Numa,
-				}
-				p.ClientLinks["sriov"] = append(p.ClientLinks["sriov"], cl)
-			}
-			if *link.A.Node.Kind == "linux" {
-				if _, ok := p.ClientSriovInfo[*link.A.Node.ShortName]; !ok {
-					p.ClientSriovInfo[*link.A.Node.ShortName] = make([]string, 0)
-				}
-				p.ClientSriovInfo[*link.A.Node.ShortName] = append(p.ClientSriovInfo[*link.A.Node.ShortName], *link.A.PeerNode.ShortName)
-			}
-			if *link.B.Node.Kind == "linux" {
-				if _, ok := p.ClientSriovInfo[*link.B.Node.ShortName]; !ok {
-					p.ClientSriovInfo[*link.B.Node.ShortName] = make([]string, 0)
-				}
-				p.ClientSriovInfo[*link.B.Node.ShortName] = append(p.ClientSriovInfo[*link.B.Node.ShortName], *link.B.PeerNode.ShortName)
-			}
-		}
-		if link.IPVlan != nil && *link.IPVlan {
-			found := false
-			for _, clientLink := range p.ClientLinks["ipvlan"] {
-				if *clientLink.InterfaceName == *link.ClientName {
-					found = true
-				}
-			}
-			if !found {
-				cl := &ClientLinkInfo{
-					InterfaceName: link.ClientName,
-					Numa:          link.Numa,
-				}
-				p.ClientLinks["ipvlan"] = append(p.ClientLinks["ipvlan"], cl)
-			}
-		}
-	}
-	log.Debugf("Client Links %v", p.ClientLinks)
-	log.Debugf("Client SRIOV info %v", p.ClientSriovInfo)
 
 	// get gw and bgp indexes
 	gwidx := p.GetApplicationIndex(StringPtr("itfce"), StringPtr("switch"), StringPtr("gw"))
@@ -348,6 +300,10 @@ func (p *Parser) ParseApplicationData() {
 					}
 				}
 			}
+
+			// assign the switches per server
+			*p.SwitchInfo.switchesPerServer = len(p.SwitchInfo.switchBgpPeersIPv4[wlName])
+
 		}
 	}
 	log.Debugf("BGP Peers Ipv4: %v", p.SwitchInfo.switchBgpPeersIPv4)
@@ -394,7 +350,8 @@ func (p *Parser) ParseApplicationData() {
 					// initializes the POD/Contaianer information per CNF
 					appc[cnfName].InitializeCnfContainerData(p.Config.ContainerRegistry, cnfInfo.Pods)
 					//
-					appc[cnfName].InitializeCnfNetworkData(cnfName, cnfInfo, p, appIPMap, p.ClientLinks, p.ClientSriovInfo, p.SwitchInfo)
+					//appc[cnfName].InitializeCnfNetworkData(cnfName, cnfInfo, p, appIPMap, p.ClientLinks, p.ClientSriovInfo, p.SwitchInfo)
+					appc[cnfName].InitializeCnfNetworkData(cnfName, cnfInfo, p, appIPMap, p.ClientServer2NetworkLinks, p.SwitchInfo)
 
 					appc[cnfName].K8sApiServer = apiServer.String()
 					appc[cnfName].K8sDns = dns.String()
@@ -438,11 +395,12 @@ func (p *Parser) ParseApplicationData() {
 					appIPMap)
 
 				// Show the application IPAM
-				dirName := filepath.Join(*p.BaseAppIpamDir)
-				p.WriteApplicationDeploymentIPAM(&dirName)
+				//dirName := filepath.Join(*p.BaseAppIpamDir)
+				//p.WriteApplicationDeploymentIPAM(&dirName)
+
+				p.ParseCnfKustomize(StringPtr(cnfName), appc[cnfName], appIPMap)
 			}
 
-			
 		}
 	}
 }
@@ -541,35 +499,37 @@ func (p *Parser) AssignSwitchBgpLoopback(version, ipcidr, wlName, netwType *stri
 	// e.g. map[master0:[leaf1 leaf2]]
 	// We are assuming uniform connectivity
 	once := true
-	for _, switches := range p.ClientSriovInfo {
-		if once {
-			for i, switchName := range switches {
-				switchIndex, err := strconv.Atoi(switchName[len(switchName)-1:])
-				if err != nil {
-					log.Fatalf("switch name should end with a integer")
-				}
-
-				// assign BGP Loopback
-				var allocateIP *AllocatedIPInfo
-				allocateIP, err = AllocateIPIndex(StringPtr(switchName), StringPtr("BGP loopback"), IntPtr(bgpidx+i), ipNet, p.DeploymentIPAM[*wlName][*netwType])
-				if err != nil {
-					log.WithError(err).Errorf("Allocating IP error")
-				}
-
-				switch *version {
-				case "ipv4":
-					p.SwitchInfo.switchBgpPeersIPv4[*wlName][switchIndex] = &BGPPeerInfo{
-						IP: allocateIP.IPAddress,
-						AS: p.Nodes[switchName].AS,
+	for _, clientLinkInfo := range p.ClientServer2NetworkLinks["sriov"] {
+		for _, numaInfo := range clientLinkInfo {
+			if once {
+				for switchName := range numaInfo {
+					switchIndex, err := strconv.Atoi(switchName[len(switchName)-1:])
+					if err != nil {
+						log.Fatalf("switch name should end with a integer")
 					}
-				case "ipv6":
-					p.SwitchInfo.switchBgpPeersIPv6[*wlName][switchIndex] = &BGPPeerInfo{
-						IP: allocateIP.IPAddress,
-						AS: p.Nodes[switchName].AS,
+
+					// assign BGP Loopback
+					var allocateIP *AllocatedIPInfo
+					allocateIP, err = AllocateIPIndex(StringPtr(switchName), StringPtr("BGP loopback"), IntPtr(bgpidx+switchIndex-1), ipNet, p.DeploymentIPAM[*wlName][*netwType])
+					if err != nil {
+						log.WithError(err).Errorf("Allocating IP error")
+					}
+
+					switch *version {
+					case "ipv4":
+						p.SwitchInfo.switchBgpPeersIPv4[*wlName][switchIndex] = &BGPPeerInfo{
+							IP: allocateIP.IPAddress,
+							AS: p.Nodes[switchName].AS,
+						}
+					case "ipv6":
+						p.SwitchInfo.switchBgpPeersIPv6[*wlName][switchIndex] = &BGPPeerInfo{
+							IP: allocateIP.IPAddress,
+							AS: p.Nodes[switchName].AS,
+						}
 					}
 				}
+				once = false
 			}
-			once = false
 		}
 	}
 }
@@ -591,8 +551,8 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 	}
 
 	a.ContainerRepo = &ContainerRepo{
-		ImageRepo:   containerRegistry + "/" + containerRegistryImageDir,
-		ImageSecret: containerRegistrySecret,
+		ImageRepo:   StringPtr(containerRegistry + "/" + containerRegistryImageDir),
+		ImageSecret: StringPtr(containerRegistrySecret),
 	}
 
 	// initialize the CNF POD/container information
@@ -732,16 +692,16 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 			imageName = "cpps"
 		}
 		a.Containers[podName] = &ContainerInfo{
-			Enabled:             enabled,
-			ImageName:           imageName,
-			ImageTag:            tag,
-			CPU:                 cpu,
-			Memory:              mem,
-			Hugepages1Gi:        hugepages,
-			NodeSelector:        nodeSelector,
+			Enabled:             BoolPtr(enabled),
+			ImageName:           StringPtr(imageName),
+			ImageTag:            StringPtr(tag),
+			CPU:                 IntPtr(cpu),
+			Memory:              StringPtr(mem),
+			Hugepages1Gi:        StringPtr(hugepages),
+			NodeSelector:        StringPtr(nodeSelector),
 			Antiaffinity:        antiaffinity,
-			InitialDelaySeconds: initialDelaySeconds,
-			PeriodSeconds:       periodSeconds,
+			InitialDelaySeconds: IntPtr(initialDelaySeconds),
+			PeriodSeconds:       IntPtr(periodSeconds),
 		}
 	}
 }
@@ -862,7 +822,7 @@ func AllocateIP(ipAddresses *map[string]map[int]map[string][]*AllocatedIPInfo, c
 	return allocateIPv4.IPAddress, allocateIPv6.IPAddress
 }
 
-func (a *AppConfig) AssignNetworkInfoLoopback(group *int, itfceType, wlName, multusGenericWlName *string, netwInfo *NetworkInfo, ipv4PrefixLength, ipv6PrefixLength *int, ipAddresses *map[string]map[int]map[string][]*AllocatedIPInfo, switchInfo *switchInfo, cnfInfo *CnfInfo, cnfName, ipv4BGPAddress, ipv6BGPAddress *string, clientLinkInfo *ClientLinkInfo, multusInfo map[string]*MultusInfo) {
+func (a *AppConfig) AssignNetworkInfoLoopback(group *int, itfceType, wlName, multusGenericWlName *string, netwInfo *NetworkInfo, ipv4PrefixLength, ipv6PrefixLength *int, ipAddresses *map[string]map[int]map[string][]*AllocatedIPInfo, switchInfo *switchInfo, cnfInfo *CnfInfo, cnfName, ipv4BGPAddress, ipv6BGPAddress *string, multusInfo map[string]*MultusInfo) {
 
 	if len(a.Networks[*multusGenericWlName][*group]) == 0 {
 		a.Networks[*multusGenericWlName][*group] = make(map[int]map[string]map[string][]*RenderedNetworkInfo)
@@ -903,15 +863,15 @@ func (a *AppConfig) AssignNetworkInfoLoopback(group *int, itfceType, wlName, mul
 			Ipv4Addresses:    (*ipAddresses)["ipv4"][*group][*itfceType],
 			Ipv6Addresses:    (*ipAddresses)["ipv6"][*group][*itfceType],
 			Target:           netwInfo.Target,
-			InterfaceName:    clientLinkInfo.InterfaceName,
-			VrfCpId:          multusInfo[*multusGenericWlName].VrfCpId,
-			IPv4BGPAddress:   ipv4BGPAddress,
-			IPv6BGPAddress:   ipv6BGPAddress,
-			IPv4BGPPeers:     switchInfo.switchBgpPeersIPv4[*wlName],
-			IPv6BGPPeers:     switchInfo.switchBgpPeersIPv6[*wlName],
-			Ipv4GwPerWl:      switchInfo.switchGwsPerWlNameIpv4[*wlName],
-			Ipv6GwPerWl:      switchInfo.switchGwsPerWlNameIpv6[*wlName],
-			AS:               cnfInfo.Networking.AS,
+			//InterfaceName:    clientLinkInfo.InterfaceName,
+			VrfCpId:        multusInfo[*multusGenericWlName].VrfCpId,
+			IPv4BGPAddress: ipv4BGPAddress,
+			IPv6BGPAddress: ipv6BGPAddress,
+			IPv4BGPPeers:   switchInfo.switchBgpPeersIPv4[*wlName],
+			IPv6BGPPeers:   switchInfo.switchBgpPeersIPv6[*wlName],
+			Ipv4GwPerWl:    switchInfo.switchGwsPerWlNameIpv4[*wlName],
+			Ipv6GwPerWl:    switchInfo.switchGwsPerWlNameIpv6[*wlName],
+			AS:             cnfInfo.Networking.AS,
 		}
 		a.Networks[*multusGenericWlName][*group][0]["loopback"][*itfceType] = append(a.Networks[*multusGenericWlName][*group][0]["loopback"][*itfceType], rnInfo)
 
@@ -1043,22 +1003,6 @@ func (a *AppConfig) AssignNetworkInfoItfce(group *int, itfceType, wlName, multus
 	}
 }
 
-func (a *AppConfig) UpdateUniqueClientLinks(connType *string, clientLink *ClientLinkInfo) {
-	found := false
-	for cType, ClientLinkInfo := range a.UniqueClientLinks {
-		if cType == *connType {
-			for _, cLink := range ClientLinkInfo {
-				if cmp.Equal(*cLink, *clientLink) {
-					found = true
-				}
-			}
-		}
-	}
-	if !found {
-		a.UniqueClientLinks[*connType] = append(a.UniqueClientLinks[*connType], clientLink)
-	}
-}
-
 func (a *AppConfig) UpdateWorkloadShortNames(multusGenericWlName *string) {
 	switch *multusGenericWlName {
 	case "oam":
@@ -1083,12 +1027,11 @@ func (p *Parser) GetApplicationIndex(itfceType, element, kind *string) *int {
 }
 
 // initialize the network data per cnf
-func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p *Parser, appIPMap *AppIPMap, clientLinks map[string][]*ClientLinkInfo, clientSriovInfo map[string][]string, switchInfo *switchInfo) {
+func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p *Parser, appIPMap *AppIPMap, clientServer2NetworkLinks map[string]map[string]map[int]map[string][]*string, switchInfo *switchInfo) {
 
 	// initialize switches
-	for _, switches := range clientSriovInfo {
-		a.Switches = switches
-	}
+	a.SwitchesPerServer = p.SwitchInfo.switchesPerServer
+	// initialize networks
 	a.Networks = make(map[string]map[int]map[int]map[string]map[string][]*RenderedNetworkInfo)
 	// sriov or ipvlan
 	connType := cnfInfo.Networking.Type
@@ -1096,10 +1039,11 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 	a.ConnType = connType
 
 	// initialize client links
-	a.ClientLinks = make(map[string]map[string]*ClientLinkInfo)
-	a.ClientLinks[*connType] = make(map[string]*ClientLinkInfo)
-	a.UniqueClientLinks = make(map[string][]*ClientLinkInfo)
-	a.UniqueClientLinks[*connType] = make([]*ClientLinkInfo, 0)
+	a.UniqueClientServer2NetworkLinks = make(map[string]map[string]map[int]map[string][]*string)
+	//a.ClientLinks = make(map[string]map[string]*ClientLinkInfo)
+	//a.ClientLinks[*connType] = make(map[string]*ClientLinkInfo)
+	//a.UniqueClientLinks = make(map[string][]*ClientLinkInfo)
+	//a.UniqueClientLinks[*connType] = make([]*ClientLinkInfo, 0)
 
 	// initialize WorkloadShortNames
 	a.WorkloadShortNames = make(map[string]*string)
@@ -1254,32 +1198,32 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 								log.Debugf("Loopbacks per cnf: %s", cnfName)
 
 								// bgp loopback
-								a.AssignNetworkInfoLoopback(IntPtr(0), StringPtr("bgpLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv6BGPAddress, clientLinks[*connType][0], p.Config.Application["paco"].Global.Multus)
+								a.AssignNetworkInfoLoopback(IntPtr(0), StringPtr("bgpLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv6BGPAddress, p.Config.Application["paco"].Global.Multus)
 
 								// system loopback
-								a.AssignNetworkInfoLoopback(IntPtr(0), StringPtr("sysLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv6BGPAddress, clientLinks[*connType][0], p.Config.Application["paco"].Global.Multus)
+								a.AssignNetworkInfoLoopback(IntPtr(0), StringPtr("sysLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv6BGPAddress, p.Config.Application["paco"].Global.Multus)
 
 								// signalling control plane loopback
-								a.AssignNetworkInfoLoopback(IntPtr(0), StringPtr("sigLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv6BGPAddress, clientLinks[*connType][0], p.Config.Application["paco"].Global.Multus)
+								a.AssignNetworkInfoLoopback(IntPtr(0), StringPtr("sigLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv6BGPAddress, p.Config.Application["paco"].Global.Multus)
 
 								if cnfName == "upf" {
 									if lmgPodsPerGroup > 0 {
 										for g := 1; g <= lmgs/lmgPodsPerGroup; g++ {
 											// signalling control plane loopback per group
-											a.AssignNetworkInfoLoopback(IntPtr(g), StringPtr("sigLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv4BGPAddress, clientLinks[*connType][0], p.Config.Application["paco"].Global.Multus)
+											a.AssignNetworkInfoLoopback(IntPtr(g), StringPtr("sigLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv4BGPAddress, p.Config.Application["paco"].Global.Multus)
 										}
 									}
 								}
 
 								// llb loopback
-								a.AssignNetworkInfoLoopback(IntPtr(0), StringPtr("llbLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv4BGPAddress, clientLinks[*connType][0], p.Config.Application["paco"].Global.Multus)
+								a.AssignNetworkInfoLoopback(IntPtr(0), StringPtr("llbLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv4BGPAddress, p.Config.Application["paco"].Global.Multus)
 
 								if lmgPodsPerGroup > 0 {
 									log.Debugf("lmgLbk lmg lmgPodsPerGroup: %d %d", lmgs, lmgPodsPerGroup)
 									for g := 1; g <= lmgs/lmgPodsPerGroup; g++ {
 										// lmg loopback
 										log.Debugf("lmgLbk: %d", g)
-										a.AssignNetworkInfoLoopback(IntPtr(g), StringPtr("lmgLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv4BGPAddress, clientLinks[*connType][0], p.Config.Application["paco"].Global.Multus)
+										a.AssignNetworkInfoLoopback(IntPtr(g), StringPtr("lmgLbk"), &wlName, &multusGenericWlName, netwInfo, IntPtr(32), IntPtr(128), &ipAddresses, switchInfo, cnfInfo, &cnfName, ipv4BGPAddress, ipv4BGPAddress, p.Config.Application["paco"].Global.Multus)
 									}
 								}
 							}
@@ -1350,21 +1294,19 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 										AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("intIP"), StringPtr("interface LLB"), llbitfcidx, ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
 									}
 
-									clientLink = p.GetClientLink(cnfInfo, StringPtr("llb"), connType)
-
-									a.ClientLinks[*connType]["llb"] = clientLink
-
-									a.UpdateUniqueClientLinks(connType, clientLink)
+									// update unique links to ensure we map the right multus interface
+									clientLink = p.UpdateUniqueClientLink(cnfInfo, StringPtr("llb"), connType, a.UniqueClientServer2NetworkLinks)
 
 								case "upf":
 									// allocate an ip per llb from each subnet, max 6 subnets (6 llbs per cnf upf)
 									llbs := getLLBs(cnfInfo)
 
-									clientLink = p.GetClientLink(cnfInfo, StringPtr("llb"), connType)
+									// update unique links to ensure we map the right multus interface
+									clientLink = p.UpdateUniqueClientLink(cnfInfo, StringPtr("llb"), connType, a.UniqueClientServer2NetworkLinks)
 
-									a.ClientLinks[*connType]["llb"] = clientLink
+									//a.ClientLinks[*connType]["llb"] = clientLink
 
-									a.UpdateUniqueClientLinks(connType, clientLink)
+									//a.UpdateUniqueClientLinks(connType, clientLink)
 
 									llbitfcidx := p.GetApplicationIndex(StringPtr("itfce"), StringPtr(cnfName), StringPtr("llb"))
 									if i < llbs && networkIndex <= llbs {
@@ -1376,11 +1318,14 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 									// the amount of subnets per sriov differs for ntok versus 1to1
 									lmgs, lmgPodsPerGroup = getLMGs(cnfInfo, a.K)
 
-									lmgClientLink = p.GetClientLink(cnfInfo, StringPtr("lmg"), connType)
+									// update unique links to ensure we map the right multus interface
+									lmgClientLink = p.UpdateUniqueClientLink(cnfInfo, StringPtr("lmg"), connType, a.UniqueClientServer2NetworkLinks)
 
-									a.ClientLinks[*connType]["lmg"] = lmgClientLink
+									//lmgClientLink = p.GetClientLink(cnfInfo, StringPtr("lmg"), connType)
 
-									a.UpdateUniqueClientLinks(connType, lmgClientLink)
+									//a.ClientLinks[*connType]["lmg"] = lmgClientLink
+
+									//a.UpdateUniqueClientLinks(connType, lmgClientLink)
 
 									// for LMG/UP only allocate gws for subnet1 and or 2 based on deployment
 
@@ -1415,7 +1360,11 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 									fipv4, fipv6 = AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("fipIP"), StringPtr("interface AMF"), fipidx, ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
 
 									// TODO assignment of clientLinks[*connType][0] -> currently we take the first interface
-									clientLink = clientLinks[*connType][0]
+									//clientLink = clientLinks[*connType][0]
+									//clientLink = p.UpdateUniqueClientLink(cnfInfo, StringPtr("lmg"), connType, a.UniqueClientServer2NetworkLinks)
+									for clientIntfaceName := range p.ClientServer2NetworkLinks[*connType] {
+										clientLink = &ClientLinkInfo{&clientIntfaceName, IntPtr(0)}
+									}
 
 									// assign AMF related paco interface from the ipvlan range
 									switch multusGenericWlName {
@@ -1512,13 +1461,13 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 	}
 }
 
-func (p *Parser) GetClientLink(cnfInfo *CnfInfo, podName, connType *string) *ClientLinkInfo {
-	var clientLinkInfo *ClientLinkInfo
-	var numa int
-	if n, ok := cnfInfo.Pods[*podName]["numa"]; ok {
-		switch v := n.(type) {
+func (p *Parser) UpdateUniqueClientLink(cnfInfo *CnfInfo, podName, connType *string, uniqueClientServer2NetworkLinks map[string]map[string]map[int]map[string][]*string) *ClientLinkInfo {
+	// for connecton type sriov we need to understand the numa placement
+	var n int // numa
+	if x, ok := cnfInfo.Pods[*podName]["numa"]; ok {
+		switch v := x.(type) { //x is numa
 		case int:
-			numa = v
+			n = v
 		default:
 			log.Fatal("Numa should be specified in LLB or LMG pods as integer")
 		}
@@ -1526,13 +1475,31 @@ func (p *Parser) GetClientLink(cnfInfo *CnfInfo, podName, connType *string) *Cli
 		log.Fatal("Numa should be specified in LLB or LMG pods")
 	}
 
-	for _, clientLinkInfo := range p.ClientLinks[*connType] {
-		if *clientLinkInfo.Numa == numa {
-			return clientLinkInfo
+	for clientLinkName, clientLinkInfo := range p.ClientServer2NetworkLinks[*connType] {
+		for numa := range clientLinkInfo {
+			if numa == n {
+				if _, ok := uniqueClientServer2NetworkLinks[*connType]; !ok {
+					uniqueClientServer2NetworkLinks[*connType] = make(map[string]map[int]map[string][]*string)
+					uniqueClientServer2NetworkLinks[*connType][clientLinkName] = make(map[int]map[string][]*string)
+					uniqueClientServer2NetworkLinks[*connType][clientLinkName][numa] = make(map[string][]*string)
+				} else {
+					if _, ok := uniqueClientServer2NetworkLinks[*connType][clientLinkName]; !ok {
+						uniqueClientServer2NetworkLinks[*connType][clientLinkName] = make(map[int]map[string][]*string)
+						uniqueClientServer2NetworkLinks[*connType][clientLinkName][numa] = make(map[string][]*string)
+					} else {
+						if _, ok := uniqueClientServer2NetworkLinks[*connType][clientLinkName][numa]; !ok {
+							uniqueClientServer2NetworkLinks[*connType][clientLinkName][numa] = make(map[string][]*string)
+						}
+					}
+				}
+				uniqueClientServer2NetworkLinks[*connType][clientLinkName][numa] = p.ClientServer2NetworkLinks[*connType][clientLinkName][numa]
+				return &ClientLinkInfo{&clientLinkName, &numa}
+			}
 		}
 	}
+
 	log.Fatal("Numa not found")
-	return clientLinkInfo
+	return nil
 }
 
 func getLLBs(cnfInfo *CnfInfo) int {
@@ -1812,3 +1779,5 @@ func (appIPMap AppIPMap) AllocateAppLoopback(app, lpName, wlName *string, index 
 	}
 	return nil
 }
+
+
