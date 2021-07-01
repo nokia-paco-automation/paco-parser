@@ -84,6 +84,7 @@ var parseCmd = &cobra.Command{
 		var kdirs []string
 		kd := p.WriteInfrastructure()
 		kdirs = append(kdirs, kd...)
+		p.WriteSwitchJSON()
 		kd = p.WriteClientsGroups()
 		kdirs = append(kdirs, kd...)
 		kd = p.WriteWorkloads()

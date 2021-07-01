@@ -67,7 +67,8 @@ func WithConfigFile(file *string) ParserOption {
 // WithOutput initializes the output variable
 func WithOutput(o *string) ParserOption {
 	return func(p *Parser) {
-		p.BaseSwitchDir = StringPtr(*o + "/" + "switch/kustomize")
+		p.BaseSwitchDir = StringPtr(*o + "/" + "switch-kustomize")
+		p.BaseSwitchDir = StringPtr(*o + "/" + "switch-json")
 		p.BaseAppValuesDir = StringPtr(*o + "/" + "app-values")
 		p.BaseAppKustomizesDir = StringPtr(*o + "/" + "app-kustomize")
 		p.BaseServerDir = StringPtr(*o + "/" + "server")
