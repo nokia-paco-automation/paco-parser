@@ -82,7 +82,8 @@ var parseCmd = &cobra.Command{
 		p.WriteBase()
 		// holds a structure with all directories that are used by kustomize
 		var kdirs []string
-		kd := p.WriteInfrastructure()
+		kd, infrastructureResult := p.WriteInfrastructure()
+		_ = infrastructureResult
 		kdirs = append(kdirs, kd...)
 		kd = p.WriteClientsGroups()
 		kdirs = append(kdirs, kd...)

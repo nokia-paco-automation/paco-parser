@@ -110,8 +110,29 @@ func (p *Parser) WriteFinalBase(kdirs []string) {
 	p.WriteKustomize(StringPtr(dirName), StringPtr("kustomization.yaml"), kdirs)
 }
 
-func (p *Parser) WriteInfrastructure() (kuztomizedirs []string) {
+type InfrastructureResult struct {
+	IslInterfaces           map[string][]*k8ssrlinterface
+	IslSubInterfaces        map[string]map[string][]*k8ssrlsubinterface
+	SystemSubInterfaces     map[string][]*k8ssrlsubinterface
+	DefaultNetworkInstances map[string]*k8ssrlNetworkInstance
+	DefaultProtocolBGP      map[string]*k8ssrlprotocolsbgp
+}
+
+func NewInfrastructureResult() *InfrastructureResult {
+	return &InfrastructureResult{
+		IslInterfaces:           map[string][]*k8ssrlinterface{},
+		IslSubInterfaces:        map[string]map[string][]*k8ssrlsubinterface{},
+		SystemSubInterfaces:     map[string][]*k8ssrlsubinterface{},
+		DefaultNetworkInstances: map[string]*k8ssrlNetworkInstance{},
+		DefaultProtocolBGP:      map[string]*k8ssrlprotocolsbgp{},
+	}
+}
+
+func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
+	infrastructureResult := NewInfrastructureResult()
+
 	var fileName string
+	var kuztomizedirs []string
 	log.Infof("Writing infrastructure k8s yaml objects...")
 	dirName := filepath.Join(*p.BaseSwitchDir, "infra")
 	p.CreateDirectory(dirName, 0777)
@@ -273,6 +294,7 @@ func (p *Parser) WriteInfrastructure() (kuztomizedirs []string) {
 				StringPtr("infra-isl-interface"+nodeName),
 				StringPtr(nodeName),
 				islinterfaces)
+			infrastructureResult.IslInterfaces[nodeName] = append(infrastructureResult.IslInterfaces[nodeName], islinterfaces...)
 			resources = append(resources, fileName)
 
 			// write isl subinterfaces
@@ -283,6 +305,10 @@ func (p *Parser) WriteInfrastructure() (kuztomizedirs []string) {
 				StringPtr("infra-isl-subinterface"+islsubinterfaces[0].InterfaceShortName+"-"+nodeName),
 				StringPtr(nodeName),
 				islsubinterfaces)
+			if _, ok := infrastructureResult.IslSubInterfaces[nodeName]; !ok {
+				infrastructureResult.IslSubInterfaces[nodeName] = make(map[string][]*k8ssrlsubinterface)
+			}
+			infrastructureResult.IslSubInterfaces[nodeName][islsubinterfaces[0].InterfaceShortName] = append(infrastructureResult.IslSubInterfaces[nodeName][islsubinterfaces[0].InterfaceShortName], islsubinterfaces...)
 			resources = append(resources, fileName)
 
 			// write system0 subinterface
@@ -293,6 +319,7 @@ func (p *Parser) WriteInfrastructure() (kuztomizedirs []string) {
 				StringPtr("infra-system0-subinterface"+"-"+nodeName),
 				StringPtr(nodeName),
 				systemsubinterfaces)
+			infrastructureResult.SystemSubInterfaces[nodeName] = append(infrastructureResult.SystemSubInterfaces[nodeName], systemsubinterfaces...)
 			resources = append(resources, fileName)
 
 			defaultNetworkInstance := &k8ssrlNetworkInstance{
@@ -309,6 +336,7 @@ func (p *Parser) WriteInfrastructure() (kuztomizedirs []string) {
 				StringPtr("infra-default-network-instance"+"-"+nodeName),
 				StringPtr(nodeName), // we send it to all leafs at once assuming the configuration is symmetric
 				defaultNetworkInstance)
+			infrastructureResult.DefaultNetworkInstances[nodeName] = defaultNetworkInstance
 			resources = append(resources, fileName)
 
 			peerGroups := make([]*PeerGroup, 0)
@@ -358,11 +386,12 @@ func (p *Parser) WriteInfrastructure() (kuztomizedirs []string) {
 				StringPtr("infra-default-protocols-bgp"+nodeName),
 				StringPtr(nodeName),
 				defaultProtocolBgp)
+			infrastructureResult.DefaultProtocolBGP[nodeName] = defaultProtocolBgp
 			resources = append(resources, fileName)
 		}
 	}
 	p.WriteKustomize(&dirName, StringPtr("kustomization.yaml"), resources)
-	return kuztomizedirs
+	return kuztomizedirs, infrastructureResult
 }
 
 func (p *Parser) WriteClientsGroups() (kuztomizedirs []string) {
@@ -482,6 +511,7 @@ func (p *Parser) WriteClientsGroups() (kuztomizedirs []string) {
 }
 
 func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
+
 	log.Infof("Writing workload k8s yaml objects...")
 
 	for wlName, clients := range p.Config.Workloads {
@@ -1056,6 +1086,7 @@ func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
 					StringPtr(wlName+"-subinterface-"+itfceName+"-"+nodeName),
 					StringPtr(nodeName),
 					csi)
+
 				resources = append(resources, fileName)
 			}
 			if _, ok := irbSubInterfaces[nodeName]; ok {
