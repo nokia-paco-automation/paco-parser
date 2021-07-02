@@ -119,6 +119,7 @@ type InfrastructureResult struct {
 	RoutingPolicy           *k8ssrlRoutingPolicy
 	SystemInterfaces        []*k8ssrlinterface
 	Counter                 map[string]int
+	TunnelInterfaces        []*k8ssrlTunnelInterface
 }
 
 func NewInfrastructureResult() *InfrastructureResult {
@@ -135,36 +136,47 @@ func NewInfrastructureResult() *InfrastructureResult {
 }
 
 func (i *InfrastructureResult) AppendIslInterfaces(nodeName string, islinterfaces []*k8ssrlinterface) {
+	log.Debugf("Appending %d ISL Interfaces for %s", len(islinterfaces), nodeName)
 	i.Counter["AppendIslInterfaces"]++
 	i.IslInterfaces[nodeName] = append(i.IslInterfaces[nodeName], islinterfaces...)
 }
 func (i *InfrastructureResult) SetRoutingPolicy(routingPolicy *k8ssrlRoutingPolicy) {
+	log.Debugf("Setting RoutingPolicy")
 	i.Counter["SetRoutingPolicy"]++
 	i.RoutingPolicy = routingPolicy
 }
 func (i *InfrastructureResult) AppendSystemInterface(systemInterfaces []*k8ssrlinterface) {
+	log.Debugf("Appending %d system interfaces", len(systemInterfaces))
 	i.Counter["AppendSystemInterface"]++
-	log.Error("AppendSystemInterface(...) - To be implemented!")
 	i.SystemInterfaces = append(i.SystemInterfaces, systemInterfaces...)
-
 }
 func (i *InfrastructureResult) AppendTunnelInterfaces(tunnelInterfaces []*k8ssrlTunnelInterface) {
+	log.Debugf("Appending %d tunnel interfaces", len(tunnelInterfaces))
 	i.Counter["AppendTunnelInterfaces"]++
-	log.Error("AppendTunnelInterfaces(...) - To be implemented!")
+	i.TunnelInterfaces = append(i.TunnelInterfaces, tunnelInterfaces...)
 }
 func (i *InfrastructureResult) AppendIslSubInterfaces(nodeName string, islsubinterfaces []*k8ssrlsubinterface) {
+	log.Debugf("Appending %d ISL sub-interfaces to %s", len(islsubinterfaces), nodeName)
 	i.Counter["AppendIslSubInterfaces"]++
-	log.Error("AppendIslSubInterfaces(...) - To be implemented!")
+	for _, si := range islsubinterfaces {
+		if _, ok := i.IslSubInterfaces[nodeName][si.InterfaceShortName]; !ok {
+			i.IslSubInterfaces[nodeName] = map[string][]*k8ssrlsubinterface{}
+		}
+		i.IslSubInterfaces[nodeName][si.InterfaceShortName] = append(i.IslSubInterfaces[nodeName][si.InterfaceShortName], islsubinterfaces...)
+	}
 }
 func (i *InfrastructureResult) AppendSystemSubInterfaces(nodeName string, systemsubinterfaces []*k8ssrlsubinterface) {
+	log.Debugf("Appending %d system sub-interfaces to %s", len(systemsubinterfaces), nodeName)
 	i.Counter["AppendSystemSubInterfaces"]++
 	i.SystemSubInterfaces[nodeName] = append(i.SystemSubInterfaces[nodeName], systemsubinterfaces...)
 }
 func (i *InfrastructureResult) AppendDefaultNetworkInstance(nodeName string, defaultNetworkInstance *k8ssrlNetworkInstance) {
+	log.Debugf("Appending default Network Instance to %s", nodeName)
 	i.Counter["AppendDefaultNetworkInstance"]++
 	i.DefaultNetworkInstances[nodeName] = defaultNetworkInstance
 }
 func (i *InfrastructureResult) SetDefaultProtocolBgp(nodeName string, defaultProtocolBgp *k8ssrlprotocolsbgp) {
+	log.Debugf("Setting default protocol BGP to %s", nodeName)
 	i.Counter["SetDefaultProtocolBgp"]++
 	i.DefaultProtocolBGP[nodeName] = defaultProtocolBgp
 }
