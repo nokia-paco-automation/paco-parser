@@ -604,16 +604,16 @@ func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
 }
 
 type WorkloadResults struct {
-	VxlanSubInterfaces  map[string]map[string][]*k8ssrlVxlanInterface //
-	ClientSubInterfaces map[string]map[string][]*k8ssrlsubinterface   // nodename, interface -> subinterfaces
-	IrbSubInterfaces    map[string][]*k8ssrlirbsubinterface           // nodename -> subinterfaces
-	NetworkInstances    map[string]map[int]*k8ssrlNetworkInstance     // nodename, networkInstanceID -> networkinstance
-	Counter             map[string]int                                // counter is just for temporary inspection of what is going on in the code
+	VxlanSubInterfaces  map[string][]*k8ssrlVxlanInterface          //
+	ClientSubInterfaces map[string]map[string][]*k8ssrlsubinterface // nodename, interface -> subinterfaces
+	IrbSubInterfaces    map[string][]*k8ssrlirbsubinterface         // nodename -> subinterfaces
+	NetworkInstances    map[string]map[int]*k8ssrlNetworkInstance   // nodename, networkInstanceID -> networkinstance
+	Counter             map[string]int                              // counter is just for temporary inspection of what is going on in the code
 }
 
 func NewWorkloadResults() *WorkloadResults {
 	return &WorkloadResults{
-		VxlanSubInterfaces:  map[string]map[string][]*k8ssrlVxlanInterface{},
+		VxlanSubInterfaces:  map[string][]*k8ssrlVxlanInterface{},
 		ClientSubInterfaces: map[string]map[string][]*k8ssrlsubinterface{},
 		IrbSubInterfaces:    map[string][]*k8ssrlirbsubinterface{},
 		NetworkInstances:    map[string]map[int]*k8ssrlNetworkInstance{},
@@ -621,24 +621,36 @@ func NewWorkloadResults() *WorkloadResults {
 	}
 }
 
-func (w *WorkloadResults) AppendVxlanSubInterfaces(nodename string, vxlanif []*k8ssrlVxlanInterface) {
+func (w *WorkloadResults) AppendVxlanSubInterfaces(nodeName string, vxlanif []*k8ssrlVxlanInterface) {
+	log.Debugf("Appending %d VxLAN interfaces to node %s", len(vxlanif), nodeName)
 	w.Counter["AppendVxlanSubInterfaces"]++
-	log.Error("implementation pending!")
+	w.VxlanSubInterfaces[nodeName] = append(w.VxlanSubInterfaces[nodeName], vxlanif...)
 }
 
-func (w *WorkloadResults) AppendClientSubInterface(nodeName string, ifname string, clientSubInterface []*k8ssrlsubinterface) {
+func (w *WorkloadResults) AppendClientSubInterfaces(nodeName string, ifname string, clientSubInterface []*k8ssrlsubinterface) {
+	log.Debugf("Appending %d client sub-interfaces to node %s", len(clientSubInterface), nodeName)
 	w.Counter["AppendClientSubInterface"]++
-	log.Error("implementation pending!")
+	for _, si := range clientSubInterface {
+		if _, ok := w.ClientSubInterfaces[nodeName][si.InterfaceShortName]; !ok {
+			w.ClientSubInterfaces[nodeName] = map[string][]*k8ssrlsubinterface{}
+		}
+		w.ClientSubInterfaces[nodeName][si.InterfaceShortName] = append(w.ClientSubInterfaces[nodeName][si.InterfaceShortName], clientSubInterface...)
+	}
 }
 
-func (w *WorkloadResults) AppendIrbSubInterface(nodeName string, IrbSubInterface []*k8ssrlirbsubinterface) {
+func (w *WorkloadResults) AppendIrbSubInterfaces(nodeName string, irbSubInterfaces []*k8ssrlirbsubinterface) {
+	log.Debugf("Appending %d irb sub-interfaces to node %s", len(irbSubInterfaces), nodeName)
 	w.Counter["AppendIrbSubInterface"]++
-	log.Error("implementation pending!")
+	w.IrbSubInterfaces[nodeName] = append(w.IrbSubInterfaces[nodeName], irbSubInterfaces...)
 }
 
-func (w *WorkloadResults) AppendNetworkInstance(nodename string, id int, niInfo *k8ssrlNetworkInstance) {
+func (w *WorkloadResults) AppendNetworkInstance(nodeName string, id int, niInfo *k8ssrlNetworkInstance) {
+	log.Debugf("Appending Network instance %s with id %d to node %s", niInfo.Name, id, nodeName)
 	w.Counter["AppendNetworkInstance"]++
-	log.Error("implementation pending!")
+	if _, ok := w.NetworkInstances[nodeName]; !ok {
+		w.NetworkInstances[nodeName] = map[int]*k8ssrlNetworkInstance{}
+	}
+	w.NetworkInstances[nodeName][id] = niInfo
 }
 
 func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
@@ -1220,7 +1232,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 					StringPtr(wlName+"-subinterface-"+itfceName+"-"+nodeName),
 					StringPtr(nodeName),
 					csi)
-				workloadresults.AppendClientSubInterface(nodeName, itfceName, csi)
+				workloadresults.AppendClientSubInterfaces(nodeName, itfceName, csi)
 				resources = append(resources, fileName)
 			}
 			if _, ok := irbSubInterfaces[nodeName]; ok {
@@ -1230,7 +1242,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 					StringPtr(wlName+"-subinterface-"+"irb0"+"-"+nodeName),
 					StringPtr(nodeName),
 					irbSubInterfaces[nodeName])
-				workloadresults.AppendIrbSubInterface(nodeName, irbSubInterfaces[nodeName])
+				workloadresults.AppendIrbSubInterfaces(nodeName, irbSubInterfaces[nodeName])
 				resources = append(resources, fileName)
 			}
 

@@ -1,6 +1,9 @@
 package cmd
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/nokia-paco-automation/paco-parser/parser"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -97,6 +100,15 @@ var parseCmd = &cobra.Command{
 		_ = infrastructureResult
 		_ = clientGroupResults
 		_ = workloadResults
+
+		infrajson, _ := json.MarshalIndent(infrastructureResult, "", "  ")
+		fmt.Print(string(infrajson))
+
+		cgjson, _ := json.MarshalIndent(clientGroupResults, "", "  ")
+		fmt.Print(string(cgjson))
+
+		wljson, _ := json.MarshalIndent(workloadResults, "", "  ")
+		fmt.Print(string(wljson))
 
 		//Write the server yaml files
 		p.ParseServerData()
