@@ -118,6 +118,7 @@ type InfrastructureResult struct {
 	DefaultProtocolBGP      map[string]*k8ssrlprotocolsbgp
 	RoutingPolicy           *k8ssrlRoutingPolicy
 	SystemInterfaces        []*k8ssrlinterface
+	Counter                 map[string]int
 }
 
 func NewInfrastructureResult() *InfrastructureResult {
@@ -129,31 +130,42 @@ func NewInfrastructureResult() *InfrastructureResult {
 		DefaultProtocolBGP:      map[string]*k8ssrlprotocolsbgp{},
 		RoutingPolicy:           nil,
 		SystemInterfaces:        []*k8ssrlinterface{},
+		Counter:                 map[string]int{}, // counter is just for temporary inspection of what is going on in the code
 	}
 }
 
 func (i *InfrastructureResult) AppendIslInterfaces(nodeName string, islinterfaces []*k8ssrlinterface) {
+	i.Counter["AppendIslInterfaces"]++
 	i.IslInterfaces[nodeName] = append(i.IslInterfaces[nodeName], islinterfaces...)
 }
 func (i *InfrastructureResult) SetRoutingPolicy(routingPolicy *k8ssrlRoutingPolicy) {
+	i.Counter["SetRoutingPolicy"]++
 	i.RoutingPolicy = routingPolicy
 }
 func (i *InfrastructureResult) AppendSystemInterface(systemInterfaces []*k8ssrlinterface) {
-	log.Error("To be implemented!")
+	i.Counter["AppendSystemInterface"]++
+	log.Error("AppendSystemInterface(...) - To be implemented!")
+	i.SystemInterfaces = append(i.SystemInterfaces, systemInterfaces...)
+
 }
 func (i *InfrastructureResult) AppendTunnelInterfaces(tunnelInterfaces []*k8ssrlTunnelInterface) {
-	log.Error("To be implemented!")
+	i.Counter["AppendTunnelInterfaces"]++
+	log.Error("AppendTunnelInterfaces(...) - To be implemented!")
 }
 func (i *InfrastructureResult) AppendIslSubInterfaces(nodeName string, islsubinterfaces []*k8ssrlsubinterface) {
-	log.Error("To be implemented!")
+	i.Counter["AppendIslSubInterfaces"]++
+	log.Error("AppendIslSubInterfaces(...) - To be implemented!")
 }
 func (i *InfrastructureResult) AppendSystemSubInterfaces(nodeName string, systemsubinterfaces []*k8ssrlsubinterface) {
+	i.Counter["AppendSystemSubInterfaces"]++
 	i.SystemSubInterfaces[nodeName] = append(i.SystemSubInterfaces[nodeName], systemsubinterfaces...)
 }
 func (i *InfrastructureResult) AppendDefaultNetworkInstance(nodeName string, defaultNetworkInstance *k8ssrlNetworkInstance) {
+	i.Counter["AppendDefaultNetworkInstance"]++
 	i.DefaultNetworkInstances[nodeName] = defaultNetworkInstance
 }
 func (i *InfrastructureResult) SetDefaultProtocolBgp(nodeName string, defaultProtocolBgp *k8ssrlprotocolsbgp) {
+	i.Counter["SetDefaultProtocolBgp"]++
 	i.DefaultProtocolBGP[nodeName] = defaultProtocolBgp
 }
 
@@ -431,28 +443,32 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 type ClientGroupResults struct {
 	ClientInterfaces map[string][]*k8ssrlinterface
 	Esis             map[string][]*k8ssrlESI
+	Counter          map[string]int // counter is just for temporary inspection of what is going on in the code
 }
 
 func NewClientGroupResults() *ClientGroupResults {
 	return &ClientGroupResults{
 		ClientInterfaces: map[string][]*k8ssrlinterface{},
 		Esis:             map[string][]*k8ssrlESI{},
+		Counter:          map[string]int{},
 	}
 }
 
 func (c *ClientGroupResults) AppendEsis(cgName string, esis []*k8ssrlESI) {
+	c.Counter["AppendEsis"]++
 	c.Esis[cgName] = append(c.Esis[cgName], esis...)
 }
 
 func (c *ClientGroupResults) AppendClientInterfaces(nodeName string, cgname string, clientInterfaces []*k8ssrlinterface) {
+	c.Counter["AppendClientInterfaces"]++
 	log.Error("To be implemented!")
 }
 
-func (p *Parser) WriteClientsGroups() (kuztomizedirs []string) {
+func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
 	log.Infof("Writing Client group k8s yaml objects...")
 
 	clientGroupResults := NewClientGroupResults()
-
+	kuztomizedirs := []string{}
 	for cgName, clients := range p.ClientGroups {
 		dirName := filepath.Join(*p.BaseSwitchDir, "client-"+cgName)
 		p.CreateDirectory(dirName, 0777)
@@ -565,7 +581,7 @@ func (p *Parser) WriteClientsGroups() (kuztomizedirs []string) {
 		}
 		p.WriteKustomize(&dirName, StringPtr("kustomization.yaml"), resources)
 	}
-	return kuztomizedirs
+	return kuztomizedirs, clientGroupResults
 }
 
 type WorkloadResults struct {
@@ -573,6 +589,7 @@ type WorkloadResults struct {
 	ClientSubInterfaces map[string]map[string][]*k8ssrlsubinterface   // nodename, interface -> subinterfaces
 	IrbSubInterfaces    map[string][]*k8ssrlirbsubinterface           // nodename -> subinterfaces
 	NetworkInstances    map[string]map[int]*k8ssrlNetworkInstance     // nodename, networkInstanceID -> networkinstance
+	Counter             map[string]int                                // counter is just for temporary inspection of what is going on in the code
 }
 
 func NewWorkloadResults() *WorkloadResults {
@@ -581,29 +598,35 @@ func NewWorkloadResults() *WorkloadResults {
 		ClientSubInterfaces: map[string]map[string][]*k8ssrlsubinterface{},
 		IrbSubInterfaces:    map[string][]*k8ssrlirbsubinterface{},
 		NetworkInstances:    map[string]map[int]*k8ssrlNetworkInstance{},
+		Counter:             map[string]int{},
 	}
 }
 
 func (w *WorkloadResults) AppendVxlanSubInterfaces(nodename string, vxlanif []*k8ssrlVxlanInterface) {
+	w.Counter["AppendVxlanSubInterfaces"]++
 	log.Error("implementation pending!")
 }
 
 func (w *WorkloadResults) AppendClientSubInterface(nodeName string, ifname string, clientSubInterface []*k8ssrlsubinterface) {
+	w.Counter["AppendClientSubInterface"]++
 	log.Error("implementation pending!")
 }
 
 func (w *WorkloadResults) AppendIrbSubInterface(nodeName string, IrbSubInterface []*k8ssrlirbsubinterface) {
+	w.Counter["AppendIrbSubInterface"]++
 	log.Error("implementation pending!")
 }
 
 func (w *WorkloadResults) AppendNetworkInstance(nodename string, id int, niInfo *k8ssrlNetworkInstance) {
+	w.Counter["AppendNetworkInstance"]++
 	log.Error("implementation pending!")
 }
 
-func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
+func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 	log.Infof("Writing workload k8s yaml objects...")
 
 	workloadresults := NewWorkloadResults()
+	kuztomizedirs := []string{}
 
 	for wlName, clients := range p.Config.Workloads {
 		log.Debugf("Workload Name: %s", wlName)
@@ -1250,5 +1273,5 @@ func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
 			p.WriteKustomize(&dirName, StringPtr("kustomization.yaml"), resources)
 		}
 	}
-	return kuztomizedirs
+	return kuztomizedirs, workloadresults
 }
