@@ -453,27 +453,34 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 }
 
 type ClientGroupResults struct {
-	ClientInterfaces map[string][]*k8ssrlinterface
+	ClientInterfaces map[string]map[string][]*k8ssrlinterface // node, clientgroup -> interface
 	Esis             map[string][]*k8ssrlESI
 	Counter          map[string]int // counter is just for temporary inspection of what is going on in the code
 }
 
 func NewClientGroupResults() *ClientGroupResults {
 	return &ClientGroupResults{
-		ClientInterfaces: map[string][]*k8ssrlinterface{},
+		ClientInterfaces: map[string]map[string][]*k8ssrlinterface{},
 		Esis:             map[string][]*k8ssrlESI{},
 		Counter:          map[string]int{},
 	}
 }
 
 func (c *ClientGroupResults) AppendEsis(cgName string, esis []*k8ssrlESI) {
+	log.Debugf("Appending %d ESIs to Clientgroup %s", len(esis), cgName)
 	c.Counter["AppendEsis"]++
 	c.Esis[cgName] = append(c.Esis[cgName], esis...)
 }
 
-func (c *ClientGroupResults) AppendClientInterfaces(nodeName string, cgname string, clientInterfaces []*k8ssrlinterface) {
+func (c *ClientGroupResults) AppendClientInterfaces(nodeName string, cgName string, clientInterfaces []*k8ssrlinterface) {
+	log.Debugf("Appending %d interface to Clientgroup %s for node %s", len(clientInterfaces), cgName, nodeName)
 	c.Counter["AppendClientInterfaces"]++
-	log.Error("To be implemented!")
+	for _, ci := range clientInterfaces {
+		if _, ok := c.ClientInterfaces[nodeName][ci.Name]; !ok {
+			c.ClientInterfaces[nodeName] = map[string][]*k8ssrlinterface{}
+		}
+		c.ClientInterfaces[nodeName][ci.Name] = append(c.ClientInterfaces[nodeName][ci.Name], clientInterfaces...)
+	}
 }
 
 func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
