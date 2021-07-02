@@ -116,6 +116,8 @@ type InfrastructureResult struct {
 	SystemSubInterfaces     map[string][]*k8ssrlsubinterface
 	DefaultNetworkInstances map[string]*k8ssrlNetworkInstance
 	DefaultProtocolBGP      map[string]*k8ssrlprotocolsbgp
+	RoutingPolicy           *k8ssrlRoutingPolicy
+	SystemInterfaces        []*k8ssrlinterface
 }
 
 func NewInfrastructureResult() *InfrastructureResult {
@@ -125,8 +127,41 @@ func NewInfrastructureResult() *InfrastructureResult {
 		SystemSubInterfaces:     map[string][]*k8ssrlsubinterface{},
 		DefaultNetworkInstances: map[string]*k8ssrlNetworkInstance{},
 		DefaultProtocolBGP:      map[string]*k8ssrlprotocolsbgp{},
+		RoutingPolicy:           nil,
+		SystemInterfaces:        []*k8ssrlinterface{},
 	}
 }
+
+func (i *InfrastructureResult) AppendIslInterfaces(nodeName string, islinterfaces []*k8ssrlinterface) {
+	i.IslInterfaces[nodeName] = append(i.IslInterfaces[nodeName], islinterfaces...)
+}
+func (i *InfrastructureResult) SetRoutingPolicy(routingPolicy *k8ssrlRoutingPolicy) {
+	i.RoutingPolicy = routingPolicy
+}
+func (i *InfrastructureResult) AppendSystemInterface(systemInterfaces []*k8ssrlinterface) {
+	log.Error("To be implemented!")
+}
+func (i *InfrastructureResult) AppendTunnelInterfaces(tunnelInterfaces []*k8ssrlTunnelInterface) {
+	log.Error("To be implemented!")
+}
+func (i *InfrastructureResult) AppendIslSubInterfaces(nodeName string, islsubinterfaces []*k8ssrlsubinterface) {
+	log.Error("To be implemented!")
+}
+func (i *InfrastructureResult) AppendSystemSubInterfaces(nodeName string, systemsubinterfaces []*k8ssrlsubinterface) {
+	i.SystemSubInterfaces[nodeName] = append(i.SystemSubInterfaces[nodeName], systemsubinterfaces...)
+}
+func (i *InfrastructureResult) AppendDefaultNetworkInstance(nodeName string, defaultNetworkInstance *k8ssrlNetworkInstance) {
+	i.DefaultNetworkInstances[nodeName] = defaultNetworkInstance
+}
+func (i *InfrastructureResult) SetDefaultProtocolBgp(nodeName string, defaultProtocolBgp *k8ssrlprotocolsbgp) {
+	i.DefaultProtocolBGP[nodeName] = defaultProtocolBgp
+}
+
+//func ErrorIfKeyExists(data interface{}, key string) {
+//	if _, ok := data.(map[string]*interface{})[key]; ok {
+//		log.Fatalf("Key: %s already exists.", key)
+//	}
+//}
 
 func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 	infrastructureResult := NewInfrastructureResult()
@@ -166,6 +201,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 		StringPtr("infra-interface-system0"),
 		StringPtr("leaf-grp1"),
 		k8ssrlinterfaces)
+	infrastructureResult.AppendSystemInterface(k8ssrlinterfaces)
 	resources = append(resources, fileName)
 
 	tunnelinterfaces := make([]*k8ssrlTunnelInterface, 0)
@@ -180,6 +216,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 		StringPtr("infra-tunnel-interface-vxlan0"),
 		StringPtr("leaf-grp1"),
 		tunnelinterfaces)
+	infrastructureResult.AppendTunnelInterfaces(tunnelinterfaces)
 	resources = append(resources, fileName)
 
 	// TODO need to add supernet
@@ -204,6 +241,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 		StringPtr("infra-routing-policy"),
 		StringPtr("leaf-grp1"),
 		routingPolicy)
+	infrastructureResult.SetRoutingPolicy(routingPolicy)
 	resources = append(resources, fileName)
 
 	for nodeName, n := range p.Nodes {
@@ -294,7 +332,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 				StringPtr("infra-isl-interface"+nodeName),
 				StringPtr(nodeName),
 				islinterfaces)
-			infrastructureResult.IslInterfaces[nodeName] = append(infrastructureResult.IslInterfaces[nodeName], islinterfaces...)
+			infrastructureResult.AppendIslInterfaces(nodeName, islinterfaces)
 			resources = append(resources, fileName)
 
 			// write isl subinterfaces
@@ -305,10 +343,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 				StringPtr("infra-isl-subinterface"+islsubinterfaces[0].InterfaceShortName+"-"+nodeName),
 				StringPtr(nodeName),
 				islsubinterfaces)
-			if _, ok := infrastructureResult.IslSubInterfaces[nodeName]; !ok {
-				infrastructureResult.IslSubInterfaces[nodeName] = make(map[string][]*k8ssrlsubinterface)
-			}
-			infrastructureResult.IslSubInterfaces[nodeName][islsubinterfaces[0].InterfaceShortName] = append(infrastructureResult.IslSubInterfaces[nodeName][islsubinterfaces[0].InterfaceShortName], islsubinterfaces...)
+			infrastructureResult.AppendIslSubInterfaces(nodeName, islsubinterfaces)
 			resources = append(resources, fileName)
 
 			// write system0 subinterface
@@ -319,9 +354,8 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 				StringPtr("infra-system0-subinterface"+"-"+nodeName),
 				StringPtr(nodeName),
 				systemsubinterfaces)
-			infrastructureResult.SystemSubInterfaces[nodeName] = append(infrastructureResult.SystemSubInterfaces[nodeName], systemsubinterfaces...)
+			infrastructureResult.AppendSystemSubInterfaces(nodeName, systemsubinterfaces)
 			resources = append(resources, fileName)
-
 			defaultNetworkInstance := &k8ssrlNetworkInstance{
 				Name:          "default",
 				Kind:          "default",
@@ -336,7 +370,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 				StringPtr("infra-default-network-instance"+"-"+nodeName),
 				StringPtr(nodeName), // we send it to all leafs at once assuming the configuration is symmetric
 				defaultNetworkInstance)
-			infrastructureResult.DefaultNetworkInstances[nodeName] = defaultNetworkInstance
+			infrastructureResult.AppendDefaultNetworkInstance(nodeName, defaultNetworkInstance)
 			resources = append(resources, fileName)
 
 			peerGroups := make([]*PeerGroup, 0)
@@ -386,7 +420,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 				StringPtr("infra-default-protocols-bgp"+nodeName),
 				StringPtr(nodeName),
 				defaultProtocolBgp)
-			infrastructureResult.DefaultProtocolBGP[nodeName] = defaultProtocolBgp
+			infrastructureResult.SetDefaultProtocolBgp(nodeName, defaultProtocolBgp)
 			resources = append(resources, fileName)
 		}
 	}
@@ -394,8 +428,30 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 	return kuztomizedirs, infrastructureResult
 }
 
+type ClientGroupResults struct {
+	ClientInterfaces map[string][]*k8ssrlinterface
+	Esis             map[string][]*k8ssrlESI
+}
+
+func NewClientGroupResults() *ClientGroupResults {
+	return &ClientGroupResults{
+		ClientInterfaces: map[string][]*k8ssrlinterface{},
+		Esis:             map[string][]*k8ssrlESI{},
+	}
+}
+
+func (c *ClientGroupResults) AppendEsis(cgName string, esis []*k8ssrlESI) {
+	c.Esis[cgName] = append(c.Esis[cgName], esis...)
+}
+
+func (c *ClientGroupResults) AppendClientInterfaces(nodeName string, cgname string, clientInterfaces []*k8ssrlinterface) {
+	log.Error("To be implemented!")
+}
+
 func (p *Parser) WriteClientsGroups() (kuztomizedirs []string) {
 	log.Infof("Writing Client group k8s yaml objects...")
+
+	clientGroupResults := NewClientGroupResults()
 
 	for cgName, clients := range p.ClientGroups {
 		dirName := filepath.Join(*p.BaseSwitchDir, "client-"+cgName)
@@ -467,6 +523,7 @@ func (p *Parser) WriteClientsGroups() (kuztomizedirs []string) {
 					StringPtr("cg-"+cgName+"-"+"interface-"+nodeName),
 					StringPtr(nodeName),
 					clientInterfaces)
+				clientGroupResults.AppendClientInterfaces(nodeName, cgName, clientInterfaces)
 				resources = append(resources, fileName)
 			} else {
 				// Target group Name
@@ -501,6 +558,7 @@ func (p *Parser) WriteClientsGroups() (kuztomizedirs []string) {
 						StringPtr("cg-"+cgName+"-"+"system-network-instance-"+nodeName),
 						StringPtr(*clients.TargetGroup),
 						esis)
+					clientGroupResults.AppendEsis(cgName, esis)
 					resources = append(resources, fileName)
 				}
 			}
@@ -510,9 +568,42 @@ func (p *Parser) WriteClientsGroups() (kuztomizedirs []string) {
 	return kuztomizedirs
 }
 
-func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
+type WorkloadResults struct {
+	VxlanSubInterfaces  map[string]map[string][]*k8ssrlVxlanInterface //
+	ClientSubInterfaces map[string]map[string][]*k8ssrlsubinterface   // nodename, interface -> subinterfaces
+	IrbSubInterfaces    map[string][]*k8ssrlirbsubinterface           // nodename -> subinterfaces
+	NetworkInstances    map[string]map[int]*k8ssrlNetworkInstance     // nodename, networkInstanceID -> networkinstance
+}
 
+func NewWorkloadResults() *WorkloadResults {
+	return &WorkloadResults{
+		VxlanSubInterfaces:  map[string]map[string][]*k8ssrlVxlanInterface{},
+		ClientSubInterfaces: map[string]map[string][]*k8ssrlsubinterface{},
+		IrbSubInterfaces:    map[string][]*k8ssrlirbsubinterface{},
+		NetworkInstances:    map[string]map[int]*k8ssrlNetworkInstance{},
+	}
+}
+
+func (w *WorkloadResults) AppendVxlanSubInterfaces(nodename string, vxlanif []*k8ssrlVxlanInterface) {
+	log.Error("implementation pending!")
+}
+
+func (w *WorkloadResults) AppendClientSubInterface(nodeName string, ifname string, clientSubInterface []*k8ssrlsubinterface) {
+	log.Error("implementation pending!")
+}
+
+func (w *WorkloadResults) AppendIrbSubInterface(nodeName string, IrbSubInterface []*k8ssrlirbsubinterface) {
+	log.Error("implementation pending!")
+}
+
+func (w *WorkloadResults) AppendNetworkInstance(nodename string, id int, niInfo *k8ssrlNetworkInstance) {
+	log.Error("implementation pending!")
+}
+
+func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
 	log.Infof("Writing workload k8s yaml objects...")
+
+	workloadresults := NewWorkloadResults()
 
 	for wlName, clients := range p.Config.Workloads {
 		log.Debugf("Workload Name: %s", wlName)
@@ -1076,6 +1167,7 @@ func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
 					StringPtr(wlName+"-vxlaninterface-"+"vxlan0"+"-"+nodeName),
 					StringPtr(nodeName),
 					vxlanSubInterfaces[nodeName])
+				workloadresults.AppendVxlanSubInterfaces(nodeName, vxlanSubInterfaces[nodeName])
 				resources = append(resources, fileName)
 			}
 
@@ -1086,7 +1178,7 @@ func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
 					StringPtr(wlName+"-subinterface-"+itfceName+"-"+nodeName),
 					StringPtr(nodeName),
 					csi)
-
+				workloadresults.AppendClientSubInterface(nodeName, itfceName, csi)
 				resources = append(resources, fileName)
 			}
 			if _, ok := irbSubInterfaces[nodeName]; ok {
@@ -1096,6 +1188,7 @@ func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
 					StringPtr(wlName+"-subinterface-"+"irb0"+"-"+nodeName),
 					StringPtr(nodeName),
 					irbSubInterfaces[nodeName])
+				workloadresults.AppendIrbSubInterface(nodeName, irbSubInterfaces[nodeName])
 				resources = append(resources, fileName)
 			}
 
@@ -1122,6 +1215,7 @@ func (p *Parser) WriteWorkloads() (kuztomizedirs []string) {
 						StringPtr(wlName+"-"+strconv.Itoa(niInfo.Evi)+"-network-instance"+"-"+nodeName),
 						StringPtr(nodeName),
 						niInfo)
+					workloadresults.AppendNetworkInstance(nodeName, id, niInfo)
 					resources = append(resources, fileName)
 
 					if strings.Contains(niInfo.Name, "provisioning") {
