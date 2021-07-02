@@ -7,98 +7,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nokia-paco-automation/paco-parser/types"
 	log "github.com/sirupsen/logrus"
 	"github.com/stoewer/go-strcase"
 )
-
-type k8ssrlinterface struct {
-	Kind        string
-	Name        string
-	VlanTagging bool
-	PortSpeed   string // 40G, 10G
-	Lag         bool
-	LagMember   bool
-	LagName     string
-	AdminKey    int
-	SystemMac   string
-	Pxe         bool
-}
-
-type k8ssrlsubinterface struct {
-	InterfaceRealName  string
-	InterfaceShortName string
-	VlanTagging        bool
-	VlanID             string
-	Kind               string // routed or bridged
-	IPv4Prefix         string
-	IPv6Prefix         string
-}
-
-type k8ssrlirbsubinterface struct {
-	InterfaceRealName string
-	VlanID            string
-	Description       string
-	Kind              string // only routed
-	IPv4Prefix        []string
-	IPv6Prefix        []string
-	AnycastGW         bool
-	VrID              int
-}
-
-type k8ssrlTunnelInterface struct {
-	Name string
-}
-
-type k8ssrlVxlanInterface struct {
-	TunnelInterfaceName string
-	Kind                string // routed or bridged
-	VlanID              string
-}
-
-type k8ssrlNetworkInstance struct {
-	Name                string
-	Type                string // bridged, irb, routed -> used to distinguish what to do with the interfaces
-	Kind                string // default, mac-vrf, ip-vrf
-	SubInterfaces       []*k8ssrlsubinterface
-	TunnelInterfaceName string
-	RouteTarget         string
-	Evi                 int
-}
-
-type k8ssrlprotocolsbgp struct {
-	NetworkInstanceName string
-	AS                  uint32
-	RouterID            string
-	PeerGroups          []*PeerGroup
-	Neighbors           []*Neighbor
-}
-
-type PeerGroup struct {
-	Name       string
-	PolicyName string
-	Protocols  []string
-}
-
-type Neighbor struct {
-	PeerIP           string
-	PeerAS           uint32
-	PeerGroup        string
-	LocalAS          uint32
-	TransportAddress string
-}
-
-type k8ssrlESI struct {
-	ESI     string
-	LagName string
-}
-
-type k8ssrlRoutingPolicy struct {
-	Name              string
-	IPv4Prefix        string
-	IPv4PrefixSetName string
-	IPv6Prefix        string
-	IPv6PrefixSetName string
-}
 
 func (p *Parser) WriteBase() {
 	p.CreateDirectory(*p.BaseSwitchDir, 0777)
@@ -110,85 +22,8 @@ func (p *Parser) WriteFinalBase(kdirs []string) {
 	p.WriteKustomize(StringPtr(dirName), StringPtr("kustomization.yaml"), kdirs)
 }
 
-type InfrastructureResult struct {
-	IslInterfaces           map[string][]*k8ssrlinterface
-	IslSubInterfaces        map[string]map[string][]*k8ssrlsubinterface
-	SystemSubInterfaces     map[string][]*k8ssrlsubinterface
-	DefaultNetworkInstances map[string]*k8ssrlNetworkInstance
-	DefaultProtocolBGP      map[string]*k8ssrlprotocolsbgp
-	RoutingPolicy           *k8ssrlRoutingPolicy
-	SystemInterfaces        []*k8ssrlinterface
-	Counter                 map[string]int
-	TunnelInterfaces        []*k8ssrlTunnelInterface
-}
-
-func NewInfrastructureResult() *InfrastructureResult {
-	return &InfrastructureResult{
-		IslInterfaces:           map[string][]*k8ssrlinterface{},
-		IslSubInterfaces:        map[string]map[string][]*k8ssrlsubinterface{},
-		SystemSubInterfaces:     map[string][]*k8ssrlsubinterface{},
-		DefaultNetworkInstances: map[string]*k8ssrlNetworkInstance{},
-		DefaultProtocolBGP:      map[string]*k8ssrlprotocolsbgp{},
-		RoutingPolicy:           nil,
-		SystemInterfaces:        []*k8ssrlinterface{},
-		Counter:                 map[string]int{}, // counter is just for temporary inspection of what is going on in the code
-	}
-}
-
-func (i *InfrastructureResult) AppendIslInterfaces(nodeName string, islinterfaces []*k8ssrlinterface) {
-	log.Debugf("Appending %d ISL Interfaces for %s", len(islinterfaces), nodeName)
-	i.Counter["AppendIslInterfaces"]++
-	i.IslInterfaces[nodeName] = append(i.IslInterfaces[nodeName], islinterfaces...)
-}
-func (i *InfrastructureResult) SetRoutingPolicy(routingPolicy *k8ssrlRoutingPolicy) {
-	log.Debugf("Setting RoutingPolicy")
-	i.Counter["SetRoutingPolicy"]++
-	i.RoutingPolicy = routingPolicy
-}
-func (i *InfrastructureResult) AppendSystemInterface(systemInterfaces []*k8ssrlinterface) {
-	log.Debugf("Appending %d system interfaces", len(systemInterfaces))
-	i.Counter["AppendSystemInterface"]++
-	i.SystemInterfaces = append(i.SystemInterfaces, systemInterfaces...)
-}
-func (i *InfrastructureResult) AppendTunnelInterfaces(tunnelInterfaces []*k8ssrlTunnelInterface) {
-	log.Debugf("Appending %d tunnel interfaces", len(tunnelInterfaces))
-	i.Counter["AppendTunnelInterfaces"]++
-	i.TunnelInterfaces = append(i.TunnelInterfaces, tunnelInterfaces...)
-}
-func (i *InfrastructureResult) AppendIslSubInterfaces(nodeName string, islsubinterfaces []*k8ssrlsubinterface) {
-	log.Debugf("Appending %d ISL sub-interfaces to %s", len(islsubinterfaces), nodeName)
-	i.Counter["AppendIslSubInterfaces"]++
-	for _, si := range islsubinterfaces {
-		if _, ok := i.IslSubInterfaces[nodeName][si.InterfaceShortName]; !ok {
-			i.IslSubInterfaces[nodeName] = map[string][]*k8ssrlsubinterface{}
-		}
-		i.IslSubInterfaces[nodeName][si.InterfaceShortName] = append(i.IslSubInterfaces[nodeName][si.InterfaceShortName], islsubinterfaces...)
-	}
-}
-func (i *InfrastructureResult) AppendSystemSubInterfaces(nodeName string, systemsubinterfaces []*k8ssrlsubinterface) {
-	log.Debugf("Appending %d system sub-interfaces to %s", len(systemsubinterfaces), nodeName)
-	i.Counter["AppendSystemSubInterfaces"]++
-	i.SystemSubInterfaces[nodeName] = append(i.SystemSubInterfaces[nodeName], systemsubinterfaces...)
-}
-func (i *InfrastructureResult) AppendDefaultNetworkInstance(nodeName string, defaultNetworkInstance *k8ssrlNetworkInstance) {
-	log.Debugf("Appending default Network Instance to %s", nodeName)
-	i.Counter["AppendDefaultNetworkInstance"]++
-	i.DefaultNetworkInstances[nodeName] = defaultNetworkInstance
-}
-func (i *InfrastructureResult) SetDefaultProtocolBgp(nodeName string, defaultProtocolBgp *k8ssrlprotocolsbgp) {
-	log.Debugf("Setting default protocol BGP to %s", nodeName)
-	i.Counter["SetDefaultProtocolBgp"]++
-	i.DefaultProtocolBGP[nodeName] = defaultProtocolBgp
-}
-
-//func ErrorIfKeyExists(data interface{}, key string) {
-//	if _, ok := data.(map[string]*interface{})[key]; ok {
-//		log.Fatalf("Key: %s already exists.", key)
-//	}
-//}
-
-func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
-	infrastructureResult := NewInfrastructureResult()
+func (p *Parser) WriteInfrastructure() ([]string, *types.InfrastructureResult) {
+	infrastructureResult := types.NewInfrastructureResult()
 
 	var fileName string
 	var kuztomizedirs []string
@@ -201,19 +36,19 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 	// this variable is used to write the kustomize file with all resources
 	resources := make([]string, 0)
 
-	k8ssrlinterfaces := make([]*k8ssrlinterface, 0)
+	k8ssrlinterfaces := make([]*types.K8ssrlinterface, 0)
 
-	systemInterface := &k8ssrlinterface{
+	systemInterface := &types.K8ssrlinterface{
 		Kind: "system",
 		Name: "system0",
 	}
 	k8ssrlinterfaces = append(k8ssrlinterfaces, systemInterface)
-	loopbackInterface := &k8ssrlinterface{
+	loopbackInterface := &types.K8ssrlinterface{
 		Kind: "system",
 		Name: "lo0",
 	}
 	k8ssrlinterfaces = append(k8ssrlinterfaces, loopbackInterface)
-	irbInterface := &k8ssrlinterface{
+	irbInterface := &types.K8ssrlinterface{
 		Kind: "system",
 		Name: "irb0",
 	}
@@ -228,8 +63,8 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 	infrastructureResult.AppendSystemInterface(k8ssrlinterfaces)
 	resources = append(resources, fileName)
 
-	tunnelinterfaces := make([]*k8ssrlTunnelInterface, 0)
-	tunnelInterface := &k8ssrlTunnelInterface{
+	tunnelinterfaces := make([]*types.K8ssrlTunnelInterface, 0)
+	tunnelInterface := &types.K8ssrlTunnelInterface{
 		Name: "vxlan0",
 	}
 	tunnelinterfaces = append(tunnelinterfaces, tunnelInterface)
@@ -251,7 +86,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 		ipv6Cidr = p.Config.Infrastructure.Networks["loopback"].Ipv4Cidr[i]
 	}
 
-	routingPolicy := &k8ssrlRoutingPolicy{
+	routingPolicy := &types.K8ssrlRoutingPolicy{
 		Name:              "export-underlay-local",
 		IPv4Prefix:        *ipv4Cidr,
 		IPv6Prefix:        *ipv6Cidr,
@@ -271,11 +106,11 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 	for nodeName, n := range p.Nodes {
 		// reinitialize parameters per node
 		found := false
-		islinterfaces := make([]*k8ssrlinterface, 0)
-		islsubinterfaces := make([]*k8ssrlsubinterface, 0)
-		systemsubinterfaces := make([]*k8ssrlsubinterface, 0)
-		allsubinterfaces := make([]*k8ssrlsubinterface, 0)
-		neighbors := make([]*Neighbor, 0)
+		islinterfaces := make([]*types.K8ssrlinterface, 0)
+		islsubinterfaces := make([]*types.K8ssrlsubinterface, 0)
+		systemsubinterfaces := make([]*types.K8ssrlsubinterface, 0)
+		allsubinterfaces := make([]*types.K8ssrlsubinterface, 0)
+		neighbors := make([]*types.Neighbor, 0)
 		neighborLoopBackIPv4s := make(map[string]string)
 		neighborLoopBackIPv6s := make(map[string]string)
 		if *n.Position == "network" {
@@ -283,7 +118,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 				if *ep.Kind == "isl" {
 					found = true
 					log.Debugf("Node name: %s, Interface: %s, %s, %t", nodeName, *ep.RealName, *ep.IPv4Prefix, *ep.VlanTagging)
-					islinterface := &k8ssrlinterface{
+					islinterface := &types.K8ssrlinterface{
 						Kind:        "isl",
 						Name:        *ep.RealName,
 						VlanTagging: *ep.VlanTagging,
@@ -295,7 +130,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 					//for _, ep := range ep.PeerNode.Endpoints {
 					//	log.Infof("neighbor node Ip Prefix: %s %s %s",  *ep.IPv4Address + "/" + strconv.Itoa(*ep.IPv4PrefixLength), *ep.RealName, *ep.Kind)
 					//}
-					islsubinterface := &k8ssrlsubinterface{
+					islsubinterface := &types.K8ssrlsubinterface{
 						InterfaceRealName:  *ep.RealName,
 						InterfaceShortName: epName,
 						VlanTagging:        *ep.VlanTagging,
@@ -304,7 +139,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 						IPv4Prefix:         *ep.IPv4Address + "/" + strconv.Itoa(*ep.IPv4PrefixLength),
 						IPv6Prefix:         *ep.IPv6Address + "/" + strconv.Itoa(*ep.IPv6PrefixLength),
 					}
-					neighbor := &Neighbor{
+					neighbor := &types.Neighbor{
 						PeerIP:           *ep.IPv4NeighborAddress,
 						PeerAS:           *ep.PeerAS,
 						PeerGroup:        "underlay",
@@ -322,7 +157,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 					}
 				}
 				if *ep.Kind == "loopback" {
-					systemsubinterface := &k8ssrlsubinterface{
+					systemsubinterface := &types.K8ssrlsubinterface{
 						InterfaceRealName:  "system0",
 						InterfaceShortName: "system0",
 						VlanTagging:        false,
@@ -339,7 +174,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 		if found {
 			for neighborNodeName, neighborIP := range neighborLoopBackIPv4s {
 				log.Debugf("Node Name: %s, Neighbor Node Name: %s", *n.ShortName, neighborNodeName)
-				neighbor := &Neighbor{
+				neighbor := &types.Neighbor{
 					PeerIP:           neighborIP,
 					PeerAS:           *p.Config.Infrastructure.Protocols.OverlayAs,
 					PeerGroup:        "overlay",
@@ -380,7 +215,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 				systemsubinterfaces)
 			infrastructureResult.AppendSystemSubInterfaces(nodeName, systemsubinterfaces)
 			resources = append(resources, fileName)
-			defaultNetworkInstance := &k8ssrlNetworkInstance{
+			defaultNetworkInstance := &types.K8ssrlNetworkInstance{
 				Name:          "default",
 				Kind:          "default",
 				SubInterfaces: allsubinterfaces,
@@ -397,23 +232,23 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 			infrastructureResult.AppendDefaultNetworkInstance(nodeName, defaultNetworkInstance)
 			resources = append(resources, fileName)
 
-			peerGroups := make([]*PeerGroup, 0)
+			peerGroups := make([]*types.PeerGroup, 0)
 			switch *p.Config.Infrastructure.AddressingSchema {
 			case "dual-stack":
-				underlayPeerGroup := &PeerGroup{
+				underlayPeerGroup := &types.PeerGroup{
 					Name:       "underlay",
 					PolicyName: "export-underlay-local",
 					Protocols:  []string{"ipv4-unicast", "ipv6-unicast"},
 				}
 				peerGroups = append(peerGroups, underlayPeerGroup)
 			case "v4-only":
-				underlayPeerGroup := &PeerGroup{
+				underlayPeerGroup := &types.PeerGroup{
 					Name:      "underlay",
 					Protocols: []string{"ipv4-unicast"},
 				}
 				peerGroups = append(peerGroups, underlayPeerGroup)
 			case "v6-only":
-				underlayPeerGroup := &PeerGroup{
+				underlayPeerGroup := &types.PeerGroup{
 					Name:      "underlay",
 					Protocols: []string{"ipv6-unicast"},
 				}
@@ -421,14 +256,14 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 			}
 
 			if p.Config.Infrastructure.Protocols.OverlayProtocol != nil && *p.Config.Infrastructure.Protocols.OverlayProtocol != "" {
-				overlayPeerGroup := &PeerGroup{
+				overlayPeerGroup := &types.PeerGroup{
 					Name:      "overlay",
 					Protocols: []string{*p.Config.Infrastructure.Protocols.OverlayProtocol},
 				}
 				peerGroups = append(peerGroups, overlayPeerGroup)
 			}
 
-			defaultProtocolBgp := &k8ssrlprotocolsbgp{
+			defaultProtocolBgp := &types.K8ssrlprotocolsbgp{
 				NetworkInstanceName: "default",
 				AS:                  *n.AS,
 				RouterID:            *n.Endpoints["lo0"].IPv4Address,
@@ -452,41 +287,10 @@ func (p *Parser) WriteInfrastructure() ([]string, *InfrastructureResult) {
 	return kuztomizedirs, infrastructureResult
 }
 
-type ClientGroupResults struct {
-	ClientInterfaces map[string]map[string][]*k8ssrlinterface // node, clientgroup -> interface
-	Esis             map[string][]*k8ssrlESI
-	Counter          map[string]int // counter is just for temporary inspection of what is going on in the code
-}
-
-func NewClientGroupResults() *ClientGroupResults {
-	return &ClientGroupResults{
-		ClientInterfaces: map[string]map[string][]*k8ssrlinterface{},
-		Esis:             map[string][]*k8ssrlESI{},
-		Counter:          map[string]int{},
-	}
-}
-
-func (c *ClientGroupResults) AppendEsis(cgName string, esis []*k8ssrlESI) {
-	log.Debugf("Appending %d ESIs to Clientgroup %s", len(esis), cgName)
-	c.Counter["AppendEsis"]++
-	c.Esis[cgName] = append(c.Esis[cgName], esis...)
-}
-
-func (c *ClientGroupResults) AppendClientInterfaces(nodeName string, cgName string, clientInterfaces []*k8ssrlinterface) {
-	log.Debugf("Appending %d interface to Clientgroup %s for node %s", len(clientInterfaces), cgName, nodeName)
-	c.Counter["AppendClientInterfaces"]++
-	for _, ci := range clientInterfaces {
-		if _, ok := c.ClientInterfaces[nodeName][ci.Name]; !ok {
-			c.ClientInterfaces[nodeName] = map[string][]*k8ssrlinterface{}
-		}
-		c.ClientInterfaces[nodeName][ci.Name] = append(c.ClientInterfaces[nodeName][ci.Name], clientInterfaces...)
-	}
-}
-
-func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
+func (p *Parser) WriteClientsGroups() ([]string, *types.ClientGroupResults) {
 	log.Infof("Writing Client group k8s yaml objects...")
 
-	clientGroupResults := NewClientGroupResults()
+	clientGroupResults := types.NewClientGroupResults()
 	kuztomizedirs := []string{}
 	for cgName, clients := range p.ClientGroups {
 		dirName := filepath.Join(*p.BaseSwitchDir, "client-"+cgName)
@@ -501,7 +305,7 @@ func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
 
 		for nodeName, itfces := range clients.Interfaces {
 			if nodeName != *clients.TargetGroup {
-				clientInterfaces := make([]*k8ssrlinterface, 0)
+				clientInterfaces := make([]*types.K8ssrlinterface, 0)
 				for _, itfce := range itfces {
 					if *itfce.Endpoint.Lag {
 						id, _ := strconv.Atoi(strings.ReplaceAll(*itfce.Endpoint.RealName, "lag", ""))
@@ -511,7 +315,7 @@ func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
 						} else {
 							systemMac = "00:00:00:00:00:" + fmt.Sprintf("%X", id)
 						}
-						clientInterface := &k8ssrlinterface{
+						clientInterface := &types.K8ssrlinterface{
 							Kind:        "access",
 							Name:        *itfce.Endpoint.RealName,
 							VlanTagging: true,
@@ -527,7 +331,7 @@ func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
 					} else {
 						if *itfce.Endpoint.LagMemberLink {
 							// no VLAN Tagging for member links
-							clientInterface := &k8ssrlinterface{
+							clientInterface := &types.K8ssrlinterface{
 								Kind:      "access",
 								Name:      *itfce.Endpoint.RealName,
 								PortSpeed: *itfce.Endpoint.Speed,
@@ -537,7 +341,7 @@ func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
 							}
 							clientInterfaces = append(clientInterfaces, clientInterface)
 						} else {
-							clientInterface := &k8ssrlinterface{
+							clientInterface := &types.K8ssrlinterface{
 								Kind:        "access",
 								Name:        *itfce.Endpoint.RealName,
 								VlanTagging: true,
@@ -564,7 +368,7 @@ func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
 				// Target group Name
 				// we check the esifound to see if we have to write the object
 				esifound := false
-				esis := make([]*k8ssrlESI, 0)
+				esis := make([]*types.K8ssrlESI, 0)
 				for _, itfce := range itfces {
 					if *itfce.Endpoint.Lag {
 						if strings.Contains(*itfce.Endpoint.ShortName, "esi") {
@@ -576,7 +380,7 @@ func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
 							} else {
 								esi = "00:12:12:12:12:12:12:00:00:" + fmt.Sprintf("%X", id)
 							}
-							esiInterface := &k8ssrlESI{
+							esiInterface := &types.K8ssrlESI{
 								ESI:     esi,
 								LagName: *itfce.Endpoint.RealName,
 							}
@@ -603,60 +407,10 @@ func (p *Parser) WriteClientsGroups() ([]string, *ClientGroupResults) {
 	return kuztomizedirs, clientGroupResults
 }
 
-type WorkloadResults struct {
-	VxlanSubInterfaces  map[string][]*k8ssrlVxlanInterface          //
-	ClientSubInterfaces map[string]map[string][]*k8ssrlsubinterface // nodename, interface -> subinterfaces
-	IrbSubInterfaces    map[string][]*k8ssrlirbsubinterface         // nodename -> subinterfaces
-	NetworkInstances    map[string]map[int]*k8ssrlNetworkInstance   // nodename, networkInstanceID -> networkinstance
-	Counter             map[string]int                              // counter is just for temporary inspection of what is going on in the code
-}
-
-func NewWorkloadResults() *WorkloadResults {
-	return &WorkloadResults{
-		VxlanSubInterfaces:  map[string][]*k8ssrlVxlanInterface{},
-		ClientSubInterfaces: map[string]map[string][]*k8ssrlsubinterface{},
-		IrbSubInterfaces:    map[string][]*k8ssrlirbsubinterface{},
-		NetworkInstances:    map[string]map[int]*k8ssrlNetworkInstance{},
-		Counter:             map[string]int{},
-	}
-}
-
-func (w *WorkloadResults) AppendVxlanSubInterfaces(nodeName string, vxlanif []*k8ssrlVxlanInterface) {
-	log.Debugf("Appending %d VxLAN interfaces to node %s", len(vxlanif), nodeName)
-	w.Counter["AppendVxlanSubInterfaces"]++
-	w.VxlanSubInterfaces[nodeName] = append(w.VxlanSubInterfaces[nodeName], vxlanif...)
-}
-
-func (w *WorkloadResults) AppendClientSubInterfaces(nodeName string, ifname string, clientSubInterface []*k8ssrlsubinterface) {
-	log.Debugf("Appending %d client sub-interfaces to node %s", len(clientSubInterface), nodeName)
-	w.Counter["AppendClientSubInterface"]++
-	for _, si := range clientSubInterface {
-		if _, ok := w.ClientSubInterfaces[nodeName][si.InterfaceShortName]; !ok {
-			w.ClientSubInterfaces[nodeName] = map[string][]*k8ssrlsubinterface{}
-		}
-		w.ClientSubInterfaces[nodeName][si.InterfaceShortName] = append(w.ClientSubInterfaces[nodeName][si.InterfaceShortName], clientSubInterface...)
-	}
-}
-
-func (w *WorkloadResults) AppendIrbSubInterfaces(nodeName string, irbSubInterfaces []*k8ssrlirbsubinterface) {
-	log.Debugf("Appending %d irb sub-interfaces to node %s", len(irbSubInterfaces), nodeName)
-	w.Counter["AppendIrbSubInterface"]++
-	w.IrbSubInterfaces[nodeName] = append(w.IrbSubInterfaces[nodeName], irbSubInterfaces...)
-}
-
-func (w *WorkloadResults) AppendNetworkInstance(nodeName string, id int, niInfo *k8ssrlNetworkInstance) {
-	log.Debugf("Appending Network instance %s with id %d to node %s", niInfo.Name, id, nodeName)
-	w.Counter["AppendNetworkInstance"]++
-	if _, ok := w.NetworkInstances[nodeName]; !ok {
-		w.NetworkInstances[nodeName] = map[int]*k8ssrlNetworkInstance{}
-	}
-	w.NetworkInstances[nodeName][id] = niInfo
-}
-
-func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
+func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 	log.Infof("Writing workload k8s yaml objects...")
 
-	workloadresults := NewWorkloadResults()
+	workloadresults := types.NewWorkloadResults()
 	kuztomizedirs := []string{}
 
 	for wlName, clients := range p.Config.Workloads {
@@ -667,18 +421,18 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 
 		// subinterface vxlan
 		// first (string) key represents node name, interface is always vxlan0
-		vxlanSubInterfaces := make(map[string][]*k8ssrlVxlanInterface, 0)
+		vxlanSubInterfaces := make(map[string][]*types.K8ssrlVxlanInterface, 0)
 		// subinterface lag or real interface
 		// first (string) key represents node name, 2nd string is interface name
-		clientSubInterfaces := make(map[string]map[string][]*k8ssrlsubinterface)
+		clientSubInterfaces := make(map[string]map[string][]*types.K8ssrlsubinterface)
 		// subinterface irb for routed
 		// first (string) key represents node name, interface is always irb0
-		irbSubInterfaces := make(map[string][]*k8ssrlirbsubinterface)
+		irbSubInterfaces := make(map[string][]*types.K8ssrlirbsubinterface)
 		// network-instance
 		// first (string) key represents node name, 2nd key represents the VlanId or network instance Id
-		niIrbSubInterfaces := make(map[string]map[int][]*k8ssrlsubinterface)
-		niCsiSubInterfaces := make(map[string]map[int][]*k8ssrlsubinterface)
-		networkInstance := make(map[string]map[int]*k8ssrlNetworkInstance)
+		niIrbSubInterfaces := make(map[string]map[int][]*types.K8ssrlsubinterface)
+		niCsiSubInterfaces := make(map[string]map[int][]*types.K8ssrlsubinterface)
+		networkInstance := make(map[string]map[int]*types.K8ssrlNetworkInstance)
 
 		// records the target group, such that we can write to the target group for the resources that allow it
 		var targetGroup string
@@ -698,9 +452,9 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 							// client interfaces are implemented individually per node
 							if nodeName != targetGroup {
 								if _, ok := vxlanSubInterfaces[nodeName]; !ok {
-									vxlanSubInterfaces[nodeName] = make([]*k8ssrlVxlanInterface, 0)
+									vxlanSubInterfaces[nodeName] = make([]*types.K8ssrlVxlanInterface, 0)
 								}
-								vxlanSubInterface := &k8ssrlVxlanInterface{
+								vxlanSubInterface := &types.K8ssrlVxlanInterface{
 									TunnelInterfaceName: "vxlan0",
 									VlanID:              strconv.Itoa(*netwInfo.VlanID),
 									Kind:                "bridged",
@@ -708,7 +462,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 								vxlanSubInterfaces[nodeName] = append(vxlanSubInterfaces[nodeName], vxlanSubInterface)
 
 								if _, ok := networkInstance[nodeName]; !ok {
-									networkInstance[nodeName] = make(map[int]*k8ssrlNetworkInstance)
+									networkInstance[nodeName] = make(map[int]*types.K8ssrlNetworkInstance)
 								}
 								if _, ok := networkInstance[nodeName][*netwInfo.VlanID]; !ok {
 									evi := *netwInfo.VlanID
@@ -719,7 +473,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 									netwTypeName := strings.TrimRight(netwType, "1")
 									netwTypeName = strings.TrimRight(netwTypeName, "2")
 									niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
-									networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlNetworkInstance{
+									networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 										Name:                niName,
 										Kind:                "mac-vrf",
 										Type:                "bridged",
@@ -730,12 +484,12 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 								}
 								// check if clientSubInterfaces[nodeName] was already initialized, if not initialize it
 								if _, ok := clientSubInterfaces[nodeName]; !ok {
-									clientSubInterfaces[nodeName] = make(map[string][]*k8ssrlsubinterface)
+									clientSubInterfaces[nodeName] = make(map[string][]*types.K8ssrlsubinterface)
 								}
 								// check if clientSubInterfaces[nodeName] was already initialized, if not initialize it
 
 								if _, ok := niCsiSubInterfaces[nodeName]; !ok {
-									niCsiSubInterfaces[nodeName] = make(map[int][]*k8ssrlsubinterface)
+									niCsiSubInterfaces[nodeName] = make(map[int][]*types.K8ssrlsubinterface)
 								}
 
 								for _, itfce := range itfces {
@@ -744,9 +498,9 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 										log.Debugf("Interface name: %s", *itfce.Endpoint.RealName)
 										// check if clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 										if _, ok := clientSubInterfaces[nodeName][*itfce.Endpoint.RealName]; !ok {
-											clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] = make([]*k8ssrlsubinterface, 0)
+											clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] = make([]*types.K8ssrlsubinterface, 0)
 										}
-										csi := &k8ssrlsubinterface{
+										csi := &types.K8ssrlsubinterface{
 											InterfaceRealName:  *itfce.Endpoint.RealName,
 											InterfaceShortName: *itfce.Endpoint.ShortName,
 											VlanID:             strconv.Itoa(*netwInfo.VlanID),
@@ -756,7 +510,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 										// check if niSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 
 										if _, ok := niCsiSubInterfaces[nodeName][*netwInfo.VlanID]; !ok {
-											niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*k8ssrlsubinterface, 0)
+											niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*types.K8ssrlsubinterface, 0)
 										}
 										niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = append(niCsiSubInterfaces[nodeName][*netwInfo.VlanID], csi)
 
@@ -771,16 +525,16 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 							// client interfaces are implemented individually per node
 							if nodeName != targetGroup {
 								if _, ok := vxlanSubInterfaces[nodeName]; !ok {
-									vxlanSubInterfaces[nodeName] = make([]*k8ssrlVxlanInterface, 0)
+									vxlanSubInterfaces[nodeName] = make([]*types.K8ssrlVxlanInterface, 0)
 								}
-								vxlanSubInterface := &k8ssrlVxlanInterface{
+								vxlanSubInterface := &types.K8ssrlVxlanInterface{
 									TunnelInterfaceName: "vxlan0",
 									VlanID:              strconv.Itoa(*netwInfo.VlanID),
 									Kind:                "routed",
 								}
 								vxlanSubInterfaces[nodeName] = append(vxlanSubInterfaces[nodeName], vxlanSubInterface)
 								if _, ok := networkInstance[nodeName]; !ok {
-									networkInstance[nodeName] = make(map[int]*k8ssrlNetworkInstance)
+									networkInstance[nodeName] = make(map[int]*types.K8ssrlNetworkInstance)
 								}
 								if _, ok := networkInstance[nodeName][*netwInfo.VlanID]; !ok {
 									evi := *netwInfo.VlanID
@@ -790,7 +544,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 									netwTypeName := strings.TrimRight(netwType, "1")
 									netwTypeName = strings.TrimRight(netwTypeName, "2")
 									niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-ipvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
-									networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlNetworkInstance{
+									networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 										Name:                niName,
 										Kind:                "ip-vrf",
 										Type:                "routed",
@@ -801,12 +555,12 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 								}
 								// check if clientSubInterfaces[nodeName] was already initialized is not initialize it
 								if _, ok := clientSubInterfaces[nodeName]; !ok {
-									clientSubInterfaces[nodeName] = make(map[string][]*k8ssrlsubinterface, 0)
+									clientSubInterfaces[nodeName] = make(map[string][]*types.K8ssrlsubinterface, 0)
 								}
 								// check if niCsiSubInterfaces[nodeName] was already initialized, if not initialize it
 
 								if _, ok := niCsiSubInterfaces[nodeName]; !ok {
-									niCsiSubInterfaces[nodeName] = make(map[int][]*k8ssrlsubinterface)
+									niCsiSubInterfaces[nodeName] = make(map[int][]*types.K8ssrlsubinterface)
 								}
 
 								for _, itfce := range itfces {
@@ -865,9 +619,9 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 										log.Debugf("Interface name: %s", newName)
 										// check if clientSubInterfaces[nodeName][newName] was already initialized if not initialize it
 										if _, ok := clientSubInterfaces[nodeName][newName]; !ok {
-											clientSubInterfaces[nodeName][newName] = make([]*k8ssrlsubinterface, 0)
+											clientSubInterfaces[nodeName][newName] = make([]*types.K8ssrlsubinterface, 0)
 										}
-										csi := &k8ssrlsubinterface{
+										csi := &types.K8ssrlsubinterface{
 											InterfaceRealName:  *itfce.Endpoint.RealName,
 											InterfaceShortName: *itfce.Endpoint.ShortName,
 											VlanTagging:        true,
@@ -881,7 +635,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 										// check if niSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 
 										if _, ok := niCsiSubInterfaces[nodeName][*netwInfo.VlanID]; !ok {
-											niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*k8ssrlsubinterface, 0)
+											niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*types.K8ssrlsubinterface, 0)
 										}
 										niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = append(niCsiSubInterfaces[nodeName][*netwInfo.VlanID], csi)
 
@@ -896,16 +650,16 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 							// client interfaces are implemented individually per node
 							if nodeName != targetGroup {
 								if _, ok := vxlanSubInterfaces[nodeName]; !ok {
-									vxlanSubInterfaces[nodeName] = make([]*k8ssrlVxlanInterface, 0)
+									vxlanSubInterfaces[nodeName] = make([]*types.K8ssrlVxlanInterface, 0)
 								}
-								vxlanSubInterface := &k8ssrlVxlanInterface{
+								vxlanSubInterface := &types.K8ssrlVxlanInterface{
 									TunnelInterfaceName: "vxlan0",
 									VlanID:              strconv.Itoa(*netwInfo.VlanID),
 									Kind:                "bridged",
 								}
 								vxlanSubInterfaces[nodeName] = append(vxlanSubInterfaces[nodeName], vxlanSubInterface)
 								if _, ok := networkInstance[nodeName]; !ok {
-									networkInstance[nodeName] = make(map[int]*k8ssrlNetworkInstance)
+									networkInstance[nodeName] = make(map[int]*types.K8ssrlNetworkInstance)
 								}
 								if _, ok := networkInstance[nodeName][*netwInfo.VlanID]; !ok {
 									evi := *netwInfo.VlanID
@@ -915,7 +669,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 									netwTypeName := strings.TrimRight(netwType, "1")
 									netwTypeName = strings.TrimRight(netwTypeName, "2")
 									niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
-									networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlNetworkInstance{
+									networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 										Name:                niName,
 										Kind:                "mac-vrf",
 										Type:                "irb",
@@ -926,16 +680,16 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 								}
 								// check if clientSubInterfaces[nodeName] was already initialized, if not initialize it
 								if _, ok := clientSubInterfaces[nodeName]; !ok {
-									clientSubInterfaces[nodeName] = make(map[string][]*k8ssrlsubinterface)
+									clientSubInterfaces[nodeName] = make(map[string][]*types.K8ssrlsubinterface)
 								}
 								// check if niIrbSubInterfaces[nodeName] was already initialized, if not initialize it
 
 								if _, ok := niIrbSubInterfaces[nodeName]; !ok {
-									niIrbSubInterfaces[nodeName] = make(map[int][]*k8ssrlsubinterface)
+									niIrbSubInterfaces[nodeName] = make(map[int][]*types.K8ssrlsubinterface)
 								}
 
 								if _, ok := niCsiSubInterfaces[nodeName]; !ok {
-									niCsiSubInterfaces[nodeName] = make(map[int][]*k8ssrlsubinterface)
+									niCsiSubInterfaces[nodeName] = make(map[int][]*types.K8ssrlsubinterface)
 								}
 
 								for _, itfce := range itfces {
@@ -944,9 +698,9 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 										log.Debugf("Interface name: %s", *itfce.Endpoint.RealName)
 										// check if clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 										if _, ok := clientSubInterfaces[nodeName][*itfce.Endpoint.RealName]; !ok {
-											clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] = make([]*k8ssrlsubinterface, 0)
+											clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] = make([]*types.K8ssrlsubinterface, 0)
 										}
-										csi := &k8ssrlsubinterface{
+										csi := &types.K8ssrlsubinterface{
 											InterfaceRealName:  *itfce.Endpoint.RealName,
 											InterfaceShortName: *itfce.Endpoint.ShortName,
 											VlanTagging:        true,
@@ -958,7 +712,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 										// check if niSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 
 										if _, ok := niCsiSubInterfaces[nodeName][*netwInfo.VlanID]; !ok {
-											niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*k8ssrlsubinterface, 0)
+											niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*types.K8ssrlsubinterface, 0)
 										}
 										niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = append(niCsiSubInterfaces[nodeName][*netwInfo.VlanID], csi)
 
@@ -966,7 +720,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 								}
 								// check if irbSubInterfaces[nodeName] was already initialized, if not initialize it
 								if _, ok := irbSubInterfaces[nodeName]; !ok {
-									irbSubInterfaces[nodeName] = make([]*k8ssrlirbsubinterface, 0)
+									irbSubInterfaces[nodeName] = make([]*types.K8ssrlirbsubinterface, 0)
 								}
 
 								var ipv4Cidr *string
@@ -992,7 +746,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 									ipv6prefixlist = append(ipv6prefixlist, *ipv6prefix)
 								}
 
-								irb := &k8ssrlirbsubinterface{
+								irb := &types.K8ssrlirbsubinterface{
 									InterfaceRealName: "irb0",
 									Description:       "irb0",
 									VlanID:            strconv.Itoa(*netwInfo.VlanID),
@@ -1007,10 +761,10 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 								// check if niSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 
 								if _, ok := niIrbSubInterfaces[nodeName][*netwInfo.VlanID]; !ok {
-									niIrbSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*k8ssrlsubinterface, 0)
+									niIrbSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*types.K8ssrlsubinterface, 0)
 								}
 
-								nii := &k8ssrlsubinterface{
+								nii := &types.K8ssrlsubinterface{
 									InterfaceRealName:  "irb0",
 									InterfaceShortName: "irb0",
 									VlanTagging:        false,
@@ -1031,9 +785,9 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 						// we only add the interface if they belong to a target group in the netwInfo
 						if nodeName != targetGroup && netwInfo.Target != nil && *netwInfo.Target == nodeName {
 							if _, ok := vxlanSubInterfaces[nodeName]; !ok {
-								vxlanSubInterfaces[nodeName] = make([]*k8ssrlVxlanInterface, 0)
+								vxlanSubInterfaces[nodeName] = make([]*types.K8ssrlVxlanInterface, 0)
 							}
-							vxlanSubInterface := &k8ssrlVxlanInterface{
+							vxlanSubInterface := &types.K8ssrlVxlanInterface{
 								TunnelInterfaceName: "vxlan0",
 								VlanID:              strconv.Itoa(*netwInfo.VlanID),
 								Kind:                "bridged",
@@ -1041,7 +795,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 							vxlanSubInterfaces[nodeName] = append(vxlanSubInterfaces[nodeName], vxlanSubInterface)
 
 							if _, ok := networkInstance[nodeName]; !ok {
-								networkInstance[nodeName] = make(map[int]*k8ssrlNetworkInstance)
+								networkInstance[nodeName] = make(map[int]*types.K8ssrlNetworkInstance)
 							}
 							if _, ok := networkInstance[nodeName][*netwInfo.VlanID]; !ok {
 								evi := *netwInfo.VlanID
@@ -1051,7 +805,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 								netwTypeName := strings.TrimRight(netwType, "1")
 								netwTypeName = strings.TrimRight(netwTypeName, "2")
 								niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
-								networkInstance[nodeName][*netwInfo.VlanID] = &k8ssrlNetworkInstance{
+								networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 									Name:                niName,
 									Kind:                "mac-vrf",
 									Type:                "irb",
@@ -1063,16 +817,16 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 							// check if clientSubInterfaces[nodeName] was already initialized is not initialize it
 							if _, ok := clientSubInterfaces[nodeName]; !ok {
 
-								clientSubInterfaces[nodeName] = make(map[string][]*k8ssrlsubinterface, 0)
+								clientSubInterfaces[nodeName] = make(map[string][]*types.K8ssrlsubinterface, 0)
 							}
 							// check if clientSubInterfaces[nodeName] was already initialized, if not initialize it
 
 							if _, ok := niIrbSubInterfaces[nodeName]; !ok {
-								niIrbSubInterfaces[nodeName] = make(map[int][]*k8ssrlsubinterface)
+								niIrbSubInterfaces[nodeName] = make(map[int][]*types.K8ssrlsubinterface)
 							}
 
 							if _, ok := niCsiSubInterfaces[nodeName]; !ok {
-								niCsiSubInterfaces[nodeName] = make(map[int][]*k8ssrlsubinterface)
+								niCsiSubInterfaces[nodeName] = make(map[int][]*types.K8ssrlsubinterface)
 							}
 
 							for _, itfce := range itfces {
@@ -1081,9 +835,9 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 									log.Debugf("Interface name: %s", *itfce.Endpoint.RealName)
 									// check if clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 									if _, ok := clientSubInterfaces[nodeName][*itfce.Endpoint.RealName]; !ok {
-										clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] = make([]*k8ssrlsubinterface, 0)
+										clientSubInterfaces[nodeName][*itfce.Endpoint.RealName] = make([]*types.K8ssrlsubinterface, 0)
 									}
-									csi := &k8ssrlsubinterface{
+									csi := &types.K8ssrlsubinterface{
 										InterfaceRealName:  *itfce.Endpoint.RealName,
 										InterfaceShortName: *itfce.Endpoint.ShortName,
 										VlanTagging:        true,
@@ -1095,7 +849,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 									// check if niSubInterfaces[nodeName][*itfce.Endpoint.RealName] was already initialized if not initialize it
 
 									if _, ok := niCsiSubInterfaces[nodeName][*netwInfo.VlanID]; !ok {
-										niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*k8ssrlsubinterface, 0)
+										niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*types.K8ssrlsubinterface, 0)
 									}
 									niCsiSubInterfaces[nodeName][*netwInfo.VlanID] = append(niCsiSubInterfaces[nodeName][*netwInfo.VlanID], csi)
 
@@ -1103,7 +857,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 							}
 							// check if irbSubInterfaces[nodeName] was already initialized, if not initialize it
 							if _, ok := irbSubInterfaces[nodeName]; !ok {
-								irbSubInterfaces[nodeName] = make([]*k8ssrlirbsubinterface, 0)
+								irbSubInterfaces[nodeName] = make([]*types.K8ssrlirbsubinterface, 0)
 
 							}
 
@@ -1180,7 +934,7 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 								}
 							*/
 
-							irb := &k8ssrlirbsubinterface{
+							irb := &types.K8ssrlirbsubinterface{
 								InterfaceRealName: "irb0",
 								Description:       "irb0",
 								VlanID:            strconv.Itoa(*netwInfo.VlanID),
@@ -1193,10 +947,10 @@ func (p *Parser) WriteWorkloads() ([]string, *WorkloadResults) {
 							irbSubInterfaces[nodeName] = append(irbSubInterfaces[nodeName], irb)
 
 							if _, ok := niIrbSubInterfaces[nodeName][*netwInfo.VlanID]; !ok {
-								niIrbSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*k8ssrlsubinterface, 0)
+								niIrbSubInterfaces[nodeName][*netwInfo.VlanID] = make([]*types.K8ssrlsubinterface, 0)
 							}
 
-							nii := &k8ssrlsubinterface{
+							nii := &types.K8ssrlsubinterface{
 								InterfaceRealName:  "irb0",
 								InterfaceShortName: "irb0",
 								VlanTagging:        false,

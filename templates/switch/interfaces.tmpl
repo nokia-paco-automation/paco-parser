@@ -1,0 +1,17 @@
+{
+  "interface": [
+{{range $interface := .}}
+    {
+      "name": "{{$interface.Name}}",
+      "description": "paco-{{$interface.Name}}",
+      "admin-state": "enable",
+      "vlan-tagging": "{{$interface.VlanTagging}}",
+      "ethernet": {
+        {{if ne $interface.PortSpeed ""}}
+          "port-speed": "{{$interface.PortSpeed}}",
+        {{end}}
+      }
+    },
+{{end}}
+  ]
+}

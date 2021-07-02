@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nokia-paco-automation/paco-parser/parser"
+	"github.com/nokia-paco-automation/paco-parser/templating"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -100,6 +101,8 @@ var parseCmd = &cobra.Command{
 		_ = infrastructureResult
 		_ = clientGroupResults
 		_ = workloadResults
+
+		templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults)
 
 		infrajson, _ := json.MarshalIndent(infrastructureResult, "", "  ")
 		fmt.Print(string(infrajson))

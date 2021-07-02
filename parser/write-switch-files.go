@@ -8,6 +8,7 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig"
+	"github.com/nokia-paco-automation/paco-parser/types"
 	log "github.com/sirupsen/logrus"
 	"github.com/stoewer/go-strcase"
 )
@@ -499,7 +500,7 @@ func (p *Parser) WriteKustomize(dirName, fileName *string, resources []string) e
 }
 
 // WriteSrlInterface function writes the k8s srl interface resource
-func (p *Parser) WriteSrlInterface(dirName, fileName, resName, target *string, interfaces []*k8ssrlinterface) error {
+func (p *Parser) WriteSrlInterface(dirName, fileName, resName, target *string, interfaces []*types.K8ssrlinterface) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -508,7 +509,7 @@ func (p *Parser) WriteSrlInterface(dirName, fileName, resName, target *string, i
 	s := struct {
 		ResourceName string
 		Target       string
-		Interfaces   []*k8ssrlinterface
+		Interfaces   []*types.K8ssrlinterface
 	}{
 		ResourceName: *resName,
 		Target:       *target,
@@ -523,7 +524,7 @@ func (p *Parser) WriteSrlInterface(dirName, fileName, resName, target *string, i
 }
 
 // WriteSrlInterface function writes the k8s srl subinterface resource
-func (p *Parser) WriteSrlSubInterface(dirName, fileName, resName, target *string, subinterfaces []*k8ssrlsubinterface) error {
+func (p *Parser) WriteSrlSubInterface(dirName, fileName, resName, target *string, subinterfaces []*types.K8ssrlsubinterface) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -533,7 +534,7 @@ func (p *Parser) WriteSrlSubInterface(dirName, fileName, resName, target *string
 		ResourceName  string
 		Target        string
 		InterfaceName string
-		SubInterfaces []*k8ssrlsubinterface
+		SubInterfaces []*types.K8ssrlsubinterface
 	}{
 		ResourceName:  *resName,
 		Target:        *target,
@@ -549,7 +550,7 @@ func (p *Parser) WriteSrlSubInterface(dirName, fileName, resName, target *string
 }
 
 // WriteSrlIrbSubInterface function writes the k8s srl subinterface resource
-func (p *Parser) WriteSrlIrbSubInterface(dirName, fileName, resName, target *string, irbsubinterfaces []*k8ssrlirbsubinterface) error {
+func (p *Parser) WriteSrlIrbSubInterface(dirName, fileName, resName, target *string, irbsubinterfaces []*types.K8ssrlirbsubinterface) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -559,7 +560,7 @@ func (p *Parser) WriteSrlIrbSubInterface(dirName, fileName, resName, target *str
 		ResourceName  string
 		Target        string
 		InterfaceName string
-		SubInterfaces []*k8ssrlirbsubinterface
+		SubInterfaces []*types.K8ssrlirbsubinterface
 	}{
 		ResourceName:  *resName,
 		Target:        *target,
@@ -575,7 +576,7 @@ func (p *Parser) WriteSrlIrbSubInterface(dirName, fileName, resName, target *str
 }
 
 // WriteSrlTunnelInterface function writes the k8s srl tunnel-interface resource
-func (p *Parser) WriteSrlTunnelInterface(dirName, fileName, resName, target *string, tunnelinterfaces []*k8ssrlTunnelInterface) error {
+func (p *Parser) WriteSrlTunnelInterface(dirName, fileName, resName, target *string, tunnelinterfaces []*types.K8ssrlTunnelInterface) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -584,7 +585,7 @@ func (p *Parser) WriteSrlTunnelInterface(dirName, fileName, resName, target *str
 	s := struct {
 		ResourceName     string
 		Target           string
-		TunnelInterfaces []*k8ssrlTunnelInterface
+		TunnelInterfaces []*types.K8ssrlTunnelInterface
 	}{
 		ResourceName:     *resName,
 		Target:           *target,
@@ -599,7 +600,7 @@ func (p *Parser) WriteSrlTunnelInterface(dirName, fileName, resName, target *str
 }
 
 // WriteSrlVxlanInterface function writes the k8s srl vxlan interface within the tunnelinterface resource
-func (p *Parser) WriteSrlVxlanInterface(dirName, fileName, resName, target *string, vxlaninterfaces []*k8ssrlVxlanInterface) error {
+func (p *Parser) WriteSrlVxlanInterface(dirName, fileName, resName, target *string, vxlaninterfaces []*types.K8ssrlVxlanInterface) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -609,7 +610,7 @@ func (p *Parser) WriteSrlVxlanInterface(dirName, fileName, resName, target *stri
 		ResourceName        string
 		Target              string
 		TunnelInterfaceName string
-		VxlanInterfaces     []*k8ssrlVxlanInterface
+		VxlanInterfaces     []*types.K8ssrlVxlanInterface
 	}{
 		ResourceName:        *resName,
 		Target:              *target,
@@ -625,7 +626,7 @@ func (p *Parser) WriteSrlVxlanInterface(dirName, fileName, resName, target *stri
 }
 
 // WriteSrlNetworkInstance function writes the k8s srl network-instance resource
-func (p *Parser) WriteSrlNetworkInstance(dirName, fileName, resName, target *string, netwinstance *k8ssrlNetworkInstance) error {
+func (p *Parser) WriteSrlNetworkInstance(dirName, fileName, resName, target *string, netwinstance *types.K8ssrlNetworkInstance) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -634,7 +635,7 @@ func (p *Parser) WriteSrlNetworkInstance(dirName, fileName, resName, target *str
 	s := struct {
 		ResourceName    string
 		Target          string
-		NetworkInstance *k8ssrlNetworkInstance
+		NetworkInstance *types.K8ssrlNetworkInstance
 	}{
 		ResourceName:    *resName,
 		Target:          *target,
@@ -649,7 +650,7 @@ func (p *Parser) WriteSrlNetworkInstance(dirName, fileName, resName, target *str
 }
 
 // WriteSrlNetworkInstance function writes the k8s srl protocols bgp resource
-func (p *Parser) WriteSrlProtocolsBgp(dirName, fileName, resName, target *string, protocolsbgp *k8ssrlprotocolsbgp) error {
+func (p *Parser) WriteSrlProtocolsBgp(dirName, fileName, resName, target *string, protocolsbgp *types.K8ssrlprotocolsbgp) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -658,7 +659,7 @@ func (p *Parser) WriteSrlProtocolsBgp(dirName, fileName, resName, target *string
 	s := struct {
 		ResourceName string
 		Target       string
-		ProtocolBgp  *k8ssrlprotocolsbgp
+		ProtocolBgp  *types.K8ssrlprotocolsbgp
 	}{
 		ResourceName: *resName,
 		Target:       *target,
@@ -672,7 +673,7 @@ func (p *Parser) WriteSrlProtocolsBgp(dirName, fileName, resName, target *string
 	return nil
 }
 
-func (p *Parser) WriteSrlSystemNetworkInstance(dirName, fileName, resName, target *string, esis []*k8ssrlESI) error {
+func (p *Parser) WriteSrlSystemNetworkInstance(dirName, fileName, resName, target *string, esis []*types.K8ssrlESI) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -681,7 +682,7 @@ func (p *Parser) WriteSrlSystemNetworkInstance(dirName, fileName, resName, targe
 	s := struct {
 		ResourceName string
 		Target       string
-		ESIs         []*k8ssrlESI
+		ESIs         []*types.K8ssrlESI
 	}{
 		ResourceName: *resName,
 		Target:       *target,
@@ -696,7 +697,7 @@ func (p *Parser) WriteSrlSystemNetworkInstance(dirName, fileName, resName, targe
 }
 
 // WriteSrlNetworkInstanceBgpVpn function writes the k8s srl network-instance bgpvpn protocol resource
-func (p *Parser) WriteSrlNetworkInstanceBgpVpn(dirName, fileName, resName, target *string, netwInstanceProtocol *k8ssrlNetworkInstance) error {
+func (p *Parser) WriteSrlNetworkInstanceBgpVpn(dirName, fileName, resName, target *string, netwInstanceProtocol *types.K8ssrlNetworkInstance) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -705,7 +706,7 @@ func (p *Parser) WriteSrlNetworkInstanceBgpVpn(dirName, fileName, resName, targe
 	s := struct {
 		ResourceName            string
 		Target                  string
-		NetworkInstanceProtocol *k8ssrlNetworkInstance
+		NetworkInstanceProtocol *types.K8ssrlNetworkInstance
 	}{
 		ResourceName:            *resName,
 		Target:                  *target,
@@ -720,7 +721,7 @@ func (p *Parser) WriteSrlNetworkInstanceBgpVpn(dirName, fileName, resName, targe
 }
 
 // WriteSrlNetworkInstanceBgpEvpn function writes the k8s srl network-instance bgpevpn protocol resource
-func (p *Parser) WriteSrlNetworkInstanceBgpEvpn(dirName, fileName, resName, target *string, netwInstanceProtocol *k8ssrlNetworkInstance) error {
+func (p *Parser) WriteSrlNetworkInstanceBgpEvpn(dirName, fileName, resName, target *string, netwInstanceProtocol *types.K8ssrlNetworkInstance) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -729,7 +730,7 @@ func (p *Parser) WriteSrlNetworkInstanceBgpEvpn(dirName, fileName, resName, targ
 	s := struct {
 		ResourceName            string
 		Target                  string
-		NetworkInstanceProtocol *k8ssrlNetworkInstance
+		NetworkInstanceProtocol *types.K8ssrlNetworkInstance
 	}{
 		ResourceName:            *resName,
 		Target:                  *target,
@@ -744,7 +745,7 @@ func (p *Parser) WriteSrlNetworkInstanceBgpEvpn(dirName, fileName, resName, targ
 }
 
 // WriteSrlNetworkInstanceLinux function writes the k8s srl network-instance bgpevpn protocol resource
-func (p *Parser) WriteSrlNetworkInstanceLinux(dirName, fileName, resName, target *string, netwInstanceProtocol *k8ssrlNetworkInstance) error {
+func (p *Parser) WriteSrlNetworkInstanceLinux(dirName, fileName, resName, target *string, netwInstanceProtocol *types.K8ssrlNetworkInstance) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -753,7 +754,7 @@ func (p *Parser) WriteSrlNetworkInstanceLinux(dirName, fileName, resName, target
 	s := struct {
 		ResourceName            string
 		Target                  string
-		NetworkInstanceProtocol *k8ssrlNetworkInstance
+		NetworkInstanceProtocol *types.K8ssrlNetworkInstance
 	}{
 		ResourceName:            *resName,
 		Target:                  *target,
@@ -768,7 +769,7 @@ func (p *Parser) WriteSrlNetworkInstanceLinux(dirName, fileName, resName, target
 }
 
 // WriteSrlNetworkInstanceLinux function writes the k8s srl network-instance bgpevpn protocol resource
-func (p *Parser) WriteSrlRoutingPolicy(dirName, fileName, resName, target *string, routingPolicy *k8ssrlRoutingPolicy) error {
+func (p *Parser) WriteSrlRoutingPolicy(dirName, fileName, resName, target *string, routingPolicy *types.K8ssrlRoutingPolicy) error {
 	file, err := os.Create(filepath.Join(*dirName, filepath.Base(*fileName)))
 	if err != nil {
 		return err
@@ -777,7 +778,7 @@ func (p *Parser) WriteSrlRoutingPolicy(dirName, fileName, resName, target *strin
 	s := struct {
 		ResourceName  string
 		Target        string
-		RoutingPolicy *k8ssrlRoutingPolicy
+		RoutingPolicy *types.K8ssrlRoutingPolicy
 	}{
 		ResourceName:  *resName,
 		Target:        *target,
