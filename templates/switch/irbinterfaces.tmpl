@@ -1,0 +1,64 @@
+{{define "irbinterfaces"}}
+{
+  "name": "{{.InterfaceName}}",
+  "subinterface": [
+{{- range $index, $element := .SubInterfaces}}
+{{- if $index }},{{end}}
+{
+  "index": "{{$element.VlanID}}",
+    "admin-state": "enable",
+    "description": "{{$element.Description}}",
+{{- if ne (len $element.IPv4Prefix) 0 }}
+    "ipv4": {
+      {"address": [
+{{- range $index, $ipv4prefix := $element.IPv4Prefix}}
+      {{- if $index }},{{end}}
+      { "ip-prefix": "{{$ipv4prefix}}",
+{{- if eq $element.AnycastGW true}}
+        "anycast-gw": true,
+{{- end}}
+{{- end}}
+      "arp": {
+        "learn-unsolicited": true
+        "host-route": {
+          "populate":[{
+            "route-type": "dynamic"
+          }]
+        },
+        {"evpn": {
+          "advertise":[{ 
+            "route-type": "dynamic"
+          }]
+    }}}
+{{- end}}
+{{- if eq $element.AnycastGW true}}
+    "anycast-gw": {
+      "virtual-router-id": {{$element.VrID}}
+      }
+{{- end}}
+}
+{{- if ne (len $element.IPv6Prefix) 0 }}
+    "ipv6": {
+      "address": [
+{{- range $index, $ipv6prefix := $element.IPv6Prefix}}
+       { "ip-prefix": "{{$ipv6prefix}}"
+{{- if eq $element.AnycastGW true}}
+        ,"anycast-gw": true
+{{- end}}
+        }
+{{- end}}
+      "neighbor-discovery": {
+        "learn-unsolicited": "both",
+        "host-route": {
+          "populate": [
+              { "route-type": "dynamic"}]
+        "evpn":{
+          "advertise": [
+              {"route-type": "dynamic"}]
+        }
+    }}
+    }]
+{{- end}}
+{{- end}}
+]}
+{{end}}

@@ -1,0 +1,21 @@
+ {"tunnel-interface": [ {
+    "name": "{{.TunnelInterfaceName}}",
+    "vxlan-interface": [
+{{- range $index, $vxlif := .VxlanInterfaces}}
+    {{- if $index}}, {{end}}{ 
+      "index": {{$vxlif.VlanID}},
+      "type": "{{$vxlif.Kind}}",
+      "ingress": {
+        {{- if eq $vxlif.VlanID "0"}}
+            "vni": 1
+        {{- else}}
+            "vni": {{$vxlif.VlanID}}
+        {{- end}}
+      },
+      "egress": {
+        "source-ip": "use-system-ipv4-address"
+      }
+    }
+  {{- end}}
+    ]
+}]}

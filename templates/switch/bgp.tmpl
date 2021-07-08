@@ -1,0 +1,68 @@
+  {{define "bgp"}}
+{
+  "bgp":{
+    "admin-state": "enable",
+    "autonomous-system": {{.AS}},
+    "router-id": "{{.RouterID}}",
+    "ebgp-default-policy": {
+      "import-reject-all": false,
+      "export-reject-all": false
+      },
+    "group": [
+{{- range $index, $element := .PeerGroups}}
+        {{if $index}},{{end}}
+        {
+          "group-name": "{{$element.Name}}",
+    {{- if $element.PolicyName }}
+          "export-policy": "{{$element.PolicyName}}",
+    {{- end}}
+          "admin-state": "enable",
+          "next-hop-self": true,
+    {{- range $index, $protocol := $element.Protocols}}
+    {{if $index}},{{end}}
+        "{{$protocol}}": {
+            "admin-state": "enable"
+        }
+    {{- end}}
+    }
+{{- end}}
+    ],
+    "ipv4-unicast": {
+      "admin-state": "enable",
+      "multipath":{
+        "allow-multiple-as": true,
+        "max-paths-level-1": 64,
+        "max-paths-level-2": 64
+      }
+    },
+    "ipv6-unicast": {
+      "admin-state": "enable",
+      "multipath":{
+        "allow-multiple-as": true,
+        "max-paths-level-1": 64,
+        "max-paths-level-2": 64
+      }
+    },
+    "neighbor":[
+{{- range $index, $element := .Neighbors}}
+    {{- if $index}},{{- end}}
+    {
+{{- if ne $element.LocalAS 0}}
+      "local-as": [
+       {"as-number": "{{$element.LocalAS}}"}
+      ],
+{{- end}}
+      "peer-address": "{{$element.PeerIP}}",
+      "peer-as": {{$element.PeerAS}},
+      "peer-group": "{{$element.PeerGroup}}"
+{{- if ne $element.TransportAddress ""}}
+      ,"transport":{
+        "local-address": "{{$element.TransportAddress}}"
+      }
+{{- end}}
+    }
+{{- end}}
+    ]
+  }
+}
+{{end}}

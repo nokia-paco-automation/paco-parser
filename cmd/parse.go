@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/nokia-paco-automation/paco-parser/parser"
 	"github.com/nokia-paco-automation/paco-parser/templating"
@@ -102,16 +103,25 @@ var parseCmd = &cobra.Command{
 		_ = clientGroupResults
 		_ = workloadResults
 
-		templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults)
+		templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes)
 
 		infrajson, _ := json.MarshalIndent(infrastructureResult, "", "  ")
 		fmt.Print(string(infrajson))
+		f, err := os.Create("/tmp/infrastructureResult")
+		f.WriteString(string(infrajson))
+		f.Close()
 
 		cgjson, _ := json.MarshalIndent(clientGroupResults, "", "  ")
 		fmt.Print(string(cgjson))
+		f, err = os.Create("/tmp/clientGroupResults")
+		f.WriteString(string(cgjson))
+		f.Close()
 
 		wljson, _ := json.MarshalIndent(workloadResults, "", "  ")
 		fmt.Print(string(wljson))
+		f, err = os.Create("/tmp/workloadResults")
+		f.WriteString(string(wljson))
+		f.Close()
 
 		//Write the server yaml files
 		p.ParseServerData()

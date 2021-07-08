@@ -1,0 +1,59 @@
+{{define "networkinstance"}}
+  { 
+    "name": "{{.Name}}",
+    "type": "{{.Kind}}",
+    "admin-state": "enable",
+    "description": "paco-{{.Name}}",
+    "interface": [
+{{- range $index, $element := .SubInterfaces}}
+    {{if $index }},{{end}}
+    { "name": "{{$element.InterfaceRealName}}.{{$element.VlanID}}"}
+{{- end}}
+],
+{{- if .TunnelInterfaceName}}
+    "vxlan-interface": [
+    { "name": "{{.TunnelInterfaceName}}" }
+    ]
+{{- end}}
+{{- if eq .Kind "mac-vrf"}}
+    ,
+    "bridge-table":{
+      "mac-duplication": {
+        "admin-state": "enable",
+        "action": "blackhole"
+      }
+    }
+{{- end}}
+   ,"protocols":{
+    "bgp-vpn":{
+      "bgp-instance":
+      [
+        {
+          "id": 1,
+          "route-target":{
+              "export-rt": "{{.RouteTarget}}",
+              "import-rt": "{{.RouteTarget}}"
+          }
+        }
+      ]
+    },
+  "bgp-evpn": {
+    "bgp-instance": [
+      {
+        "id": 1,
+        "admin-state": "enable",
+        "ecmp": 8,
+        "evi": "{{.Evi}}",
+        "vxlan-interface": "{{.TunnelInterfaceName}}"
+      }
+    ]
+  },
+  "linux": {
+    "export-neighbors": true,
+    "export-routes": true,
+    "import-routes": true
+  }
+   }
+
+}
+{{end}}

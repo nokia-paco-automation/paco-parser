@@ -5,7 +5,7 @@ import (
 )
 
 type WorkloadResults struct {
-	VxlanSubInterfaces  map[string][]*K8ssrlVxlanInterface          //
+	VxlanInterfaces     map[string][]*K8ssrlVxlanInterface          //
 	ClientSubInterfaces map[string]map[string][]*K8ssrlsubinterface // nodename, interface -> subinterfaces
 	IrbSubInterfaces    map[string][]*K8ssrlirbsubinterface         // nodename -> subinterfaces
 	NetworkInstances    map[string]map[int]*K8ssrlNetworkInstance   // nodename, networkInstanceID -> networkinstance
@@ -14,7 +14,7 @@ type WorkloadResults struct {
 
 func NewWorkloadResults() *WorkloadResults {
 	return &WorkloadResults{
-		VxlanSubInterfaces:  map[string][]*K8ssrlVxlanInterface{},
+		VxlanInterfaces:     map[string][]*K8ssrlVxlanInterface{},
 		ClientSubInterfaces: map[string]map[string][]*K8ssrlsubinterface{},
 		IrbSubInterfaces:    map[string][]*K8ssrlirbsubinterface{},
 		NetworkInstances:    map[string]map[int]*K8ssrlNetworkInstance{},
@@ -25,7 +25,7 @@ func NewWorkloadResults() *WorkloadResults {
 func (w *WorkloadResults) AppendVxlanSubInterfaces(nodeName string, vxlanif []*K8ssrlVxlanInterface) {
 	log.Debugf("Appending %d VxLAN interfaces to node %s", len(vxlanif), nodeName)
 	w.Counter["AppendVxlanSubInterfaces"]++
-	w.VxlanSubInterfaces[nodeName] = append(w.VxlanSubInterfaces[nodeName], vxlanif...)
+	w.VxlanInterfaces[nodeName] = append(w.VxlanInterfaces[nodeName], vxlanif...)
 }
 
 func (w *WorkloadResults) AppendClientSubInterfaces(nodeName string, ifname string, clientSubInterface []*K8ssrlsubinterface) {

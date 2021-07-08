@@ -56,7 +56,7 @@ func (i *InfrastructureResult) AppendIslSubInterfaces(nodeName string, islsubint
 		if _, ok := i.IslSubInterfaces[nodeName][si.InterfaceShortName]; !ok {
 			i.IslSubInterfaces[nodeName] = map[string][]*K8ssrlsubinterface{}
 		}
-		i.IslSubInterfaces[nodeName][si.InterfaceShortName] = append(i.IslSubInterfaces[nodeName][si.InterfaceShortName], islsubinterfaces...)
+		i.IslSubInterfaces[nodeName][si.InterfaceRealName] = append(i.IslSubInterfaces[nodeName][si.InterfaceRealName], islsubinterfaces...)
 	}
 }
 func (i *InfrastructureResult) AppendSystemSubInterfaces(nodeName string, systemsubinterfaces []*K8ssrlsubinterface) {

@@ -1,0 +1,29 @@
+{{define "systemni"}}
+{"system": {
+ "network-instance": {
+    "protocols": {
+      "bgp-vpn": {
+        "bgp-instance":
+        [{ "id": 1}]
+      },
+      "evpn":{
+        "ethernet-segments":{
+          "bgp-instance": [{
+           "id": 1,
+            "ethernet-segment": [
+{{- range $index, $element := .}}
+            {{- if $index}},{{- end}}
+              { 
+                "name": "{{$element.ESI}}",
+                "admin-state": "enable",
+                "interface": "{{$element.LagName}}"
+              }
+{{- end}}
+            ]
+          }
+        ]
+        }
+      }
+    }
+}}}
+{{end}}

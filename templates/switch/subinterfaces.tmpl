@@ -1,0 +1,36 @@
+ {{define "subinterfaces"}}
+
+{{- range $index, $element := $.SubInterfaces}}
+{{- if $index }},{{end}}
+    {
+      "index": "{{$element.VlanID}}",
+{{- if ne $element.Kind "loopback"}}
+    "type": "{{$element.Kind}}",
+{{- end}}
+    "admin-state": "enable",
+    "description": "paco-{{$element.InterfaceShortName}}-{{$element.VlanID}}-{{$.Target}}",
+{{- if $element.VlanTagging}}
+    "vlan": {
+      "encap": {
+{{- if eq $element.VlanID "0"}}
+        "untagged": {}
+{{- else}}
+        "single-tagged": {
+          "vlan-id": "{{$element.VlanID}}"
+        }
+{{- end}}
+    }}
+{{- end}}
+{{- if eq $element.Kind "routed" "loopback"}}
+    "ipv4":{
+      "address": [
+      {"ip-prefix": "{{$element.IPv4Prefix}}" }
+      ]},
+    "ipv6":{
+      "address": [ 
+        {"ip-prefix": "{{$element.IPv6Prefix}}" }
+      ]}
+{{- end}}
+  }
+{{- end}}
+{{end}}
