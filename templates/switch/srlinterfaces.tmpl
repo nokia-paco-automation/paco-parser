@@ -1,37 +1,37 @@
-{{define "srlinterfaces"}}
-{{- range $i, $interface := .}}
+{{define "srlinterface"}}
+
     {
-      "name": "{{$interface.Name}}",
-      "description": "paco-{{$interface.Name}}",
+      "name": "{{.Name}}",
+      "description": "paco-{{.Name}}",
       "admin-state": "enable",
-      {{- if $interface.VlanTagging}}
-        "vlan-tagging": {{$interface.VlanTagging}},
+      {{- if .VlanTagging}}
+        "vlan-tagging": {{.VlanTagging}},
       {{- end}}
       "ethernet": {
-        {{- if ne $interface.PortSpeed ""}}
-          "port-speed": "{{$interface.PortSpeed}}"
-          {{- if eq $interface.LagMember true }},{{- end}}
+        {{- if ne .PortSpeed ""}}
+          "port-speed": "{{.PortSpeed}}"
+          {{- if eq .LagMember true }},{{- end}}
         {{end}}
-        {{- if eq $interface.LagMember true }}
-          "aggregate-id": "{{$interface.LagName}}"
+        {{- if eq .LagMember true }}
+          "aggregate-id": "{{.LagName}}"
         {{- end}}
       }
-{{- if eq $interface.Lag true}}
+{{- if eq .Lag true}}
     ,
     "lag": {
-      "lag-type: "lacp"
-      "member-speed": "{{$interface.PortSpeed}}"
-      {{- if eq $interface.Pxe true}}
-      "lacp-fallback-mode": "static"
+      "lag-type: "lacp",
+      "member-speed": "{{.PortSpeed}}",
+      {{- if eq .Pxe true}}
+      "lacp-fallback-mode": "static",
       {{- end}}
       "lacp":{
-        "interval": "FAST"
-        "lacp-mode": "ACTIVE"
-        "admin-key": "{{$interface.AdminKey}}"
-        "system-id-mac": "{{$interface.SystemMac}}"
+        "interval": "FAST",
+        "lacp-mode": "ACTIVE",
+        "admin-key": "{{.AdminKey}}",
+        "system-id-mac": "{{.SystemMac}}"
       }
     }
 {{- end}}
 }
-{{- end}}
+
 {{end}}

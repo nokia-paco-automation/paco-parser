@@ -1,20 +1,16 @@
-{{define "irbinterfaces"}}
+{{define "irbinterface"}}
+
 {
-  "name": "{{.InterfaceName}}",
-  "subinterface": [
-{{- range $index, $element := .SubInterfaces}}
-{{- if $index }},{{end}}
-{
-  "index": "{{$element.VlanID}}",
+  "index": "{{.VlanID}}",
     "admin-state": "enable",
-    "description": "{{$element.Description}}",
-{{- if ne (len $element.IPv4Prefix) 0 }}
+    "description": "{{.Description}}",
+{{- if ne (len .IPv4Prefix) 0 }}
     "ipv4": {
       {"address": [
-{{- range $index, $ipv4prefix := $element.IPv4Prefix}}
+{{- range $index, $ipv4prefix := .IPv4Prefix}}
       {{- if $index }},{{end}}
       { "ip-prefix": "{{$ipv4prefix}}",
-{{- if eq $element.AnycastGW true}}
+{{- if eq .AnycastGW true}}
         "anycast-gw": true,
 {{- end}}
 {{- end}}
@@ -31,18 +27,18 @@
           }]
     }}}
 {{- end}}
-{{- if eq $element.AnycastGW true}}
+{{- if eq .AnycastGW true}}
     "anycast-gw": {
-      "virtual-router-id": {{$element.VrID}}
+      "virtual-router-id": {{.VrID}}
       }
 {{- end}}
 }
-{{- if ne (len $element.IPv6Prefix) 0 }}
+{{- if ne (len .IPv6Prefix) 0 }}
     "ipv6": {
       "address": [
-{{- range $index, $ipv6prefix := $element.IPv6Prefix}}
+{{- range $index, $ipv6prefix := .IPv6Prefix}}
        { "ip-prefix": "{{$ipv6prefix}}"
-{{- if eq $element.AnycastGW true}}
+{{- if eq .AnycastGW true}}
         ,"anycast-gw": true
 {{- end}}
         }
@@ -60,5 +56,3 @@
     }]
 {{- end}}
 {{- end}}
-]}
-{{end}}
