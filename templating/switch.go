@@ -2,6 +2,7 @@ package templating
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"path"
 
@@ -181,7 +182,7 @@ func (j *JsonMerger) Merge(a []byte) {
 	j.data = result
 }
 
-func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, n map[string]*parser.Node) {
+func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, n map[string]*parser.Node) map[string]string {
 	log.Infof("ProcessingSwitchTemplates")
 
 	templatenodes := map[string]*TemplateNode{}
@@ -277,16 +278,28 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		templatenodes[nodename].AddBgp(bgp.NetworkInstanceName, conf)
 	}
 
+	result := map[string]string{}
+
 	for name, node := range templatenodes {
+		var tmp interface{}
+		err := json.Unmarshal([]byte(node.MergeConfig()), &tmp)
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+		indentresult, err := json.MarshalIndent(tmp, "", "  ")
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+		result[name] = string(indentresult)
 		fmt.Println("#########")
 		fmt.Println(name)
 		fmt.Println("#########")
-		fmt.Println(node.MergeConfig())
+		fmt.Println(result[name])
 		fmt.Println("#########")
 		fmt.Println()
 	}
 
-	fmt.Println()
+	return result
 }
 
 func processEsi(esi *types.K8ssrlESI) string {
