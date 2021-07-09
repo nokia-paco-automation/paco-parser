@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"path"
 
 	"github.com/nokia-paco-automation/paco-parser/parser"
 	"github.com/nokia-paco-automation/paco-parser/templating"
@@ -102,9 +103,10 @@ var parseCmd = &cobra.Command{
 		_ = workloadResults
 
 		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes)
-
+		confdir := path.Join(output, "switch-full")
+		os.MkdirAll(confdir, 0777)
 		for devicename, config := range srl_configs {
-			f, err := os.Create("/tmp/conf/" + devicename)
+			f, err := os.Create(path.Join(confdir, devicename+".json"))
 			if err != nil {
 				log.Fatalf("%v", err)
 			}
