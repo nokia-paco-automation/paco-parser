@@ -470,8 +470,9 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 										evi = 1
 									}
 									// remove 1 and 2 from sriov1 and sriov2
-									netwTypeName := strings.TrimRight(netwType, "1")
-									netwTypeName = strings.TrimRight(netwTypeName, "2")
+									netwTypeName := netwType
+									//netwTypeName := strings.TrimRight(netwType, "1")
+									//netwTypeName = strings.TrimRight(netwTypeName, "2")
 									niName := strcase.KebabCase(strings.Replace(wlName, "multus-", "", 1)) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
 									networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 										Name:                niName,
@@ -541,8 +542,9 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 									if evi == 0 {
 										evi = 1
 									}
-									netwTypeName := strings.TrimRight(netwType, "1")
-									netwTypeName = strings.TrimRight(netwTypeName, "2")
+									netwTypeName := netwType
+									//netwTypeName := strings.TrimRight(netwType, "1")
+									//netwTypeName = strings.TrimRight(netwTypeName, "2")
 									niName := strcase.KebabCase(strings.Replace(wlName, "multus-", "", 1)) + "-ipvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
 									networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 										Name:                niName,
@@ -666,8 +668,9 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 									if evi == 0 {
 										evi = 1
 									}
-									netwTypeName := strings.TrimRight(netwType, "1")
-									netwTypeName = strings.TrimRight(netwTypeName, "2")
+									netwTypeName := netwType
+									//netwTypeName := strings.TrimRight(netwType, "1")
+									//netwTypeName = strings.TrimRight(netwTypeName, "2")
 									niName := strcase.KebabCase(strings.Replace(wlName, "multus-", "", 1)) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
 									networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 										Name:                niName,
@@ -802,8 +805,9 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 								if evi == 0 {
 									evi = 1
 								}
-								netwTypeName := strings.TrimRight(netwType, "1")
-								netwTypeName = strings.TrimRight(netwTypeName, "2")
+								netwTypeName := netwType
+								//netwTypeName := strings.TrimRight(netwType, "1")
+								//netwTypeName = strings.TrimRight(netwTypeName, "2")
 								niName := strcase.KebabCase(strings.Replace(wlName, "multus-", "", 1)) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
 								networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 									Name:                niName,

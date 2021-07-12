@@ -16,10 +16,9 @@
           "aggregate-id": "{{.LagName}}"
         {{- end}}
       }
-{{- if eq .Lag true}}
-    ,
+{{- if .Lag }},
     "lag": {
-      "lag-type: "lacp",
+      "lag-type": "lacp",
       "member-speed": "{{.PortSpeed}}",
       {{- if eq .Pxe true}}
       "lacp-fallback-mode": "static",

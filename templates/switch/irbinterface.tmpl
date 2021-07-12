@@ -27,7 +27,7 @@
           }]
     }}}
 {{- end}}
-{{- if eq .AnycastGW true}}
+{{- if .AnycastGW }}
     "anycast-gw": {
       "virtual-router-id": {{.VrID}}
       }
