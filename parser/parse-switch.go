@@ -441,8 +441,8 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 			for netwType, netwInfo := range wlInfo.Itfces {
 				// used for vxlan write operation, so that we can send it to all devices in the group at once
 				targetGroup = *p.ClientGroups[cgName].TargetGroup
-				switch netwType {
-				case "itfce", "ipvlan":
+				switch nwtype := netwType; {
+				case nwtype == "itfce", nwtype == "ipvlan":
 					switch *netwInfo.Kind {
 					case "bridged":
 
@@ -472,7 +472,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 									// remove 1 and 2 from sriov1 and sriov2
 									netwTypeName := strings.TrimRight(netwType, "1")
 									netwTypeName = strings.TrimRight(netwTypeName, "2")
-									niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
+									niName := strcase.KebabCase(strings.Replace(wlName, "multus-", "", 1)) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
 									networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 										Name:                niName,
 										Kind:                "mac-vrf",
@@ -543,7 +543,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 									}
 									netwTypeName := strings.TrimRight(netwType, "1")
 									netwTypeName = strings.TrimRight(netwTypeName, "2")
-									niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-ipvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
+									niName := strcase.KebabCase(strings.Replace(wlName, "multus-", "", 1)) + "-ipvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
 									networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 										Name:                niName,
 										Kind:                "ip-vrf",
@@ -668,7 +668,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 									}
 									netwTypeName := strings.TrimRight(netwType, "1")
 									netwTypeName = strings.TrimRight(netwTypeName, "2")
-									niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
+									niName := strcase.KebabCase(strings.Replace(wlName, "multus-", "", 1)) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
 									networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 										Name:                niName,
 										Kind:                "mac-vrf",
@@ -778,7 +778,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 						// routed part of the config is covered in the routed part of the config
 
 					}
-				case "sriov1", "sriov2":
+				case strings.HasPrefix(nwtype, "sriov"):
 					// we assume sriov is always irb based
 					for nodeName, itfces := range p.ClientGroups[cgName].Interfaces {
 						// client interfaces are implemented individually per node
@@ -804,7 +804,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 								}
 								netwTypeName := strings.TrimRight(netwType, "1")
 								netwTypeName = strings.TrimRight(netwTypeName, "2")
-								niName := strcase.KebabCase(strings.Split(wlName, "-")[0]) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
+								niName := strcase.KebabCase(strings.Replace(wlName, "multus-", "", 1)) + "-macvrf-" + netwTypeName + "-" + strconv.Itoa(*netwInfo.VlanID)
 								networkInstance[nodeName][*netwInfo.VlanID] = &types.K8ssrlNetworkInstance{
 									Name:                niName,
 									Kind:                "mac-vrf",
