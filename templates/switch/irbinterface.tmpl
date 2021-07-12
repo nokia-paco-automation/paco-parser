@@ -1,58 +1,65 @@
 {{define "irbinterface"}}
-
 {
-  "index": "{{.VlanID}}",
+    "index": {{.VlanID}},
     "admin-state": "enable",
-    "description": "{{.Description}}",
+    "description": "{{.Description}}"
 {{- if ne (len .IPv4Prefix) 0 }}
-    "ipv4": {
-      {"address": [
+    ,"ipv4": {
+      "address": [ 
 {{- range $index, $ipv4prefix := .IPv4Prefix}}
-      {{- if $index }},{{end}}
-      { "ip-prefix": "{{$ipv4prefix}}",
-{{- if $.AnycastGW }}
-        "anycast-gw": true,
+      {{- if $index}},{{end}}{ "ip-prefix": "{{$ipv4prefix}}"
+{{- if eq $.AnycastGW true}}
+        ,"anycast-gw": true
 {{- end}}
-{{- end}}
-      "arp": {
-        "learn-unsolicited": true
-        "host-route": {
-          "populate":[{
-            "route-type": "dynamic"
-          }]
-        },
-        {"evpn": {
-          "advertise":[{ 
-            "route-type": "dynamic"
-          }]
-    }}}
-{{- end}}
-{{- if .AnycastGW }}
-    "anycast-gw": {
-      "virtual-router-id": {{.VrID}}
       }
 {{- end}}
-}
+      ],
+      "arp": {
+        "learn-unsolicited": true,
+        "host-route":{
+          "populate": [
+             {"route-type": "dynamic"}
+          ]
+        },
+        "evpn":{
+          "advertise": [
+            {"route-type": "dynamic"}
+          ]
+        }
+      }
+    }
+{{- end}}
+{{- if .AnycastGW }}
+    ,"anycast-gw": {
+      "virtual-router-id": {{.VrID}}
+    }
+{{- end}}
+
 {{- if ne (len .IPv6Prefix) 0 }}
-    "ipv6": {
+    , "ipv6":{
       "address": [
 {{- range $index, $ipv6prefix := .IPv6Prefix}}
-       { "ip-prefix": "{{$ipv6prefix}}"
+        {{- if $index}},{{end}}{ "ip-prefix": "{{$ipv6prefix}}"
 {{- if $.AnycastGW }}
-        ,"anycast-gw": true
+        , "anycast-gw": true
 {{- end}}
         }
 {{- end}}
+      ],
       "neighbor-discovery": {
         "learn-unsolicited": "both",
         "host-route": {
           "populate": [
-              { "route-type": "dynamic"}]
-        "evpn":{
+            {"route-type": "dynamic"}
+          ]
+        },
+        "evpn": {
           "advertise": [
-              {"route-type": "dynamic"}]
+            {"route-type": "dynamic"}
+          ]
         }
-    }}
-    }]
+      }
+    }
 {{- end}}
+}
 {{- end}}

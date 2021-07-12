@@ -261,7 +261,7 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 	for nodename, irbsubifs := range wr.IrbSubInterfaces {
 		for _, irbsubif := range irbsubifs {
 			conf := processIrbSubInterfaces(irbsubif)
-			templatenodes[nodename].AddSubInterface(conf, irbsubif.VlanID, conf)
+			templatenodes[nodename].AddSubInterface(irbsubif.InterfaceRealName, irbsubif.VlanID, conf)
 		}
 	}
 

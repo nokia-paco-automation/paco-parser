@@ -730,18 +730,18 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 								var ipv6Cidr *string
 								var ipv4prefixlist []string
 								var ipv6prefixlist []string
+								ipv4prefixlist = make([]string, 0)
+								ipv6prefixlist = make([]string, 0)
 								for i := 0; i < len(netwInfo.Ipv4Cidr); i++ {
 									ipv4Cidr = netwInfo.Ipv4Cidr[i]
 									ipv6Cidr = netwInfo.Ipv6Cidr[i]
 
-									ipv4prefixlist := make([]string, 0)
 									ipv4prefix, err := getLastIPPrefixInCidr(ipv4Cidr)
 									if err != nil {
 										log.Fatal(err)
 									}
 									ipv4prefixlist = append(ipv4prefixlist, *ipv4prefix)
 
-									ipv6prefixlist := make([]string, 0)
 									ipv6prefix, err := getLastIPPrefixInCidr(ipv6Cidr)
 									if err != nil {
 										log.Fatal(err)
