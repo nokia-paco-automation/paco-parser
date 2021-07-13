@@ -32,6 +32,7 @@ type K8ssrlirbsubinterface struct {
 	IPv6Prefix        []string
 	AnycastGW         bool
 	VrID              int
+	NwType            string
 }
 
 type K8ssrlTunnelInterface struct {

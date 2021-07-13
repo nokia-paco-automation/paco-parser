@@ -292,7 +292,7 @@ func (p *Parser) WriteClientsGroups() ([]string, *types.ClientGroupResults) {
 
 	clientGroupResults := types.NewClientGroupResults()
 	kuztomizedirs := []string{}
-	for cgName, clients := range p.ClientGroups {
+	for cgName, clientgroup := range p.ClientGroups {
 		dirName := filepath.Join(*p.BaseSwitchDir, "client-"+cgName)
 		p.CreateDirectory(dirName, 0777)
 
@@ -303,8 +303,8 @@ func (p *Parser) WriteClientsGroups() ([]string, *types.ClientGroupResults) {
 		// we add all clientinterfaces to a list which we write at the end of the loop
 		// to the respective file/directory
 
-		for nodeName, itfces := range clients.Interfaces {
-			if nodeName != *clients.TargetGroup {
+		for nodeName, itfces := range clientgroup.Interfaces {
+			if nodeName != *clientgroup.TargetGroup {
 				clientInterfaces := make([]*types.K8ssrlinterface, 0)
 				for _, itfce := range itfces {
 					if *itfce.Endpoint.Lag {
@@ -395,7 +395,7 @@ func (p *Parser) WriteClientsGroups() ([]string, *types.ClientGroupResults) {
 					p.WriteSrlSystemNetworkInstance(&dirName,
 						StringPtr(fileName),
 						StringPtr("cg-"+cgName+"-"+"system-network-instance-"+nodeName),
-						StringPtr(*clients.TargetGroup),
+						StringPtr(*clientgroup.TargetGroup),
 						esis)
 					clientGroupResults.AppendEsis(cgName, esis)
 					resources = append(resources, fileName)
@@ -947,6 +947,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 								VrID:              10,
 								IPv4Prefix:        ipv4prefixlist,
 								//IPv6Prefix:        ipv6prefixlist,
+								NwType: nwtype,
 							}
 							irbSubInterfaces[nodeName] = append(irbSubInterfaces[nodeName], irb)
 

@@ -1,6 +1,8 @@
 package templating
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type TemplateNode struct {
 	RoutingPolicy    string
@@ -10,6 +12,9 @@ type TemplateNode struct {
 	Esis             []string
 	VxlanInterface   string            // tunnel-interfaces
 	Bgp              map[string]string // instancename -> conf
+	Bfd              []string
+	StaticRoutes     map[string][]string // network instance -> route
+	NexthopGroups    map[string][]string // networkinstance -> nhgroup
 }
 
 func NewTemplateNode() *TemplateNode {
@@ -21,7 +26,17 @@ func NewTemplateNode() *TemplateNode {
 		Esis:             []string{},
 		VxlanInterface:   "",
 		Bgp:              map[string]string{},
+		Bfd:              []string{},
+		StaticRoutes:     map[string][]string{},
+		NexthopGroups:    map[string][]string{},
 	}
+}
+func (t *TemplateNode) AddStaticRoute(networkinstance string, conf string) {
+	t.StaticRoutes[networkinstance] = append(t.StaticRoutes[networkinstance], conf)
+}
+
+func (t *TemplateNode) AddNetHopGroup(networkinstance string, conf string) {
+	t.NexthopGroups[networkinstance] = append(t.NexthopGroups[networkinstance], conf)
 }
 
 func (t *TemplateNode) AddInterface(ifname string, conf string) {
@@ -43,6 +58,10 @@ func (t *TemplateNode) AddBgp(instance string, conf string) {
 
 func (t *TemplateNode) AddEsi(conf string) {
 	t.Esis = append(t.Esis, conf)
+}
+
+func (t *TemplateNode) AddBfd(conf string) {
+	t.Bfd = append(t.Bfd, conf)
 }
 
 func (t *TemplateNode) SetVxlanInterface(conf string) {
@@ -77,8 +96,27 @@ func (t *TemplateNode) MergeConfig() string {
 
 	// network instances
 	networkinstanceArrB := NewJsonArrayBuilder()
-	for _, ni := range t.NetworkInstances {
-		networkinstanceArrB.AddEntry(ni)
+	for instancename, ni := range t.NetworkInstances {
+		niMerger := NewJsonMerger()
+		// static routes
+		staticrouteArrB := NewJsonArrayBuilder()
+		for _, sr := range t.StaticRoutes[instancename] {
+			staticrouteArrB.AddEntry(sr)
+		}
+		staticRouteConfig := staticrouteArrB.ToStringObj("static-routes")
+
+		// Next-Hop-Groups
+		nextHopGroupArrB := NewJsonArrayBuilder()
+		for _, sr := range t.NexthopGroups[instancename] {
+			nextHopGroupArrB.AddEntry(sr)
+		}
+		nextHopGroupConfig := nextHopGroupArrB.ToStringObj("next-hop-groups")
+
+		niMerger.Merge([]byte(ni))
+		niMerger.Merge([]byte(staticRouteConfig))
+		niMerger.Merge([]byte(nextHopGroupConfig))
+
+		networkinstanceArrB.AddEntry(niMerger.ToString())
 	}
 	merger.Merge([]byte(networkinstanceArrB.ToStringObj("network-instance")))
 
@@ -116,5 +154,13 @@ func (t *TemplateNode) MergeConfig() string {
 	}
 	esi_full_config := fmt.Sprintf(esi_templ, esiArrB.ToStringElem("ethernet-segment"))
 	merger.Merge([]byte(esi_full_config))
+
+	// BFD
+	bfdArrB := NewJsonArrayBuilder()
+	for _, bfd := range t.Bfd {
+		bfdArrB.AddEntry(bfd)
+	}
+	merger.Merge([]byte(bfdArrB.ToStringObj("bfd")))
+
 	return merger.ToString()
 }

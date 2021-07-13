@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/apparentlymart/go-cidr/cidr"
+	"github.com/nokia-paco-automation/paco-parser/types"
 	log "github.com/sirupsen/logrus"
 )
-
 
 // DeploymentIPAM is a map where
 // first string key = multusNetworkName
@@ -221,7 +221,10 @@ type switchInfo struct {
 	switchGwsPerWlNameIpv6 map[string]map[int][]string // key1 = wlName, key2 = switch, value is list of GwIPs
 }
 
-func (p *Parser) ParseApplicationData() {
+func (p *Parser) ParseApplicationData() *types.AppLbIpResult {
+
+	appLbResult := types.NewAppLbIpResult()
+
 	log.Infof("Rendering Application Data into Helm values.yaml...")
 	dirName := filepath.Join(*p.BaseAppValuesDir)
 	p.CreateDirectory(dirName, 0777)
@@ -351,7 +354,7 @@ func (p *Parser) ParseApplicationData() {
 					appc[cnfName].InitializeCnfContainerData(p.Config.ContainerRegistry, cnfInfo.Pods)
 					//
 					//appc[cnfName].InitializeCnfNetworkData(cnfName, cnfInfo, p, appIPMap, p.ClientLinks, p.ClientSriovInfo, p.SwitchInfo)
-					appc[cnfName].InitializeCnfNetworkData(cnfName, cnfInfo, p, appIPMap, p.ClientServer2NetworkLinks, p.SwitchInfo)
+					appc[cnfName].InitializeCnfNetworkData(cnfName, cnfInfo, p, appIPMap, p.ClientServer2NetworkLinks, p.SwitchInfo, appLbResult)
 
 					appc[cnfName].K8sApiServer = apiServer.String()
 					appc[cnfName].K8sDns = dns.String()
@@ -403,6 +406,7 @@ func (p *Parser) ParseApplicationData() {
 
 		}
 	}
+	return appLbResult
 }
 
 func (p *Parser) AssignSwitchGWs(version, ipcidr, wlName, netwType *string, idx, gwidx int, netwInfo *NetworkInfo) {
@@ -1027,8 +1031,7 @@ func (p *Parser) GetApplicationIndex(itfceType, element, kind *string) *int {
 }
 
 // initialize the network data per cnf
-func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p *Parser, appIPMap *AppIPMap, clientServer2NetworkLinks map[string]map[string]map[int]map[string][]*string, switchInfo *switchInfo) {
-
+func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p *Parser, appIPMap *AppIPMap, clientServer2NetworkLinks map[string]map[string]map[int]map[string][]*string, switchInfo *switchInfo, appLbResults *types.AppLbIpResult) {
 	// initialize switches
 	a.SwitchesPerServer = p.SwitchInfo.switchesPerServer
 	// initialize networks
@@ -1135,7 +1138,8 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 									llbpodidx := p.GetApplicationIndex(StringPtr("loopback"), StringPtr(cnfName), StringPtr("llb-pod"))
 									for i := 0; i < llbs; i++ {
 										// allocate BGP Loopback
-										AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("llbLbk"), StringPtr("LLB loopback"), IntPtr(*llbpodidx+i), ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
+										llblinkipv4, llblinkipv6 := AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("llbLbk"), StringPtr("LLB loopback"), IntPtr(*llbpodidx+i), ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
+										appLbResults.AddBgpIP(cnfName, wlName, types.NewIPInfo(*llblinkipv4, *llblinkipv6))
 									}
 								case "upf":
 									// allocate BGP Loopback
@@ -1164,7 +1168,8 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 									for i := 0; i < llbs; i++ {
 										// allocate BGP Loopback
 										//-> ipAddresses["ipv4"][0]["bgpLbk"] = make([]*AllocatedIPInfo, 0)
-										AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("llbLbk"), StringPtr("LLB loopback"), IntPtr(*llbpodidx+i), ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
+										llblinkipv4, llblinkipv6 := AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("llbLbk"), StringPtr("LLB loopback"), IntPtr(*llbpodidx+i), ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
+										appLbResults.AddBgpIP(cnfName, wlName, types.NewIPInfo(*llblinkipv4, *llblinkipv6))
 									}
 
 									lmgs, lmgPodsPerGroup = getLMGs(cnfInfo, a.K)
@@ -1291,7 +1296,9 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 									if i < llbs && networkIndex <= llbs {
 										log.Infof("SMF LLBs: %d, %d, %d", llbs, i, networkIndex)
 										// allocate interface LLB
-										AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("intIP"), StringPtr("interface LLB"), llbitfcidx, ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
+										v4llbip, v6llbip := AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("intIP"), StringPtr("interface LLB"), llbitfcidx, ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
+										appLbResults.AddLinkIP(cnfName, wlName, types.NewIPInfo(*v4llbip, *v6llbip))
+
 									}
 
 									// update unique links to ensure we map the right multus interface
@@ -1313,7 +1320,8 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 										log.Infof("UPF LLBs: %d, %d, %d", llbs, i, networkIndex)
 										// allocate interface LLB
 										//-> ipAddresses["ipv4"][0]["intLbk"] = make([]*AllocatedIPInfo, 0)
-										AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("intIP"), StringPtr("interface LLB"), llbitfcidx, ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
+										v4llbip, v6llbip := AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("intIP"), StringPtr("interface LLB"), llbitfcidx, ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
+										appLbResults.AddLinkIP(cnfName, wlName, types.NewIPInfo(*v4llbip, *v6llbip))
 									}
 									// the amount of subnets per sriov differs for ntok versus 1to1
 									lmgs, lmgPodsPerGroup = getLMGs(cnfInfo, a.K)
@@ -1779,5 +1787,3 @@ func (appIPMap AppIPMap) AllocateAppLoopback(app, lpName, wlName *string, index 
 	}
 	return nil
 }
-
-

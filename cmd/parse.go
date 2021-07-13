@@ -102,19 +102,6 @@ var parseCmd = &cobra.Command{
 		_ = clientGroupResults
 		_ = workloadResults
 
-		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes)
-		confdir := path.Join(output, "switch-full")
-		os.MkdirAll(confdir, 0777)
-		for devicename, config := range srl_configs {
-			f, err := os.Create(path.Join(confdir, devicename+".json"))
-			if err != nil {
-				log.Fatalf("%v", err)
-			}
-
-			f.WriteString(config)
-			f.Close()
-		}
-
 		// infrajson, _ := json.MarshalIndent(infrastructureResult, "", "  ")
 		// fmt.Print(string(infrajson))
 		// f, err := os.Create("/tmp/infrastructureResult")
@@ -137,7 +124,21 @@ var parseCmd = &cobra.Command{
 		p.ParseServerData()
 
 		//Write the values.yaml file for the respective applications in k8s
-		p.ParseApplicationData()
+		appLbIpResults := p.ParseApplicationData()
+		_ = appLbIpResults
+
+		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes, appLbIpResults)
+		confdir := path.Join(output, "switch-full")
+		os.MkdirAll(confdir, 0777)
+		for devicename, config := range srl_configs {
+			f, err := os.Create(path.Join(confdir, devicename+".json"))
+			if err != nil {
+				log.Fatalf("%v", err)
+			}
+
+			f.WriteString(config)
+			f.Close()
+		}
 
 		return nil
 	},
