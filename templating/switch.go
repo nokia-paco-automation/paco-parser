@@ -216,10 +216,10 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 	}
 
 	// process subinterfaces on a per interface basis
-	for nodename, srlsubifs := range ir.SystemSubInterfaces {
-		for _, srlsubif := range srlsubifs {
-			conf := processSrlSubInterfaces(nodename, srlsubif.InterfaceRealName, srlsubif)
-			templatenodes[nodename].AddSubInterface(srlsubif.InterfaceRealName, srlsubif.VlanID, conf)
+	for nodename, syssubifs := range ir.SystemSubInterfaces {
+		for _, syssubif := range syssubifs {
+			conf := processSrlSubInterfaces(nodename, syssubif.InterfaceRealName, syssubif)
+			templatenodes[nodename].AddSubInterface(syssubif.InterfaceRealName, syssubif.VlanID, conf)
 		}
 	}
 
@@ -229,6 +229,16 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 			for _, interf := range interfs {
 				conf := processInterface(nodename, interf)
 				templatenodes[nodename].AddInterface(interf.Name, conf)
+			}
+		}
+	}
+
+	//clientsubinterfaces
+	for nodename, clientinterfaces := range wr.ClientSubInterfaces {
+		for ifname, clientsubifs := range clientinterfaces {
+			for _, clientsubif := range clientsubifs {
+				conf := processSrlSubInterfaces(nodename, ifname, clientsubif)
+				templatenodes[nodename].AddSubInterface(ifname, clientsubif.VlanID, conf)
 			}
 		}
 	}
@@ -272,6 +282,7 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 			templatenodes[nodename].AddNetworkInstance(networkinstance.Name, conf)
 		}
 	}
+
 	// bgp
 	for nodename, bgp := range ir.DefaultProtocolBGP {
 		conf := processBgp(bgp)
@@ -291,12 +302,6 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 			log.Fatalf("%v", err)
 		}
 		result[name] = string(indentresult)
-		fmt.Println("#########")
-		fmt.Println(name)
-		fmt.Println("#########")
-		fmt.Println(result[name])
-		fmt.Println("#########")
-		fmt.Println()
 	}
 
 	return result
