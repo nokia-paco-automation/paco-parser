@@ -35,7 +35,7 @@ func (t *TemplateNode) AddStaticRoute(networkinstance string, conf string) {
 	t.StaticRoutes[networkinstance] = append(t.StaticRoutes[networkinstance], conf)
 }
 
-func (t *TemplateNode) AddNetHopGroup(networkinstance string, conf string) {
+func (t *TemplateNode) AddNextHopGroup(networkinstance string, conf string) {
 	t.NexthopGroups[networkinstance] = append(t.NexthopGroups[networkinstance], conf)
 }
 

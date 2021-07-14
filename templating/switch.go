@@ -156,7 +156,18 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 	// 	}
 	// }
 
-	processAppConf(appConfig)
+	gsr := processAppConf(appConfig)
+
+	for nodename, entry := range gsr.Data {
+		for instancename, staticroutes := range entry {
+			for _, staticroute := range staticroutes {
+				srconf := processStaticRoute(staticroute)
+				templatenodes[nodename].AddStaticRoute(instancename, srconf)
+				nhgconf := processNextHopGroup(staticroute.NHGroup)
+				templatenodes[nodename].AddNextHopGroup(instancename, nhgconf)
+			}
+		}
+	}
 
 	perNodeConfig := map[string]string{}
 
@@ -173,6 +184,26 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		perNodeConfig[name] = string(indentresult)
 	}
 	return perNodeConfig
+}
+
+func processNextHopGroup(nhg *types.NHGroup) string {
+	nhgj := NewJsonMerger()
+
+	templateFile := path.Join("templates", "switch", "nhgroup.tmpl")
+	nhgj.Merge([]byte(generalTemplateProcessing(templateFile, "nhgroup", nhg)))
+
+	nhgentryArrB := NewJsonArrayBuilder()
+	for _, nhgentry := range nhg.Entries {
+		entryconf := processNextHopGroupEntry(nhgentry)
+		nhgentryArrB.AddEntry(entryconf)
+	}
+	nhgj.Merge([]byte(nhgentryArrB.ToStringObj("nexthop")))
+	return nhgj.ToString()
+}
+
+func processNextHopGroupEntry(nhge *types.NHGroupEntry) string {
+	templateFile := path.Join("templates", "switch", "nhgroupentry.tmpl")
+	return generalTemplateProcessing(templateFile, "nhgroupentry", nhge)
 }
 
 func BGPPeerMapToString(peerinfo map[int]*parser.BGPPeerInfo) string {
@@ -209,13 +240,25 @@ func (gsr *GlobalStaticRoutes) addEntry(nodename string, networkinstance string,
 	gsr.Data[nodename][networkinstance] = append(gsr.Data[nodename][networkinstance], sr)
 }
 
-func processAppConf(appconf map[string]*parser.AppConfig) {
+func processAppConf(appconf map[string]*parser.AppConfig) *GlobalStaticRoutes {
 
 	output := strings.Builder{}
-	output2 := strings.Builder{}
-	output2.WriteString("")
 
 	globalStaticRoutes := NewGlobalStaticRoutes()
+
+	sr := types.NewStaticRouteNHG("66..6.6")
+	sr.SetNHGroupName("FooBARGroup")
+	sr.AddNHGroupEntry(&types.NHGroupEntry{
+		Index:     5,
+		NHIp:      "6.6.6.8",
+		LocalAddr: "1.2.3.4",
+	})
+	sr.AddNHGroupEntry(&types.NHGroupEntry{
+		Index:     3,
+		NHIp:      "3.3.3.3",
+		LocalAddr: "25.25.25.25",
+	})
+	globalStaticRoutes.addEntry("leaf1", "external-macvrf-ipvlan-1400", sr)
 
 	for cnfName, cnf := range appconf {
 		if cnfName != "upf" && cnfName != "smf" {
@@ -223,33 +266,36 @@ func processAppConf(appconf map[string]*parser.AppConfig) {
 		}
 		for wlName, workloads := range cnf.Networks {
 
-			foos := workloads[0][0]["loopback"]["llbLbk"]
+			llbLoopbackInfoArr := workloads[0][0]["loopback"]["llbLbk"]
 
-			for ipindex, foo := range foos {
+			for llbLoopb, foo := range llbLoopbackInfoArr {
 				output.WriteString(fmt.Sprintf("llblbk - WLName: %s, BGPAddr: %s ,BGPPeers: [ %s ]\n", wlName, *foo.IPv4BGPAddress, BGPPeerMapToString(foo.IPv4BGPPeers)))
-				sr := types.NewStaticRouteNHG(*foo.IPv4BGPAddress)
-				sr.SetNHGroupName(fmt.Sprintf("llb%d-%s-%s-%s", ipindex, "InterfaceName", "Target", *foo.NetworkShortName))
+
+				_ = llbLoopb
+				// sr := types.NewStaticRouteNHG(*foo.IPv4BGPAddress)
+				// sr.SetNHGroupName(fmt.Sprintf("llb%d-%s-%s-%s", llbLoopb, "InterfaceName", "Target", *foo.NetworkShortName))
 
 			}
 
 			for x := 1; x < len(workloads[0]); x++ {
-				foos = workloads[0][x]["itfce"]["intIP"]
+				llbInterfInfoArr := workloads[0][x]["itfce"]["intIP"]
 
-				for ipindex, foo := range foos {
-					output.WriteString(fmt.Sprintf("intIP - WLName: %s, VLANID: %d, Target: %s, BGPPeers: [ %s ]\n", wlName, *foo.VlanID, *foo.Target, BGPPeerMapToString(foo.IPv4BGPPeers)))
+				for llbInterfInfoIndex, interfInfo := range llbInterfInfoArr {
+					output.WriteString(fmt.Sprintf("intIP - WLName: %s, VLANID: %d, Target: %s, BGPPeers: [ %s ]\n", wlName, *interfInfo.VlanID, *interfInfo.Target, BGPPeerMapToString(interfInfo.IPv4BGPPeers)))
 
-					sr := types.NewStaticRouteNHG("66..6.6")
-					sr.SetNHGroupName(fmt.Sprintf("llb%d-%s", ipindex, *foo.NetworkShortName))
-					for _, IPv4Peer := range foo.IPv4BGPPeers {
-						nhgentry := &types.NHGroupEntry{
-							Index:     *foo.VlanID,
-							NHIp:      *foo.Ipv4Addresses[0].IPAddress,
-							LocalAddr: *IPv4Peer.IP,
-						}
-						sr.AddNHGroupEntry(nhgentry)
-					}
+					_ = llbInterfInfoIndex
+					// sr := types.NewStaticRouteNHG("66..6.6")
+					// sr.SetNHGroupName(fmt.Sprintf("llb%d-%s", llbInterfInfoIndex, *interfInfo.NetworkShortName))
+					// for _, IPv4Peer := range interfInfo.IPv4BGPPeers {
+					// 	nhgentry := &types.NHGroupEntry{
+					// 		Index:     *interfInfo.VlanID,
+					// 		NHIp:      *interfInfo.Ipv4Addresses[0].IPAddress,
+					// 		LocalAddr: *IPv4Peer.IP,
+					// 	}
+					// 	sr.AddNHGroupEntry(nhgentry)
+					// }
 
-					globalStaticRoutes.addEntry(*foo.Target, "networkInstance", sr)
+					// globalStaticRoutes.addEntry(*interfInfo.Target, "networkInstance", sr)
 				}
 			}
 			// for switchIndex, switchWorkloads := range workloads {
@@ -270,16 +316,16 @@ func processAppConf(appconf map[string]*parser.AppConfig) {
 	}
 
 	fmt.Println(output.String())
-
+	return globalStaticRoutes
 }
 
-func processStaticRoute(destination string, nhgroup string) string {
+func processStaticRoute(nhg *types.StaticRouteNHG) string {
 	templateFile := path.Join("templates", "switch", "staticroute.tmpl")
-	data := struct {
-		Prefix  string
-		Nhgroup string
-	}{Prefix: destination, Nhgroup: nhgroup}
-	return generalTemplateProcessing(templateFile, "staticroute", data)
+	parameter := struct {
+		Prefix      string
+		Nhgroupname string
+	}{Prefix: nhg.Prefix, Nhgroupname: nhg.NHGroup.Name}
+	return generalTemplateProcessing(templateFile, "staticroute", parameter)
 }
 
 type NetworkInstanceLookupResult struct {
