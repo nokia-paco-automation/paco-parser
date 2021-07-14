@@ -124,10 +124,10 @@ var parseCmd = &cobra.Command{
 		p.ParseServerData()
 
 		//Write the values.yaml file for the respective applications in k8s
-		appLbIpResults := p.ParseApplicationData()
-		_ = appLbIpResults
+		appConfig := p.ParseApplicationData()
+		_ = appConfig
 
-		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes, appLbIpResults)
+		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes, appConfig)
 		confdir := path.Join(output, "switch-full")
 		os.MkdirAll(confdir, 0777)
 		for devicename, config := range srl_configs {

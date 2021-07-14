@@ -27,16 +27,16 @@ func (p *Parser) WriteCnfValues(t *template.Template, dirName, cnfName *string, 
 
 	for wlName, workloads := range appc.Networks {
 		for switchIndex, switchWorkloads := range workloads {
-			for group, groups := range switchWorkloads{
+			for group, groups := range switchWorkloads {
 				for nwtype, nwtypes := range groups {
 					for nwsubType, netwsubTypes := range nwtypes {
 						for idx, networkInfo := range netwsubTypes {
-							log.Infof("%d",idx)
+							log.Infof("%d", idx)
 							log.Infof("%s %d %d %s %s %d", wlName, switchIndex, group, nwtype, nwsubType, len(networkInfo.Ipv4Addresses))
 							for _, allocatedIPinfo := range networkInfo.Ipv4Addresses {
 								log.Infof("ipAddress: %s", *allocatedIPinfo.IPAddress)
 							}
-						}	
+						}
 					}
 				}
 			}

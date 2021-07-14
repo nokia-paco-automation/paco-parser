@@ -221,7 +221,7 @@ type switchInfo struct {
 	switchGwsPerWlNameIpv6 map[string]map[int][]string // key1 = wlName, key2 = switch, value is list of GwIPs
 }
 
-func (p *Parser) ParseApplicationData() *types.AppLbIpResult {
+func (p *Parser) ParseApplicationData() map[string]*AppConfig {
 
 	appLbResult := types.NewAppLbIpResult()
 
@@ -315,6 +315,8 @@ func (p *Parser) ParseApplicationData() *types.AppLbIpResult {
 	log.Debugf("Gateways Ipv4: %v", p.SwitchInfo.switchGwsPerWlNameIpv4)
 	log.Debugf("Gateways Ipv6: %v", p.SwitchInfo.switchGwsPerWlNameIpv6)
 
+	pacoAppConf := make(map[string]*AppConfig)
+
 	// get the application information
 	for app, pacoInfo := range p.Config.Application {
 		if app == "paco" {
@@ -322,7 +324,6 @@ func (p *Parser) ParseApplicationData() *types.AppLbIpResult {
 			appIPMap := new(AppIPMap)
 			appIPMap.IPinfo = make(map[string]*IPinfo)
 
-			appc := make(map[string]*AppConfig)
 			// identifies the multus networks on which the apps are connected
 			// this holds only the relevant information for the app
 			connectedMultusNetworks := make(map[string]*MultusInfo)
@@ -343,42 +344,42 @@ func (p *Parser) ParseApplicationData() *types.AppLbIpResult {
 			for cnfName, cnfInfo := range pacoInfo.Cnfs {
 				if *cnfInfo.Enabled {
 					// holds the relevant information per CNF
-					appc[cnfName] = new(AppConfig)
+					pacoAppConf[cnfName] = new(AppConfig)
 					// provides the connectivity mode for the application
 					// Options: multiNet, vlanAwareApp
-					appc[cnfName].ConnectivityMode = pacoInfo.Deployment.ConnectivityMode
+					pacoAppConf[cnfName].ConnectivityMode = pacoInfo.Deployment.ConnectivityMode
 					// get the K from the Config file; K is K in NtoK deployment model
-					appc[cnfName].K = cnfInfo.K
+					pacoAppConf[cnfName].K = cnfInfo.K
 
 					// initializes the POD/Contaianer information per CNF
-					appc[cnfName].InitializeCnfContainerData(p.Config.ContainerRegistry, cnfInfo.Pods)
+					pacoAppConf[cnfName].InitializeCnfContainerData(p.Config.ContainerRegistry, cnfInfo.Pods)
 					//
 					//appc[cnfName].InitializeCnfNetworkData(cnfName, cnfInfo, p, appIPMap, p.ClientLinks, p.ClientSriovInfo, p.SwitchInfo)
-					appc[cnfName].InitializeCnfNetworkData(cnfName, cnfInfo, p, appIPMap, p.ClientServer2NetworkLinks, p.SwitchInfo, appLbResult)
+					pacoAppConf[cnfName].InitializeCnfNetworkData(cnfName, cnfInfo, p, appIPMap, p.ClientServer2NetworkLinks, p.SwitchInfo, appLbResult)
 
-					appc[cnfName].K8sApiServer = apiServer.String()
-					appc[cnfName].K8sDns = dns.String()
-					appc[cnfName].NetworkName = *pacoInfo.Deployment.NetworkName
-					appc[cnfName].NetworkShortName = *pacoInfo.Deployment.NetworkShortName
+					pacoAppConf[cnfName].K8sApiServer = apiServer.String()
+					pacoAppConf[cnfName].K8sDns = dns.String()
+					pacoAppConf[cnfName].NetworkName = *pacoInfo.Deployment.NetworkName
+					pacoAppConf[cnfName].NetworkShortName = *pacoInfo.Deployment.NetworkShortName
 					if mcc, ok := pacoInfo.Deployment.Plmn["mcc"]; ok {
-						appc[cnfName].Mcc = mcc
+						pacoAppConf[cnfName].Mcc = mcc
 					}
 					if mnc, ok := pacoInfo.Deployment.Plmn["mnc"]; ok {
-						appc[cnfName].Mnc = mnc
+						pacoAppConf[cnfName].Mnc = mnc
 					}
-					appc[cnfName].Supi = pacoInfo.Deployment.Supi
-					appc[cnfName].Dnn = pacoInfo.Deployment.Dnn
-					appc[cnfName].TrackingArea = pacoInfo.Deployment.TrackingArea
-					appc[cnfName].Slices = pacoInfo.Deployment.Slices
-					appc[cnfName].UePoolCidr = pacoInfo.Deployment.UePoolCidr
-					appc[cnfName].Apn = pacoInfo.Deployment.Apn
+					pacoAppConf[cnfName].Supi = pacoInfo.Deployment.Supi
+					pacoAppConf[cnfName].Dnn = pacoInfo.Deployment.Dnn
+					pacoAppConf[cnfName].TrackingArea = pacoInfo.Deployment.TrackingArea
+					pacoAppConf[cnfName].Slices = pacoInfo.Deployment.Slices
+					pacoAppConf[cnfName].UePoolCidr = pacoInfo.Deployment.UePoolCidr
+					pacoAppConf[cnfName].Apn = pacoInfo.Deployment.Apn
 				}
 
 				switch cnfName {
 				case "amf":
 					if *cnfInfo.Enabled {
 						appIPMap.IPinfo["oam"].PrometheusIP = cnfInfo.PrometheusIP
-						appc[cnfName].StorageClass = *cnfInfo.StorageClass
+						pacoAppConf[cnfName].StorageClass = *cnfInfo.StorageClass
 					}
 				case "smf":
 					// nothing special required
@@ -394,19 +395,19 @@ func (p *Parser) ParseApplicationData() *types.AppLbIpResult {
 
 				p.WriteCnfValues(t, &dirName,
 					StringPtr(cnfName),
-					appc[cnfName],
+					pacoAppConf[cnfName],
 					appIPMap)
 
 				// Show the application IPAM
 				//dirName := filepath.Join(*p.BaseAppIpamDir)
 				//p.WriteApplicationDeploymentIPAM(&dirName)
 
-				p.ParseCnfKustomize(StringPtr(cnfName), appc[cnfName], appIPMap)
+				p.ParseCnfKustomize(StringPtr(cnfName), pacoAppConf[cnfName], appIPMap)
 			}
 
 		}
 	}
-	return appLbResult
+	return pacoAppConf
 }
 
 func (p *Parser) AssignSwitchGWs(version, ipcidr, wlName, netwType *string, idx, gwidx int, netwInfo *NetworkInfo) {
