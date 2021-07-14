@@ -128,17 +128,7 @@ var parseCmd = &cobra.Command{
 		_ = appConfig
 
 		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes, appConfig)
-		confdir := path.Join(output, "switch-full")
-		os.MkdirAll(confdir, 0777)
-		for devicename, config := range srl_configs {
-			f, err := os.Create(path.Join(confdir, devicename+".json"))
-			if err != nil {
-				log.Fatalf("%v", err)
-			}
-
-			f.WriteString(config)
-			f.Close()
-		}
+		writeSwitchConfigs(srl_configs)
 
 		return nil
 	},
@@ -152,5 +142,18 @@ func init() {
 func setFlags(conf *parser.Config) {
 	if name != "" {
 		conf.Name = &name
+	}
+}
+
+func writeSwitchConfigs(srl_configs map[string]string) {
+	confdir := path.Join(output, "switch-full")
+	os.MkdirAll(confdir, 0777)
+	for devicename, config := range srl_configs {
+		f, err := os.Create(path.Join(confdir, devicename+".json"))
+		if err != nil {
+			log.Fatalf("%v", err)
+		}
+		f.WriteString(config)
+		f.Close()
 	}
 }

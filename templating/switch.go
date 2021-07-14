@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"path"
 	"strings"
 
@@ -156,8 +155,9 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 	// 	}
 	// }
 
+	// Static routes with Nexthop groups
+	// and Next-Hop-Groups
 	gsr := processAppConf(appConfig)
-
 	for nodename, entry := range gsr.Data {
 		for instancename, staticroutes := range entry {
 			for _, staticroute := range staticroutes {
@@ -169,8 +169,9 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		}
 	}
 
+	// store pretty printed config per node in the map
+	// and return that result
 	perNodeConfig := map[string]string{}
-
 	for name, node := range templatenodes {
 		var tmp interface{}
 		err := json.Unmarshal([]byte(node.MergeConfig()), &tmp)
@@ -220,30 +221,9 @@ func BGPPeerMapToString(peerinfo map[int]*parser.BGPPeerInfo) string {
 	return result
 }
 
-type GlobalStaticRoutes struct {
-	Data map[string]map[string][]*types.StaticRouteNHG // nodename, networkinstance -> []*staticrouteNHG
-}
-
-func NewGlobalStaticRoutes() *GlobalStaticRoutes {
-	return &GlobalStaticRoutes{
-		Data: map[string]map[string][]*types.StaticRouteNHG{},
-	}
-}
-
-func (gsr *GlobalStaticRoutes) addEntry(nodename string, networkinstance string, sr *types.StaticRouteNHG) {
-	if _, ok := gsr.Data[nodename]; !ok {
-		gsr.Data[nodename] = map[string][]*types.StaticRouteNHG{}
-	}
-	if _, ok := gsr.Data[nodename][networkinstance]; !ok {
-		gsr.Data[nodename][networkinstance] = []*types.StaticRouteNHG{}
-	}
-	gsr.Data[nodename][networkinstance] = append(gsr.Data[nodename][networkinstance], sr)
-}
-
+// this is to extract the static route config as well as the next-hop-groups.
 func processAppConf(appconf map[string]*parser.AppConfig) *GlobalStaticRoutes {
-
-	output := strings.Builder{}
-
+	output := strings.Builder{} // DEBUG ONLY -> REMOVE
 	globalStaticRoutes := NewGlobalStaticRoutes()
 
 	sr := types.NewStaticRouteNHG("66..6.6")
@@ -268,12 +248,12 @@ func processAppConf(appconf map[string]*parser.AppConfig) *GlobalStaticRoutes {
 
 			llbLoopbackInfoArr := workloads[0][0]["loopback"]["llbLbk"]
 
-			for llbLoopb, foo := range llbLoopbackInfoArr {
-				output.WriteString(fmt.Sprintf("llblbk - WLName: %s, BGPAddr: %s ,BGPPeers: [ %s ]\n", wlName, *foo.IPv4BGPAddress, BGPPeerMapToString(foo.IPv4BGPPeers)))
+			for llbLoopbIndex, llbLoopbackInfo := range llbLoopbackInfoArr {
+				output.WriteString(fmt.Sprintf("llblbk - WLName: %s, BGPAddr: %s ,BGPPeers: [ %s ]\n", wlName, *llbLoopbackInfo.IPv4BGPAddress, BGPPeerMapToString(llbLoopbackInfo.IPv4BGPPeers)))
 
-				_ = llbLoopb
-				// sr := types.NewStaticRouteNHG(*foo.IPv4BGPAddress)
-				// sr.SetNHGroupName(fmt.Sprintf("llb%d-%s-%s-%s", llbLoopb, "InterfaceName", "Target", *foo.NetworkShortName))
+				_ = llbLoopbIndex
+				// sr := types.NewStaticRouteNHG(*llbLoopbackInfo.IPv4BGPAddress)
+				// sr.SetNHGroupName(fmt.Sprintf("llb%d-%s-%s-%s", llbLoopbIndex, "InterfaceName", "Target", *llbLoopbackInfo.NetworkShortName))
 
 			}
 
@@ -326,52 +306,6 @@ func processStaticRoute(nhg *types.StaticRouteNHG) string {
 		Nhgroupname string
 	}{Prefix: nhg.Prefix, Nhgroupname: nhg.NHGroup.Name}
 	return generalTemplateProcessing(templateFile, "staticroute", parameter)
-}
-
-type NetworkInstanceLookupResult struct {
-	nodename        string
-	networkInstance *types.K8ssrlNetworkInstance
-}
-
-func findNetworkInstanceOfIrb(networkinstances map[string]map[int]*types.K8ssrlNetworkInstance, irbif *types.K8ssrlirbsubinterface) *NetworkInstanceLookupResult {
-	for nodename, networkinstances := range networkinstances {
-		for _, ni := range networkinstances {
-			for _, subif := range ni.SubInterfaces {
-				if subif.InterfaceRealName == irbif.InterfaceRealName && subif.VlanID == irbif.VlanID {
-					return &NetworkInstanceLookupResult{
-						nodename:        nodename,
-						networkInstance: ni,
-					}
-				}
-			}
-		}
-	}
-	log.Fatalln("No Networkinstance found!")
-	return nil
-}
-
-func findRelatedIRBv4(irbsubinterface map[string][]*types.K8ssrlirbsubinterface, ipv4 string) *types.K8ssrlirbsubinterface {
-	appIp, _, err := net.ParseCIDR(ipv4)
-	if err != nil {
-		log.Fatalln("Not a valid IP.")
-	}
-	for _, irbsubifs := range irbsubinterface {
-		for _, irbsubif := range irbsubifs {
-			//fmt.Printf("Node: %s, ifname: %s, IPv4: %s, IPv6: %s\n", nodename, irbsubif.InterfaceRealName, irbsubif.IPv4Prefix, irbsubif.IPv6Prefix)
-			for _, entry := range irbsubif.IPv4Prefix {
-				_, irbnet, err := net.ParseCIDR(entry)
-				if err != nil {
-					log.Fatalln("IP Parsing error")
-				}
-				if irbnet.Contains(appIp) {
-					fmt.Printf("MATCH: Ipv4: %s, Net %s\n", ipv4, irbnet.String())
-					return irbsubif
-				}
-			}
-		}
-	}
-	log.Fatalln("not found!")
-	return nil
 }
 
 func processBfdInterface(interf *types.K8ssrlsubinterface) string {
