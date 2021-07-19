@@ -244,26 +244,23 @@ func processAppConf(appconf map[string]*parser.AppConfig) *GlobalStaticRoutes {
 		if cnfName != "upf" && cnfName != "smf" {
 			continue
 		}
+
 		for wlName, workloads := range cnf.Networks {
+			bgpLoopbackInfoArr := workloads[0][0]["loopback"]["bgpLbk"][0]
+			llbLoopbackInfoArr := workloads[0][0]["loopback"]["llbLbk"][0]
+			for x := 1; x < len(workloads[0]); x++ {
 
-			llbLoopbackInfoArr := workloads[0][0]["loopback"]["llbLbk"]
-
-			for llbLoopbIndex, llbLoopbackInfo := range llbLoopbackInfoArr {
-				output.WriteString(fmt.Sprintf("llblbk - WLName: %s, BGPAddr: %s ,BGPPeers: [ %s ]\n", wlName, *llbLoopbackInfo.IPv4BGPAddress, BGPPeerMapToString(llbLoopbackInfo.IPv4BGPPeers)))
-
-				_ = llbLoopbIndex
+				output.WriteString(fmt.Sprintf("SR - BGP - WLName: %s, prefix: %s/32\n", wlName, *bgpLoopbackInfoArr.Ipv4Addresses[0].IPAddress))
 				// sr := types.NewStaticRouteNHG(*llbLoopbackInfo.IPv4BGPAddress)
 				// sr.SetNHGroupName(fmt.Sprintf("llb%d-%s-%s-%s", llbLoopbIndex, "InterfaceName", "Target", *llbLoopbackInfo.NetworkShortName))
 
-			}
+				llbInterfInfoArr := workloads[0][x]["itfce"]["intIP"][0]
+				for ipIndex, ipAddress := range llbInterfInfoArr.Ipv4Addresses {
+					//output.WriteString(fmt.Sprintf("intIP - WLName: %s, VLANID: %d, Target: %s, BGPPeers: [ %s ]\n", wlName, *interfInfo.VlanID, *interfInfo.Target, BGPPeerMapToString(interfInfo.IPv4BGPPeers)))
+					//output.WriteString(fmt.Sprintf("%d - %d\n", llbInterfInfoIndex, interfInfo))
+					output.WriteString(fmt.Sprintf("BGP loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s\n", wlName, *ipAddress.IPAddress, *llbInterfInfoArr.Target, *&llbInterfInfoArr.Ipv4GwPerWl[x][ipIndex]))
 
-			for x := 1; x < len(workloads[0]); x++ {
-				llbInterfInfoArr := workloads[0][x]["itfce"]["intIP"]
-
-				for llbInterfInfoIndex, interfInfo := range llbInterfInfoArr {
-					output.WriteString(fmt.Sprintf("intIP - WLName: %s, VLANID: %d, Target: %s, BGPPeers: [ %s ]\n", wlName, *interfInfo.VlanID, *interfInfo.Target, BGPPeerMapToString(interfInfo.IPv4BGPPeers)))
-
-					_ = llbInterfInfoIndex
+					_ = ipIndex
 					// sr := types.NewStaticRouteNHG("66..6.6")
 					// sr.SetNHGroupName(fmt.Sprintf("llb%d-%s", llbInterfInfoIndex, *interfInfo.NetworkShortName))
 					// for _, IPv4Peer := range interfInfo.IPv4BGPPeers {
@@ -276,6 +273,25 @@ func processAppConf(appconf map[string]*parser.AppConfig) *GlobalStaticRoutes {
 					// }
 
 					// globalStaticRoutes.addEntry(*interfInfo.Target, "networkInstance", sr)
+				}
+			}
+			for llbLoopbackIndex, llbLoopbackIPAddress := range llbLoopbackInfoArr.Ipv4Addresses {
+				for x := 1; x < len(workloads[0]); x++ {
+					output.WriteString(fmt.Sprintf("SR - LLB %d - WLName: %s, prefix: %s/32\n", llbLoopbackIndex, wlName, *llbLoopbackIPAddress.IPAddress))
+					llbInterfInfoArr := workloads[0][x]["itfce"]["intIP"][0]
+					output.WriteString(fmt.Sprintf("LLb %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s\n", llbLoopbackIndex, wlName, *llbInterfInfoArr.Ipv4Addresses[llbLoopbackIndex].IPAddress, *llbInterfInfoArr.Target, *&llbInterfInfoArr.Ipv4GwPerWl[x][llbLoopbackIndex]))
+
+				}
+			}
+			if cnfName == "upf" {
+				// loop over lmg's
+				for i := 1; i < len(workloads); i++ {
+					// loop over switch
+					for x := 1; x < len(workloads[i]); x++ {
+						output.WriteString(fmt.Sprintf("SR - LMG %d - WLName: %s, prefix: %s/32\n", i-1, wlName, *workloads[i][0]["loopback"]["lmgLbk"][0].Ipv4Addresses[0].IPAddress))
+						lmgInterfInfoArr := workloads[i][x]["itfce"]["intIP"][0]
+						output.WriteString(fmt.Sprintf("Lmg %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s\n", i-1, wlName, *lmgInterfInfoArr.Ipv4Addresses[0].IPAddress, *lmgInterfInfoArr.Target, *&lmgInterfInfoArr.Ipv4GwPerWl[x][0]))
+					}
 				}
 			}
 			// for switchIndex, switchWorkloads := range workloads {
