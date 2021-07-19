@@ -232,8 +232,7 @@ func processAppConf(appconf map[string]*parser.AppConfig, ir *types.Infrastructu
 	return globalStaticRoutes
 }
 
-func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) string {
-	output := strings.Builder{}
+func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
 	// loop over lmg's
 	for i := 1; i < len(workloads); i++ {
 		destPrefix := *workloads[i][0]["loopback"]["lmgLbk"][0].Ipv4Addresses[0].IPAddress
@@ -265,11 +264,9 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 			globalStaticRoutes.addEntry(leafnode, networkInstance.networkInstance.Name, sr)
 		}
 	}
-	return output.String()
 }
 
-func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) string {
-	output := strings.Builder{}
+func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
 	llbLoopbackInfoArr := workloads[0][0]["loopback"]["llbLbk"][0]
 	for llbLoopbackIndex, llbLoopbackIPAddress := range llbLoopbackInfoArr.Ipv4Addresses {
 		destPrefix := *llbLoopbackIPAddress.IPAddress
@@ -302,11 +299,9 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 			globalStaticRoutes.addEntry(leafNode, networkInstance.networkInstance.Name, sr)
 		}
 	}
-	return output.String()
 }
 
-func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) string {
-	output := strings.Builder{}
+func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
 	bgpLoopbackInfoArr := workloads[0][0]["loopback"]["bgpLbk"][0]
 
 	for x := 1; x < len(workloads[0]); x++ {
@@ -339,7 +334,6 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 		networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
 		globalStaticRoutes.addEntry(*llbInterfInfoArr.Target, networkInstance.networkInstance.Name, sr)
 	}
-	return output.String()
 }
 
 func processStaticRoute(nhg *types.StaticRouteNHG) string {
