@@ -736,13 +736,13 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 									ipv4Cidr = netwInfo.Ipv4Cidr[i]
 									ipv6Cidr = netwInfo.Ipv6Cidr[i]
 
-									ipv4prefix, err := getLastIPPrefixInCidr(ipv4Cidr)
+									ipv4prefix, err := getFirstIPPrefixInCidr(ipv4Cidr)
 									if err != nil {
 										log.Fatal(err)
 									}
 									ipv4prefixlist = append(ipv4prefixlist, *ipv4prefix)
 
-									ipv6prefix, err := getLastIPPrefixInCidr(ipv6Cidr)
+									ipv6prefix, err := getFirstIPPrefixInCidr(ipv6Cidr)
 									if err != nil {
 										log.Fatal(err)
 									}
@@ -889,7 +889,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 										ipv4prefixlist = append(ipv4prefixlist, *ipv4prefix)
 									}
 								*/
-								ipv4prefix, err := getLastIPPrefixInIPnet(*ipNet)
+								ipv4prefix, err := getFirstIPPrefixInIPnet(*ipNet)
 								if err != nil {
 									log.Fatal(err)
 								}
@@ -913,7 +913,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 										ipv6prefixlist = append(ipv6prefixlist, *ipv4prefix)
 									}
 								*/
-								ipv6prefix, err := getLastIPPrefixInIPnet(*ipNet)
+								ipv6prefix, err := getFirstIPPrefixInIPnet(*ipNet)
 								if err != nil {
 									log.Fatal(err)
 								}

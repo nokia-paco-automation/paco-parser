@@ -58,6 +58,11 @@ func GetLastIP(subnet *net.IPNet) (net.IP, error) {
 	return GetIndexedIP(subnet, int(size-1))
 }
 
+// GetFirstIP returns subnet's last IP
+func GetFirstIP(subnet *net.IPNet) (net.IP, error) {
+	return GetIndexedIP(subnet, 1)
+}
+
 // GetIndexedIP returns a net.IP that is subnet.IP + index in the contiguous IP space.
 func GetIndexedIP(subnet *net.IPNet, index int) (net.IP, error) {
 	ip := addIPOffset(bigForIP(subnet.IP), index)
