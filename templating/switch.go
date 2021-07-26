@@ -5,17 +5,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 
 	"text/template"
 
 	"github.com/nokia-paco-automation/paco-parser/parser"
 	"github.com/nokia-paco-automation/paco-parser/types"
+	"github.com/stoewer/go-strcase"
 
 	log "github.com/sirupsen/logrus"
 )
 
-func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, n map[string]*parser.Node, appConfig map[string]*parser.AppConfig) map[string]string {
+func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, n map[string]*parser.Node, appConfig map[string]*parser.AppConfig, multusInfo map[string]*parser.MultusInfo) map[string]string {
 	log.Infof("ProcessingSwitchTemplates")
 
 	templatenodes := map[string]*TemplateNode{}
@@ -68,10 +70,10 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 
 	//clientsubinterfaces
 	for nodename, clientinterfaces := range wr.ClientSubInterfaces {
-		for ifname, clientsubifs := range clientinterfaces {
+		for _, clientsubifs := range clientinterfaces {
 			for _, clientsubif := range clientsubifs {
-				conf := processSrlSubInterface(nodename, ifname, clientsubif)
-				templatenodes[nodename].AddSubInterface(ifname, clientsubif.VlanID, conf)
+				conf := processSrlSubInterface(nodename, clientsubif.InterfaceRealName, clientsubif)
+				templatenodes[nodename].AddSubInterface(clientsubif.InterfaceRealName, clientsubif.VlanID, conf)
 			}
 		}
 	}
@@ -103,6 +105,37 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		}
 	}
 
+	// Networkinstance attached subinterfaces
+	for nodename, nodeni := range wr.NetworkInstances {
+		for niid, networkinstance := range nodeni {
+			for index, subif := range networkinstance.SubInterfaces {
+				_ = index
+				_ = subif
+				_ = niid
+				_ = nodename
+				conf := processSrlSubInterface(nodename, subif.InterfaceRealName, subif)
+				templatenodes[nodename].AddSubInterface(subif.InterfaceRealName, subif.VlanID, conf)
+			}
+		}
+	}
+
+	// // lag subinterfaces
+	// for nodename, nodeni := range wr.NetworkInstances {
+	// 	for _, networkinstance := range nodeni {
+	// 		if networkinstance.Kind == "mac-vrf" {
+	// 			for _, subif := range networkinstance.SubInterfaces {
+	// 				if subif.Kind == "bridged" {
+	// 					conf := processInterface(nodename, &types.K8ssrlinterface{Name: subif.InterfaceRealName, VlanTagging: subif.VlanTagging})
+	// 					templatenodes[nodename].AddInterface(subif.InterfaceRealName, conf)
+
+	// 					conf = processSrlSubInterface(nodename, subif.InterfaceRealName, subif)
+	// 					templatenodes[nodename].AddSubInterface(subif.InterfaceRealName, subif.VlanID, conf)
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
+
 	// irbsub interfaces
 	// irb bfd
 	for nodename, irbsubifs := range wr.IrbSubInterfaces {
@@ -115,7 +148,17 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 			}
 		}
 	}
+	// first run before "processAppConfBgp()"
+	// networkinstance
+	for nodename, data := range wr.NetworkInstances {
+		for _, networkinstance := range data {
+			conf := processNetworkInstance(networkinstance)
+			templatenodes[nodename].AddNetworkInstance(networkinstance.Name, conf)
+		}
+	}
 
+	processAppConfBgp(appConfig, wr, ir, multusInfo, templatenodes)
+	// Second run after "processAppConfBgp()"
 	// networkinstance
 	for nodename, data := range wr.NetworkInstances {
 		for _, networkinstance := range data {
@@ -132,7 +175,7 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 
 	// Static routes with Nexthop groups
 	// and Next-Hop-Groups
-	gsr := processAppConf(appConfig, ir, wr)
+	gsr := processAppConfSrNhg(appConfig, ir, wr)
 	for nodename, entry := range gsr.Data {
 		for instancename, staticroutes := range entry {
 			for _, staticroute := range staticroutes {
@@ -182,38 +225,23 @@ func processNextHopGroupEntry(nhge *types.NHGroupEntry) string {
 	return generalTemplateProcessing(templateFile, "nhgroupentry", nhge)
 }
 
-func BGPPeerMapToString(peerinfo map[int]*parser.BGPPeerInfo) string {
-	result := ""
-	counter := 0
-	for _, peer := range peerinfo {
-		if counter > 0 {
-			result += " | "
-		}
-		counter++
-		result += fmt.Sprintf("Peer: %s, AS: %d", *peer.IP, *peer.AS)
-	}
+// func BGPPeerMapToString(peerinfo map[int]*parser.BGPPeerInfo) string {
+// 	result := ""
+// 	counter := 0
+// 	for _, peer := range peerinfo {
+// 		if counter > 0 {
+// 			result += " | "
+// 		}
+// 		counter++
+// 		result += fmt.Sprintf("Peer: %s, AS: %d", *peer.IP, *peer.AS)
+// 	}
 
-	return result
-}
+// 	return result
+// }
 
 // this is to extract the static route config as well as the next-hop-groups.
-func processAppConf(appconf map[string]*parser.AppConfig, ir *types.InfrastructureResult, wr *types.WorkloadResults) *GlobalStaticRoutes {
-	output := strings.Builder{} // DEBUG ONLY -> REMOVE
+func processAppConfSrNhg(appconf map[string]*parser.AppConfig, ir *types.InfrastructureResult, wr *types.WorkloadResults) *GlobalStaticRoutes {
 	globalStaticRoutes := NewGlobalStaticRoutes()
-
-	// sr := types.NewStaticRouteNHG("66..6.6")
-	// sr.SetNHGroupName("FooBARGroup")
-	// sr.AddNHGroupEntry(&types.NHGroupEntry{
-	// 	Index:     5,
-	// 	NHIp:      "6.6.6.8",
-	// 	LocalAddr: "1.2.3.4",
-	// })
-	// sr.AddNHGroupEntry(&types.NHGroupEntry{
-	// 	Index:     3,
-	// 	NHIp:      "3.3.3.3",
-	// 	LocalAddr: "25.25.25.25",
-	// })
-	// globalStaticRoutes.addEntry("leaf1", "external-macvrf-ipvlan-1400", sr)
 
 	for cnfName, cnf := range appconf {
 		if cnfName != "upf" && cnfName != "smf" {
@@ -227,9 +255,89 @@ func processAppConf(appconf map[string]*parser.AppConfig, ir *types.Infrastructu
 			}
 		}
 	}
-
-	fmt.Println(output.String())
 	return globalStaticRoutes
+}
+
+func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadResults, ir *types.InfrastructureResult, multusInfo map[string]*parser.MultusInfo, templatenodes map[string]*TemplateNode) {
+	for cnfName, cnf := range appconf {
+		if cnfName != "upf" && cnfName != "smf" {
+			continue
+		}
+		for wlName, workloads := range cnf.Networks {
+			for _, bar := range workloads[0][0]["loopback"]["bgpLbk"] {
+				for _, y := range bar.IPv4BGPPeers {
+					//irbintef := findRelatedIRBv4(wr.IrbSubInterfaces, *y.IP)
+					//networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
+
+					mywlname := wlnametranslate(wlName, multusInfo)
+					mywlname = strcase.KebabCase(strings.Replace(mywlname, "multus-", "", 1))
+					niName := mywlname + "-ipvrf-itfce-" + strconv.Itoa(*bar.VlanID)
+
+					fmt.Printf("node: %s, wlname: %s, PeerIP: %s, PeerAS: %d, LocalAddress: %s, LocalAS: %d, vlanid: %d\n", niName, wlName, *bar.IPv4BGPAddress, *bar.AS, *y.IP, *y.AS, *bar.VlanID)
+
+					foo := &types.K8ssrlprotocolsbgp{
+						NetworkInstanceName: niName,
+						AS:                  *y.AS,
+						RouterID:            *y.IP,
+						PeerGroups:          []*types.PeerGroup{{Protocols: []string{"bgp"}, Name: mywlname, PolicyName: "bgp_export_policy_default"}},
+						Neighbors: []*types.Neighbor{{
+							PeerIP:           *bar.IPv4BGPAddress,
+							PeerAS:           *bar.AS,
+							PeerGroup:        mywlname,
+							LocalAS:          *y.AS,
+							TransportAddress: *y.IP,
+						}},
+					}
+
+					losubif := &types.K8ssrlsubinterface{
+						InterfaceRealName:  "lo0",
+						InterfaceShortName: "lo0",
+						VlanTagging:        false,
+						VlanID:             strconv.Itoa(*bar.VlanID),
+						Kind:               "loopback",
+						IPv4Prefix:         *y.IP,
+						IPv6Prefix:         "",
+					}
+					for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
+						templatenodes[nodename].AddSubInterface(losubif.InterfaceShortName, losubif.VlanID, processSrlSubInterface(nodename, losubif.InterfaceShortName, losubif))
+
+						if !checkIfSubIFAlreadyExists(wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces, losubif.InterfaceRealName, losubif.VlanID) {
+							wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces = append(wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces, losubif)
+						}
+						templatenodes[nodename].AddBgp(niName, processBgp(foo))
+					}
+				}
+			}
+		}
+	}
+}
+
+func checkIfSubIFAlreadyExists(subifs []*types.K8ssrlsubinterface, name string, id string) bool {
+	for _, entry := range subifs {
+		if entry.InterfaceRealName == name && id == entry.VlanID {
+			return true
+		}
+	}
+	return false
+}
+
+func filterNodesContainingNI(name string, templatenodes map[string]*TemplateNode) []string {
+	result := []string{}
+	for nodename, y := range templatenodes {
+		for instancename, _ := range y.NetworkInstances {
+			if name == instancename {
+				result = append(result, nodename)
+			}
+		}
+	}
+	return result
+}
+
+func wlnametranslate(name string, data map[string]*parser.MultusInfo) string {
+	if _, ok := data[name]; !ok {
+		log.Error("FAIL")
+	}
+	return *data[name].WorkloadName
 }
 
 func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {

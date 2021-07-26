@@ -1,32 +1,36 @@
 {{define "subinterface"}}
     {
-      "index": "{{.SubInterface.VlanID}}",
+      "index": {{.SubInterface.VlanID}},
 {{- if ne .SubInterface.Kind "loopback"}}
     "type": "{{.SubInterface.Kind}}",
 {{- end}}
     "admin-state": "enable",
-    "description": "paco-{{.SubInterface.InterfaceShortName}}-{{.SubInterface.VlanID}}-{{$.Target}}",
+    "description": "paco-{{.SubInterface.InterfaceShortName}}-{{.SubInterface.VlanID}}-{{$.Target}}"
 {{- if .SubInterface.VlanTagging}}
-    "vlan": {
+    ,"vlan": {
       "encap": {
 {{- if eq .SubInterface.VlanID "0"}}
         "untagged": {}
 {{- else}}
         "single-tagged": {
-          "vlan-id": "{{.SubInterface.VlanID}}"
+          "vlan-id": {{.SubInterface.VlanID}}
         }
 {{- end}}
     }}
 {{- end}}
 {{- if eq .SubInterface.Kind "routed" "loopback"}}
-    "ipv4":{
+{{- if ne .SubInterface.IPv4Prefix ""}}
+    ,"ipv4":{
       "address": [
       {"ip-prefix": "{{.SubInterface.IPv4Prefix}}" }
-      ]},
-    "ipv6":{
+      ]}
+{{- end}}
+{{- if ne .SubInterface.IPv6Prefix ""}}
+    ,"ipv6":{
       "address": [ 
         {"ip-prefix": "{{.SubInterface.IPv6Prefix}}" }
       ]}
+{{- end}}
 {{- end}}
   }
 {{end}}

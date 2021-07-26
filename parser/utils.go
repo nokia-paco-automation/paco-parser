@@ -106,3 +106,11 @@ func ParseTemplates(path string) *template.Template {
 
 	return templ
 }
+
+func DerefString(s *string) string {
+	if s != nil {
+		return *s
+	}
+
+	return ""
+}

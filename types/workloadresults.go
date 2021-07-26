@@ -32,8 +32,11 @@ func (w *WorkloadResults) AppendClientSubInterfaces(nodeName string, ifname stri
 	log.Debugf("Appending %d client sub-interfaces to node %s", len(clientSubInterface), nodeName)
 	w.Counter["AppendClientSubInterface"]++
 	for _, si := range clientSubInterface {
-		if _, ok := w.ClientSubInterfaces[nodeName][si.InterfaceShortName]; !ok {
+		if _, ok := w.ClientSubInterfaces[nodeName]; !ok {
 			w.ClientSubInterfaces[nodeName] = map[string][]*K8ssrlsubinterface{}
+		}
+		if _, ok := w.ClientSubInterfaces[nodeName][si.InterfaceShortName]; !ok {
+			w.ClientSubInterfaces[nodeName][si.InterfaceShortName] = []*K8ssrlsubinterface{}
 		}
 		w.ClientSubInterfaces[nodeName][si.InterfaceShortName] = append(w.ClientSubInterfaces[nodeName][si.InterfaceShortName], clientSubInterface...)
 	}

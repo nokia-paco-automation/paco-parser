@@ -869,6 +869,7 @@ func (a *AppConfig) AssignNetworkInfoLoopback(group *int, itfceType, wlName, mul
 			Ipv6Addresses:    (*ipAddresses)["ipv6"][*group][*itfceType],
 			Target:           netwInfo.Target,
 			//InterfaceName:    clientLinkInfo.InterfaceName,
+			VlanID:         netwInfo.Idx, // HACK
 			VrfCpId:        multusInfo[*multusGenericWlName].VrfCpId,
 			IPv4BGPAddress: ipv4BGPAddress,
 			IPv6BGPAddress: ipv6BGPAddress,

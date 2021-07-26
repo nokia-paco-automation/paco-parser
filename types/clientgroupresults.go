@@ -28,8 +28,11 @@ func (c *ClientGroupResults) AppendClientInterfaces(nodeName string, cgName stri
 	log.Debugf("Appending %d interface to Clientgroup %s for node %s", len(clientInterfaces), cgName, nodeName)
 	c.Counter["AppendClientInterfaces"]++
 	for _, ci := range clientInterfaces {
-		if _, ok := c.ClientInterfaces[nodeName][cgName]; !ok {
+		if _, ok := c.ClientInterfaces[nodeName]; !ok {
 			c.ClientInterfaces[nodeName] = map[string][]*K8ssrlinterface{}
+		}
+		if _, ok := c.ClientInterfaces[nodeName][cgName]; !ok {
+			c.ClientInterfaces[nodeName][cgName] = []*K8ssrlinterface{}
 		}
 		c.ClientInterfaces[nodeName][cgName] = append(c.ClientInterfaces[nodeName][cgName], ci)
 	}

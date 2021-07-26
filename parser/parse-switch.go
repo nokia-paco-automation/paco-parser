@@ -115,6 +115,11 @@ func (p *Parser) WriteInfrastructure() ([]string, *types.InfrastructureResult) {
 		neighborLoopBackIPv6s := make(map[string]string)
 		if *n.Position == "network" {
 			for epName, ep := range n.Endpoints {
+				nn := ""
+				if ep.Node != nil {
+					nn = DerefString(ep.Node.ShortName)
+				}
+				fmt.Printf("Node: %s, EPName: %s, Kind: %s, IP: %s\n", nn, DerefString(ep.RealName), DerefString(ep.Kind), DerefString(ep.IPv4Address))
 				if *ep.Kind == "isl" {
 					found = true
 					log.Debugf("Node name: %s, Interface: %s, %s, %t", nodeName, *ep.RealName, *ep.IPv4Prefix, *ep.VlanTagging)
@@ -437,6 +442,44 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 		// records the target group, such that we can write to the target group for the resources that allow it
 		var targetGroup string
 		for cgName, wlInfo := range clients {
+			// if _, ok := wlInfo.Loopbacks["loopback"]; ok {
+
+			// 	ipvrfVlanId := wlInfo.Itfces["ipvlan"].VlanID
+			// 	loopbackinstance := wlInfo.Loopbacks["loopback"]
+			// 	targetGroup = *p.ClientGroups[cgName].TargetGroup
+			// 	for nodeName, _ := range p.ClientGroups[cgName].Interfaces {
+			// 		if nodeName != targetGroup {
+			// 			if loopbackinstance != nil {
+			// 				// loopbackSubIf := &types.K8ssrlsubinterface{
+			// 				// 	InterfaceRealName:  "lo0",
+			// 				// 	InterfaceShortName: "lo0",
+			// 				// 	VlanID:             string(*ipvlan.VlanID),
+			// 				// 	Kind:               "routed",
+			// 				// 	IPv4Prefix:         DerefString(loopbackinstance.IPv4BGPAddress),
+			// 				// 	IPv6Prefix:         DerefString(loopbackinstance.IPv6BGPAddress),
+			// 				// }
+			// 				niName := strcase.KebabCase(strings.Replace(wlName, "multus-", "", 1)) + "-ipvrf-itfce-" + strconv.Itoa(*ipvrfVlanId)
+			// 				fmt.Printf("WLName: %s, CGName: %s, IPv4: %s, IPv6: %s, NI: %s", wlName, cgName, DerefString(loopbackinstance.IPv4BGPAddress), DerefString(loopbackinstance.IPv6BGPAddress), niName)
+			// 				newsubif := &types.K8ssrlirbsubinterface{
+			// 					InterfaceRealName: "lo0",
+			// 					VlanID:            strconv.Itoa(*loopbackinstance.Idx),
+			// 					Description:       "",
+			// 					Kind:              "",
+			// 					IPv4Prefix:        []string{DerefString(loopbackinstance.IPv4BGPAddress)},
+			// 					IPv6Prefix:        []string{DerefString(loopbackinstance.IPv6BGPAddress)},
+			// 					AnycastGW:         false,
+			// 					VrID:              0,
+			// 					NwType:            "",
+			// 				}
+			// 				_ = newsubif
+			// 				if _, ok := networkInstance[nodeName]; !ok {
+			// 					networkInstance[nodeName] = make(map[int]*types.K8ssrlNetworkInstance)
+			// 				}
+
+			// 			}
+			// 		}
+			// 	}
+			// }
 			// netwType = itfce, ipvlan, sriov; netwInfo:
 			for netwType, netwInfo := range wlInfo.Itfces {
 				// used for vxlan write operation, so that we can send it to all devices in the group at once

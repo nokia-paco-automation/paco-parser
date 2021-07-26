@@ -112,6 +112,10 @@ func (t *TemplateNode) MergeConfig() string {
 		}
 		nextHopGroupConfig := nextHopGroupArrB.ToStringObj("next-hop-groups")
 
+		if _, ok := t.Bgp[instancename]; ok {
+			niMerger.Merge([]byte("{\"protocols\": " + t.Bgp[instancename] + "}"))
+		}
+
 		niMerger.Merge([]byte(ni))
 		niMerger.Merge([]byte(staticRouteConfig))
 		niMerger.Merge([]byte(nextHopGroupConfig))

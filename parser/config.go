@@ -80,8 +80,8 @@ type PacoNetworkInfo struct {
 
 type MultusInfo struct {
 	WorkloadName *string `yaml:"wl-name,omitempty"`
-	VrfCpId        *int    `yaml:"vrfcp-id,omitempty"`
-	VrfUpId        *int    `yaml:"vrfup-id,omitempty"`
+	VrfCpId      *int    `yaml:"vrfcp-id,omitempty"`
+	VrfUpId      *int    `yaml:"vrfup-id,omitempty"`
 }
 
 // Credentials
@@ -131,6 +131,7 @@ type NetworkInfo struct {
 	AddressingSchema      *string   `yaml:"addressing_schema,omitempty"`
 	Type                  *string   `yaml:"type,omitempty"`
 	VlanID                *int      `yaml:"vlan_id,omitempty"`
+	Idx                   *int      `yaml:"idx,omitempty"`
 	Kind                  *string   `yaml:"kind,omitempty"`
 	Target                *string   `yaml:"target,omitempty"`
 	NetworkIndex          *int
@@ -225,6 +226,14 @@ type Node struct {
 	AS                   *uint32
 	Endpoints            map[string]*Endpoint
 	Target               *string
+}
+
+func (n *Node) String() string {
+	sb := strings.Builder{}
+	if n.ShortName != nil {
+		sb.WriteString(fmt.Sprintf("Name: %s\n", n.ShortName))
+	}
+	return sb.String()
 }
 
 // Link is a struct that contains the information of a link between 2 containers

@@ -53,8 +53,11 @@ func (i *InfrastructureResult) AppendIslSubInterfaces(nodeName string, islsubint
 	log.Debugf("Appending %d ISL sub-interfaces to %s", len(islsubinterfaces), nodeName)
 	i.Counter["AppendIslSubInterfaces"]++
 	for _, si := range islsubinterfaces {
-		if _, ok := i.IslSubInterfaces[nodeName][si.InterfaceShortName]; !ok {
+		if _, ok := i.IslSubInterfaces[nodeName]; !ok {
 			i.IslSubInterfaces[nodeName] = map[string][]*K8ssrlsubinterface{}
+		}
+		if _, ok := i.IslSubInterfaces[nodeName][si.InterfaceShortName]; !ok {
+			i.IslSubInterfaces[nodeName][si.InterfaceRealName] = []*K8ssrlsubinterface{}
 		}
 		i.IslSubInterfaces[nodeName][si.InterfaceRealName] = append(i.IslSubInterfaces[nodeName][si.InterfaceRealName], islsubinterfaces...)
 	}

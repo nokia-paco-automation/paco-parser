@@ -62,7 +62,7 @@ func findRelatedIRBv4(irbsubinterface map[string][]*types.K8ssrlirbsubinterface,
 	return nil
 }
 
-func findNetworkInstanceOfAccessInterface(networkinstances map[string]map[int]*types.K8ssrlNetworkInstance, ipv4 string) *NetworkInstanceLookupResult {
+func findNetworkInstanceOfSRLInterface(networkinstances map[string]map[int]*types.K8ssrlNetworkInstance, ipv4 string) *NetworkInstanceLookupResult {
 	appIp, _, err := net.ParseCIDR(ipv4 + "/32")
 	if err != nil {
 		log.Fatalln("Not a valid IP.")
