@@ -17,13 +17,7 @@
           "export-policy": "{{$element.PolicyName}}",
     {{- end}}
           "admin-state": "enable",
-          "next-hop-self": true,
-    {{- range $index, $protocol := $element.Protocols}}
-    {{if $index}},{{end}}
-        "{{$protocol}}": {
-            "admin-state": "enable"
-        }
-    {{- end}}
+          "next-hop-self": true
     }
 {{- end}}
     ],

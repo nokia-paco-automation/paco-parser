@@ -295,7 +295,7 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 						VlanTagging:        false,
 						VlanID:             strconv.Itoa(*bar.VlanID),
 						Kind:               "loopback",
-						IPv4Prefix:         *y.IP,
+						IPv4Prefix:         *y.IP + "/32",
 						IPv6Prefix:         "",
 					}
 					for _, nodename := range filterNodesContainingNI(niName, templatenodes) {

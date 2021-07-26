@@ -103,22 +103,22 @@ func (t *TemplateNode) MergeConfig() string {
 		for _, sr := range t.StaticRoutes[instancename] {
 			staticrouteArrB.AddEntry(sr)
 		}
-		staticRouteConfig := staticrouteArrB.ToStringObj("static-routes")
+		staticRouteConfig := staticrouteArrB.ToStringObj("route")
 
 		// Next-Hop-Groups
 		nextHopGroupArrB := NewJsonArrayBuilder()
 		for _, sr := range t.NexthopGroups[instancename] {
 			nextHopGroupArrB.AddEntry(sr)
 		}
-		nextHopGroupConfig := nextHopGroupArrB.ToStringObj("next-hop-groups")
+		nextHopGroupConfig := nextHopGroupArrB.ToStringObj("group")
 
 		if _, ok := t.Bgp[instancename]; ok {
 			niMerger.Merge([]byte("{\"protocols\": " + t.Bgp[instancename] + "}"))
 		}
 
 		niMerger.Merge([]byte(ni))
-		niMerger.Merge([]byte(staticRouteConfig))
-		niMerger.Merge([]byte(nextHopGroupConfig))
+		niMerger.Merge([]byte("{\"static-routes\":" + staticRouteConfig + "}"))
+		niMerger.Merge([]byte("{\"next-hop-groups\":" + nextHopGroupConfig + "}"))
 
 		networkinstanceArrB.AddEntry(niMerger.ToString())
 	}
@@ -164,7 +164,7 @@ func (t *TemplateNode) MergeConfig() string {
 	for _, bfd := range t.Bfd {
 		bfdArrB.AddEntry(bfd)
 	}
-	merger.Merge([]byte(bfdArrB.ToStringObj("bfd")))
+	merger.Merge([]byte("{\"bfd\":" + bfdArrB.ToStringObj("subinterface") + "}"))
 
 	return merger.ToString()
 }
