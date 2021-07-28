@@ -399,8 +399,8 @@ func (p *Parser) ParseApplicationData() map[string]*AppConfig {
 					appIPMap)
 
 				// Show the application IPAM
-				//dirName := filepath.Join(*p.BaseAppIpamDir)
-				//p.WriteApplicationDeploymentIPAM(&dirName)
+				dirName := filepath.Join(*p.BaseAppIpamDir)
+				p.WriteApplicationDeploymentIPAM(&dirName)
 
 				p.ParseCnfKustomize(StringPtr(cnfName), pacoAppConf[cnfName], appIPMap)
 			}
