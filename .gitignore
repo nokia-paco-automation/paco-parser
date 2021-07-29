@@ -23,4 +23,7 @@ testbin/*
 *.swo
 *~
 PRIVATE.md
-out/*
+out/*/.vscode
+/out/
+/.vscode/
+__debug_bin
