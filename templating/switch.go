@@ -48,6 +48,11 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 				templatenode.AddEsi(conf)
 			}
 		}
+
+		// Default network instance
+		conf = processNetworkInstanceDefault(ir.DefaultNetworkInstances[nodename], ir.DefaultProtocolBGP[nodename])
+		templatenodes[nodename].AddNetworkInstance("default", conf)
+
 	}
 
 	// process subinterfaces on a per interface basis
@@ -203,6 +208,15 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		perNodeConfig[name] = string(indentresult)
 	}
 	return perNodeConfig
+}
+
+func processNetworkInstanceDefault(defaultinstance *types.K8ssrlNetworkInstance, defaultprotobgp *types.K8ssrlprotocolsbgp) string {
+	templateFile := path.Join("templates", "switch", "networkinstancedefault.tmpl")
+	parameter := struct {
+		NetworkInstance *types.K8ssrlNetworkInstance
+		BGPProtocol     *types.K8ssrlprotocolsbgp
+	}{NetworkInstance: defaultinstance, BGPProtocol: defaultprotobgp}
+	return generalTemplateProcessing(templateFile, "networkinstancedefault", parameter)
 }
 
 func processNextHopGroup(nhg *types.NHGroup) string {
