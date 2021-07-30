@@ -47,10 +47,10 @@ workloads:
   infrastructure:
     servers:
       itfces:
-        itfce: {vlan_id: 1000, kind: irb, ipv4_cidr: [10.101.12.0/26], ipv6_cidr: [2a02:1800:80:7000::/64],}
+        itfce: {vlan_id: 1020, kind: irb, ipv4_cidr: [10.101.12.0/26], ipv6_cidr: [2a02:1800:80:7000::/64],}
     dcgw-grp1:
       itfces:
-        itfce: {vlan_id: 1000, kind: routed, ipv4_cidr: [10.100.40.0/24], ipv6_cidr: [2a02:1800:80:7050::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
+        itfce: {vlan_id: 1040, kind: routed, ipv4_cidr: [10.100.40.0/24], ipv6_cidr: [2a02:1800:80:7050::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
   multus-mgmt:
     servers:
       itfces:
@@ -61,7 +61,7 @@ workloads:
         loopback: {idx: 1250, ipv4_cidr: [10.0.25.0/24], ipv6_cidr: [2a02:1800:80:7250::/64]}
     dcgw-grp1:
       itfces:
-        itfce: {vlan_id: 1250, kind: routed, ipv4_cidr: [10.0.26.0/24], ipv6_cidr: [2a02:1800:80:7260::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
+        itfce: {vlan_id: 1260, kind: routed, ipv4_cidr: [10.0.26.0/24], ipv6_cidr: [2a02:1800:80:7260::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
   multus-internal:
     servers:
       itfces:
@@ -72,7 +72,7 @@ workloads:
         loopback: {idx: 1350, ipv4_cidr: [10.0.35.0/24], ipv6_cidr: [2a02:1800:80:7350::/64]}
     dcgw-grp1:
       itfces:
-        itfce: {vlan_id: 1350, kind: routed, ipv4_cidr: [10.0.36.0/24], ipv6_cidr: [2a02:1800:80:7360::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
+        itfce: {vlan_id: 1360, kind: routed, ipv4_cidr: [10.0.36.0/24], ipv6_cidr: [2a02:1800:80:7360::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
   multus-external:
     servers:
       itfces:
@@ -83,7 +83,7 @@ workloads:
        loopback: {idx: 1450, ipv4_cidr: [10.0.45.0/24], ipv6_cidr: [2a02:1800:80:7450::/64]}
     dcgw-grp1:
       itfces:
-        itfce: {vlan_id: 1450, kind: routed, ipv4_cidr: [10.1.46.0/24], ipv6_cidr: [2a02:1800:80:7460::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
+        itfce: {vlan_id: 1460, kind: routed, ipv4_cidr: [10.1.46.0/24], ipv6_cidr: [2a02:1800:80:7460::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
   multus-sba:
     servers:
       itfces:
@@ -94,7 +94,7 @@ workloads:
        loopback: {idx: 1150, ipv4_cidr: [10.0.15.0/24], ipv6_cidr: [2a02:1800:80:7150::/64]}
     dcgw-grp1:
       itfces:
-        itfce: {vlan_id: 1150, kind: routed, ipv4_cidr: [10.0.16.0/24], ipv6_cidr: [2a02:1800:80:7160::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
+        itfce: {vlan_id: 1160, kind: routed, ipv4_cidr: [10.0.16.0/24], ipv6_cidr: [2a02:1800:80:7160::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
   multus-internet:
     servers:
       itfces:
@@ -105,7 +105,7 @@ workloads:
         loopback: {idx: 1550, ipv4_cidr: [10.0.55.0/24], ipv6_cidr: [2a02:1800:80:7550::/64]}
     dcgw-grp1:
       itfces:
-        itfce: {vlan_id: 1550, kind: routed, ipv4_cidr: [10.0.56.0/24], ipv6_cidr: [2a02:1800:80:7560::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
+        itfce: {vlan_id: 1560, kind: routed, ipv4_cidr: [10.0.56.0/24], ipv6_cidr: [2a02:1800:80:7560::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
   multus-enterprise:
     servers:
       itfces:
@@ -116,7 +116,7 @@ workloads:
         loopback: {idx: 1650, ipv4_cidr: [10.0.65.0/24], ipv6_cidr: [2a02:1800:80:7650::/64]}
     dcgw-grp1:
       itfces:
-        itfce: {vlan_id: 1650, kind: routed, ipv4_cidr: [10.0.66.0/24], ipv6_cidr: [2a02:1800:80:7560::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
+        itfce: {vlan_id: 1660, kind: routed, ipv4_cidr: [10.0.66.0/24], ipv6_cidr: [2a02:1800:80:7560::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
 
 appnetwindexes:
   itfce:

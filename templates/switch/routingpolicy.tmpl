@@ -46,6 +46,77 @@
         }
         }]
 {{- end }}
-}]
+},
+{
+        "name": "bgp_export_policy_default",
+        "statement": [
+          {
+            "sequence-id": 10,
+            "match": {
+              "protocol": "local"
+            },
+            "action": {
+              "accept": {
+                "bgp": {
+                  "local-preference": {
+                    "set": 100
+                  }
+                }
+              }
+            }
+          },
+          {
+            "sequence-id": 20,
+            "match": {
+              "protocol": "bgp"
+            },
+            "action": {
+              "accept": {
+                "bgp": {
+                  "local-preference": {
+                    "set": 100
+                  }
+                }
+              }
+            }
+          },
+          {
+            "sequence-id": 30,
+            "match": {
+              "protocol": "aggregate"
+            },
+            "action": {
+              "accept": {
+                "bgp": {
+                  "local-preference": {
+                    "set": 100
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "bgp_import_policy_default",
+        "statement": [
+          {
+            "sequence-id": 20,
+            "match": {
+              "protocol": "bgp"
+            },
+            "action": {
+              "accept": {
+                "bgp": {
+                  "local-preference": {
+                    "set": 100
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+]
 }}
 {{end}}
