@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -314,8 +315,15 @@ func (p *Parser) ParseTopology() (err error) {
 	log.Info("Parsing topology information ...")
 
 	// initialize the Node information from the topology map
-	for nodeName, nodeCfg := range p.Config.Topology.Nodes {
-		p.Nodes[nodeName], err = p.NewNode(nodeName, nodeCfg)
+
+	names := make([]string, 0, len(p.Config.Topology.Nodes))
+	for n := range p.Config.Topology.Nodes {
+		names = append(names, n)
+	}
+
+	sort.Strings(names)
+	for _, name := range names {
+		p.Nodes[name], err = p.NewNode(name, p.Config.Topology.Nodes[name])
 		if err != nil {
 			return err
 		}

@@ -347,7 +347,7 @@ func (p *Parser) WriteClientsGroups() ([]string, *types.ClientGroupResults) {
 							clientInterfaces = append(clientInterfaces, clientInterface)
 						} else {
 							clientInterface := &types.K8ssrlinterface{
-								Kind:        "access",
+								Kind:        *itfce.Endpoint.Kind,
 								Name:        *itfce.Endpoint.RealName,
 								VlanTagging: true,
 								PortSpeed:   *itfce.Endpoint.Speed,

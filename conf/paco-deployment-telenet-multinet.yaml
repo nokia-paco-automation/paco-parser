@@ -339,7 +339,7 @@ topology:
     - endpoints: ["leaf1:e1-49", "leaf2:e1-49"]
     # dcgw connectivity
     - endpoints: ["leaf1:e1-50", "dcgw1:eth1"]
-      labels: {"kind": "access", "speed": "40G"}
+      labels: {"kind": "gw", "speed": "40G"}
     - endpoints: ["leaf2:e1-50", "dcgw2:eth1"]
-      labels: {"kind": "access", "speed": "40G"}
+      labels: {"kind": "gw", "speed": "40G"}
 

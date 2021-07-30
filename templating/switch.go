@@ -49,6 +49,33 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 			}
 		}
 
+		// figure out gw interfaces
+		gwinterfaces := []string{}
+		for _, y := range cg.ClientInterfaces[nodename] {
+			for _, v := range y {
+				if v.Kind == "gw" {
+					gwinterfaces = append(gwinterfaces, v.Name)
+				}
+			}
+		}
+
+		// iterating over network instance
+		for _, netwinst := range wr.NetworkInstances[nodename] {
+			// looking for infrastructure nwinstance
+			if strings.Contains(netwinst.Name, "infrastructure") {
+				// iterating over infra nw instances sub interfaces
+				for _, subif := range netwinst.SubInterfaces {
+					// iterating over gwinterfaces
+					for _, gwifnames := range gwinterfaces {
+						// chicking if there is a subinterface for that very interface
+						if subif.InterfaceRealName == gwifnames {
+							ir.DefaultNetworkInstances[nodename].SubInterfaces = append(ir.DefaultNetworkInstances[nodename].SubInterfaces, subif)
+						}
+					}
+				}
+			}
+		}
+
 		// Default network instance
 		conf = processNetworkInstanceDefault(ir.DefaultNetworkInstances[nodename], ir.DefaultProtocolBGP[nodename])
 		templatenodes[nodename].AddNetworkInstance("default", conf)
@@ -77,6 +104,15 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 	for nodename, clientinterfaces := range wr.ClientSubInterfaces {
 		for _, clientsubifs := range clientinterfaces {
 			for _, clientsubif := range clientsubifs {
+
+				for _, y := range cg.ClientInterfaces[nodename] {
+					for _, v := range y {
+						if v.Name == clientsubif.InterfaceRealName {
+							clientsubif.VlanTagging = v.VlanTagging
+						}
+					}
+				}
+
 				conf := processSrlSubInterface(nodename, clientsubif.InterfaceRealName, clientsubif)
 				templatenodes[nodename].AddSubInterface(clientsubif.InterfaceRealName, clientsubif.VlanID, conf)
 			}

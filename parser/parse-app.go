@@ -5,6 +5,7 @@ import (
 	"net"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -271,10 +272,26 @@ func (p *Parser) ParseApplicationData() map[string]*AppConfig {
 		p.SwitchInfo.switchGwsPerWlNameIpv4[wlName] = make(map[int][]string)
 		p.SwitchInfo.switchGwsPerWlNameIpv6[wlName] = make(map[int][]string)
 
-		for _, wlInfo := range clients {
+		keysArr := make([]string, 0, len(clients))
+
+		for key := range clients {
+			keysArr = append(keysArr, key)
+		}
+		sort.Strings(keysArr)
+
+		for _, key := range keysArr {
+			wlInfo := clients[key]
+
+			keysArrLB := make([]string, 0, len(wlInfo.Loopbacks))
+			for key := range wlInfo.Loopbacks {
+				keysArrLB = append(keysArrLB, key)
+			}
+			sort.Strings(keysArrLB)
 
 			// loopback subnets
-			for netwType, netwInfo := range wlInfo.Loopbacks {
+			for _, netwType := range keysArrLB {
+				netwInfo := wlInfo.Loopbacks[netwType]
+
 				if strings.Contains(netwType, "loopback") {
 					for _, ipv4Cidr := range netwInfo.Ipv4Cidr {
 						p.AssignSwitchBgpLoopback(StringPtr("ipv4"), ipv4Cidr, StringPtr(wlName), StringPtr(netwType), *bgpidx)
@@ -286,9 +303,17 @@ func (p *Parser) ParseApplicationData() map[string]*AppConfig {
 				}
 			}
 
+			keysArrItfce := make([]string, 0, len(wlInfo.Itfces))
+			for key := range wlInfo.Itfces {
+				keysArrItfce = append(keysArrItfce, key)
+			}
+			sort.Strings(keysArrItfce)
+
 			// SRIOV, IPVLAN subnets
 
-			for netwType, netwInfo := range wlInfo.Itfces {
+			for _, netwType := range keysArrItfce {
+				netwInfo := wlInfo.Itfces[netwType]
+
 				if strings.Contains(netwType, "ipvlan") || strings.Contains(netwType, "sriov") {
 
 					// initialize sriov or ipvlan
