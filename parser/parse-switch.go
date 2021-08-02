@@ -83,7 +83,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *types.InfrastructureResult) {
 	var ipv6Cidr *string
 	for i := 0; i < len(p.Config.Infrastructure.Networks["loopback"].Ipv4Cidr); i++ {
 		ipv4Cidr = p.Config.Infrastructure.Networks["loopback"].Ipv4Cidr[i]
-		ipv6Cidr = p.Config.Infrastructure.Networks["loopback"].Ipv4Cidr[i]
+		ipv6Cidr = p.Config.Infrastructure.Networks["loopback"].Ipv6Cidr[i]
 	}
 
 	routingPolicy := &types.K8ssrlRoutingPolicy{
