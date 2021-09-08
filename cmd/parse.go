@@ -127,7 +127,7 @@ var parseCmd = &cobra.Command{
 		appConfig := p.ParseApplicationData()
 		_ = appConfig
 
-		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes, appConfig, p.Config.Application["paco"].Global.Multus)
+		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes, appConfig, p.Config.Application["paco"].Global.Multus, p.Config)
 		writeSwitchConfigs(srl_configs)
 
 		return nil

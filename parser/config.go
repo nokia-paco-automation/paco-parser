@@ -130,6 +130,7 @@ type NetworkInfo struct {
 	Ipv6Cidr              []*string `yaml:"ipv6_cidr,omitempty"`
 	Ipv6ItfcePrefixLength *int      `yaml:"ipv6_itfce_prefix_length,omitempty"`
 	AddressingSchema      *string   `yaml:"addressing_schema,omitempty"`
+	PeerAS                *uint32   `yaml:"peer_as,omitempty"`
 	Type                  *string   `yaml:"type,omitempty"`
 	VlanID                *int      `yaml:"vlan_id,omitempty"`
 	Idx                   *int      `yaml:"idx,omitempty"`

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net"
 	"path"
 	"strconv"
 	"strings"
@@ -17,7 +18,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, n map[string]*parser.Node, appConfig map[string]*parser.AppConfig, multusInfo map[string]*parser.MultusInfo) map[string]string {
+func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, n map[string]*parser.Node, appConfig map[string]*parser.AppConfig, multusInfo map[string]*parser.MultusInfo, config *parser.Config) map[string]string {
 	log.Infof("ProcessingSwitchTemplates")
 
 	templatenodes := map[string]*TemplateNode{}
@@ -198,7 +199,7 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		}
 	}
 
-	processAppConfBgp(appConfig, wr, ir, multusInfo, templatenodes)
+	processAppConfBgp(appConfig, wr, ir, multusInfo, templatenodes, config)
 	// Second run after "processAppConfBgp()"
 	// networkinstance
 	for nodename, data := range wr.NetworkInstances {
@@ -308,7 +309,7 @@ func processAppConfSrNhg(appconf map[string]*parser.AppConfig, ir *types.Infrast
 	return globalStaticRoutes
 }
 
-func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadResults, ir *types.InfrastructureResult, multusInfo map[string]*parser.MultusInfo, templatenodes map[string]*TemplateNode) {
+func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadResults, ir *types.InfrastructureResult, multusInfo map[string]*parser.MultusInfo, templatenodes map[string]*TemplateNode, config *parser.Config) {
 	for cnfName, cnf := range appconf {
 		if cnfName != "upf" && cnfName != "smf" {
 			continue
@@ -325,19 +326,7 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 
 					fmt.Printf("node: %s, wlname: %s, PeerIP: %s, PeerAS: %d, LocalAddress: %s, LocalAS: %d, vlanid: %d\n", niName, wlName, *bar.IPv4BGPAddress, *bar.AS, *y.IP, *y.AS, *bar.VlanID)
 
-					foo := &types.K8ssrlprotocolsbgp{
-						NetworkInstanceName: niName,
-						AS:                  *y.AS,
-						RouterID:            *y.IP,
-						PeerGroups:          []*types.PeerGroup{{Protocols: []string{"bgp"}, Name: mywlname, PolicyName: "bgp_export_policy_default"}},
-						Neighbors: []*types.Neighbor{{
-							PeerIP:           *bar.IPv4BGPAddress,
-							PeerAS:           *bar.AS,
-							PeerGroup:        mywlname,
-							LocalAS:          *y.AS,
-							TransportAddress: *y.IP,
-						}},
-					}
+					//dcgw_ip := wr.NetworkInstances[strconv.Itoa(*bar.VlanID)]
 
 					losubif := &types.K8ssrlsubinterface{
 						InterfaceRealName:  "lo0",
@@ -349,17 +338,77 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 						IPv6Prefix:         "",
 					}
 					for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
+
+						transportIP := wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces[0].IPv4Prefix
+
+						ip, ipnet, err := net.ParseCIDR(transportIP)
+						peerIP := nextIP(ip, 1)
+						_ = ipnet
+						_ = ip
+						_ = err
+
+						nbr := types.Neighbor{
+							PeerIP:           peerIP.String(),
+							PeerAS:           searchLocalASInConfig(config, *bar.VlanID),
+							PeerGroup:        "DCGW",
+							LocalAS:          *y.AS,
+							TransportAddress: ip.String(),
+						}
+
+						foo := &types.K8ssrlprotocolsbgp{
+							NetworkInstanceName: niName,
+							AS:                  *y.AS,
+							RouterID:            *y.IP,
+							PeerGroups: []*types.PeerGroup{
+								{Protocols: []string{"bgp"}, Name: mywlname, PolicyName: "bgp_export_policy_default"},
+								{Protocols: []string{"bgp"}, Name: "DCGW", PolicyName: "bgp_export_policy_default"},
+							},
+							Neighbors: []*types.Neighbor{
+								{
+									PeerIP:           *bar.IPv4BGPAddress,
+									PeerAS:           *bar.AS,
+									PeerGroup:        mywlname,
+									LocalAS:          *y.AS,
+									TransportAddress: *y.IP,
+								},
+								&nbr,
+							},
+						}
+
 						templatenodes[nodename].AddSubInterface(losubif.InterfaceShortName, losubif.VlanID, processSrlSubInterface(nodename, losubif.InterfaceShortName, losubif))
 
 						if !checkIfSubIFAlreadyExists(wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces, losubif.InterfaceRealName, losubif.VlanID) {
 							wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces = append(wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces, losubif)
 						}
+
 						templatenodes[nodename].AddBgp(niName, processBgp(foo))
 					}
 				}
 			}
 		}
 	}
+}
+
+func searchLocalASInConfig(config *parser.Config, vlanid int) uint32 {
+	for _, wl := range config.Workloads {
+		if dcgwgrp, ok := wl["dcgw-grp1"]; ok {
+			if *dcgwgrp.Itfces["itfce"].VlanID == vlanid {
+				return *dcgwgrp.Itfces["itfce"].PeerAS
+			}
+		}
+	}
+	return 0
+}
+
+func nextIP(ip net.IP, inc uint) net.IP {
+	i := ip.To4()
+	v := uint(i[0])<<24 + uint(i[1])<<16 + uint(i[2])<<8 + uint(i[3])
+	v += inc
+	v3 := byte(v & 0xFF)
+	v2 := byte((v >> 8) & 0xFF)
+	v1 := byte((v >> 16) & 0xFF)
+	v0 := byte((v >> 24) & 0xFF)
+	return net.IPv4(v0, v1, v2, v3)
 }
 
 func checkIfSubIFAlreadyExists(subifs []*types.K8ssrlsubinterface, name string, id string) bool {
