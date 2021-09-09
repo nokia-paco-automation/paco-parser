@@ -209,6 +209,9 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		}
 	}
 
+	// BGP for NetworkInstances without Loopbacks
+	BgpForNonLoopbackNIs(config, templatenodes, ir.DefaultProtocolBGP, wr)
+
 	// bgp
 	for nodename, bgp := range ir.DefaultProtocolBGP {
 		conf := processBgp(bgp)
@@ -386,6 +389,52 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 				}
 			}
 		}
+	}
+}
+
+func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*TemplateNode, defProtoBgp map[string]*types.K8ssrlprotocolsbgp, wr *types.WorkloadResults) {
+	for wlname, wl := range config.Workloads {
+		_ = wlname
+		if len(wl["servers"].Loopbacks) > 0 {
+			// skip NIs with loopbacks configure, they are handled in 'processAppConfBgp(...)'
+			continue
+		}
+		if _, ok := wl["dcgw-grp1"]; !ok {
+			continue
+		}
+
+		vlanid := *wl["dcgw-grp1"].Itfces["itfce"].VlanID
+
+		niName := wlname + "-ipvrf-itfce-" + strconv.Itoa(vlanid)
+
+		for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
+
+			ip, ipnet, err := net.ParseCIDR(wr.NetworkInstances[nodename][vlanid].SubInterfaces[0].IPv4Prefix)
+			peerIP := nextIP(ip, 1)
+			_ = ipnet
+			_ = ip
+			_ = err
+
+			foo := &types.K8ssrlprotocolsbgp{
+				NetworkInstanceName: niName,
+				AS:                  defProtoBgp[nodename].AS,
+				RouterID:            defProtoBgp[nodename].RouterID,
+				PeerGroups: []*types.PeerGroup{
+					{Protocols: []string{"bgp"}, Name: "DCGW", PolicyName: "bgp_export_policy_default"},
+				},
+				Neighbors: []*types.Neighbor{
+					{
+						PeerIP:           peerIP.String(),
+						PeerAS:           searchLocalASInConfig(config, vlanid),
+						PeerGroup:        "DCGW",
+						LocalAS:          defProtoBgp[nodename].AS,
+						TransportAddress: ip.String(),
+					},
+				},
+			}
+			templatenodes[nodename].AddBgp(niName, processBgp(foo))
+		}
+
 	}
 }
 
