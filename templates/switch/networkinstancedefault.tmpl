@@ -22,6 +22,9 @@
             {{- if $index }},{{end}}
             {
               "group-name": "{{$element.Name}}",
+            {{- if eq $element.Name "underlay"}}
+              "export-policy": "export-underlay-local",
+            {{- end}}
               "admin-state": "enable",
               {{- range $index, $proto := $element.Protocols}}
                 {{- if $index }},{{end}}
