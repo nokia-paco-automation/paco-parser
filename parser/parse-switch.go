@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -565,7 +566,15 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 					case "routed":
 						// bridged part of the config, also the irb part
 
-						for nodeName, itfces := range p.ClientGroups[cgName].Interfaces {
+						dataref := p.ClientGroups[cgName].Interfaces
+						keys := make([]string, 0, len(dataref))
+						for k := range dataref {
+							keys = append(keys, k)
+						}
+						sort.Strings(keys)
+
+						for _, nodeName := range keys {
+							itfces := dataref[nodeName]
 							// client interfaces are implemented individually per node
 							if nodeName != targetGroup {
 								if _, ok := vxlanSubInterfaces[nodeName]; !ok {
