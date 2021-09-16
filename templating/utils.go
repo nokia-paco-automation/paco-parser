@@ -1,8 +1,10 @@
 package templating
 
 import (
+	"bytes"
 	"log"
 	"net"
+	"text/template"
 
 	"github.com/nokia-paco-automation/paco-parser/types"
 )
@@ -89,4 +91,15 @@ func findNetworkInstanceOfSRLInterface(networkinstances map[string]map[int]*type
 	}
 	log.Fatalln("No Networkinstance found!")
 	return nil
+}
+
+func GeneralTemplateProcessing(templateFile string, templateName string, data interface{}) string {
+	t := template.Must(template.ParseFiles(templateFile))
+	buf := new(bytes.Buffer)
+	err := t.ExecuteTemplate(buf, templateName, data)
+	if err != nil {
+		log.Fatalf("%+v", err)
+	}
+
+	return buf.String()
 }

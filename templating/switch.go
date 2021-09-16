@@ -1,15 +1,12 @@
 package templating
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
 	"path"
 	"strconv"
 	"strings"
-
-	"text/template"
 
 	"github.com/nokia-paco-automation/paco-parser/parser"
 	"github.com/nokia-paco-automation/paco-parser/types"
@@ -256,14 +253,14 @@ func processNetworkInstanceDefault(defaultinstance *types.K8ssrlNetworkInstance,
 		NetworkInstance *types.K8ssrlNetworkInstance
 		BGPProtocol     *types.K8ssrlprotocolsbgp
 	}{NetworkInstance: defaultinstance, BGPProtocol: defaultprotobgp}
-	return generalTemplateProcessing(templateFile, "networkinstancedefault", parameter)
+	return GeneralTemplateProcessing(templateFile, "networkinstancedefault", parameter)
 }
 
 func processNextHopGroup(nhg *types.NHGroup) string {
 	nhgj := NewJsonMerger()
 
 	templateFile := path.Join("templates", "switch", "nhgroup.tmpl")
-	nhgj.Merge([]byte(generalTemplateProcessing(templateFile, "nhgroup", nhg)))
+	nhgj.Merge([]byte(GeneralTemplateProcessing(templateFile, "nhgroup", nhg)))
 
 	nhgentryArrB := NewJsonArrayBuilder()
 	for _, nhgentry := range nhg.Entries {
@@ -276,7 +273,7 @@ func processNextHopGroup(nhg *types.NHGroup) string {
 
 func processNextHopGroupEntry(nhge *types.NHGroupEntry) string {
 	templateFile := path.Join("templates", "switch", "nhgroupentry.tmpl")
-	return generalTemplateProcessing(templateFile, "nhgroupentry", nhge)
+	return GeneralTemplateProcessing(templateFile, "nhgroupentry", nhge)
 }
 
 // func BGPPeerMapToString(peerinfo map[int]*parser.BGPPeerInfo) string {
@@ -598,42 +595,42 @@ func processStaticRoute(nhg *types.StaticRouteNHG) string {
 		Prefix      string
 		Nhgroupname string
 	}{Prefix: nhg.Prefix, Nhgroupname: nhg.NHGroup.Name}
-	return generalTemplateProcessing(templateFile, "staticroute", parameter)
+	return GeneralTemplateProcessing(templateFile, "staticroute", parameter)
 }
 
 func processBfdInterface(interf *types.K8ssrlsubinterface) string {
 	templateFile := path.Join("templates", "switch", "bfd.tmpl")
-	return generalTemplateProcessing(templateFile, "bfd", interf.InterfaceRealName+"."+interf.VlanID)
+	return GeneralTemplateProcessing(templateFile, "bfd", interf.InterfaceRealName+"."+interf.VlanID)
 }
 
 func processBfdIrb(irbsubinterf *types.K8ssrlirbsubinterface) string {
 	templateFile := path.Join("templates", "switch", "bfd.tmpl")
-	return generalTemplateProcessing(templateFile, "bfd", irbsubinterf.InterfaceRealName+"."+irbsubinterf.VlanID)
+	return GeneralTemplateProcessing(templateFile, "bfd", irbsubinterf.InterfaceRealName+"."+irbsubinterf.VlanID)
 }
 
 func processEsi(esi *types.K8ssrlESI) string {
 	templateFile := path.Join("templates", "switch", "esi.tmpl")
-	return generalTemplateProcessing(templateFile, "esi", esi)
+	return GeneralTemplateProcessing(templateFile, "esi", esi)
 }
 
 func processBgp(bgp *types.K8ssrlprotocolsbgp) string {
 	templateFile := path.Join("templates", "switch", "bgp.tmpl")
-	return generalTemplateProcessing(templateFile, "bgp", bgp)
+	return GeneralTemplateProcessing(templateFile, "bgp", bgp)
 }
 
 func processNetworkInstance(networkinstance *types.K8ssrlNetworkInstance) string {
 	templateFile := path.Join("templates", "switch", "networkinstance.tmpl")
-	return generalTemplateProcessing(templateFile, "networkinstance", networkinstance)
+	return GeneralTemplateProcessing(templateFile, "networkinstance", networkinstance)
 }
 
 func processIrbSubInterfaces(irbsubif *types.K8ssrlirbsubinterface) string {
 	templateFile := path.Join("templates", "switch", "irbinterface.tmpl")
-	return generalTemplateProcessing(templateFile, "irbinterface", irbsubif)
+	return GeneralTemplateProcessing(templateFile, "irbinterface", irbsubif)
 }
 
 func processInterface(nodename string, islinterfaces *types.K8ssrlinterface) string {
 	templateFile := path.Join("templates", "switch", "srlinterfaces.tmpl")
-	return generalTemplateProcessing(templateFile, "srlinterface", islinterfaces)
+	return GeneralTemplateProcessing(templateFile, "srlinterface", islinterfaces)
 }
 
 func processVxlanInterfaces(tunifname string, vxinterf []*types.K8ssrlVxlanInterface) string {
@@ -642,12 +639,12 @@ func processVxlanInterfaces(tunifname string, vxinterf []*types.K8ssrlVxlanInter
 		TunnelInterfaceName string
 		VxlanInterfaces     []*types.K8ssrlVxlanInterface
 	}{TunnelInterfaceName: tunifname, VxlanInterfaces: vxinterf}
-	return generalTemplateProcessing(templateFile, "vxlaninterface", data)
+	return GeneralTemplateProcessing(templateFile, "vxlaninterface", data)
 }
 
 func processRoutingPolicy(rp *types.K8ssrlRoutingPolicy) string {
 	templateFile := path.Join("templates", "switch", "routingpolicy.tmpl")
-	return generalTemplateProcessing(templateFile, "routingpolicy", rp)
+	return GeneralTemplateProcessing(templateFile, "routingpolicy", rp)
 }
 
 func processSrlSubInterface(nodename string, interfacename string, srlsubif *types.K8ssrlsubinterface) string {
@@ -658,16 +655,5 @@ func processSrlSubInterface(nodename string, interfacename string, srlsubif *typ
 		Target        string
 	}{srlsubif.InterfaceRealName, srlsubif, nodename}
 
-	return generalTemplateProcessing(templateFile, "subinterface", data)
-}
-
-func generalTemplateProcessing(templateFile string, templateName string, data interface{}) string {
-	t := template.Must(template.ParseFiles(templateFile))
-	buf := new(bytes.Buffer)
-	err := t.ExecuteTemplate(buf, templateName, data)
-	if err != nil {
-		log.Fatalf("%+v", err)
-	}
-
-	return buf.String()
+	return GeneralTemplateProcessing(templateFile, "subinterface", data)
 }
