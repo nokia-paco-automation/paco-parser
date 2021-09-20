@@ -33,6 +33,7 @@ infrastructure:
   networks:
     loopback: {ipv4_cidr: [100.112.100.0/24], ipv6_cidr: [3100:100::/48]}
     isl: {ipv4_cidr: [100.64.0.0/16], ipv6_cidr: [3100:64::/48], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127}
+    loop: {ipv4_cidr: [100.99.0.0/24], ipv6_cidr: [3100:65::/64], ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127}
   protocols:
     protocol: ebgp
     as_pool: [65000, 65100]
@@ -335,6 +336,10 @@ topology:
     #   labels: {"kind": "access", "type": "esi10", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G"}
     # switch interconnect links
     - endpoints: ["leaf1:e1-49", "leaf2:e1-49"]
+    - endpoints: ["leaf1:e1-47", "leaf1:e1-48"]
+      labels: {"kind": "loop", "speed": "40G"}
+    - endpoints: ["leaf2:e1-47", "leaf2:e1-48"]
+      labels: {"kind": "loop", "speed": "40G"}
     # dcgw connectivity
     - endpoints: ["leaf1:e1-50", "dcgw1:eth1"]
       labels: {"kind": "gw", "speed": "40G"}

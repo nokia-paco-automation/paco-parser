@@ -15,10 +15,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, n map[string]*parser.Node, appConfig map[string]*parser.AppConfig, multusInfo map[string]*parser.MultusInfo, config *parser.Config) map[string]string {
+func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, n map[string]*parser.Node, appConfig map[string]*parser.AppConfig, multusInfo map[string]*parser.MultusInfo, config *parser.Config, p *parser.Parser) map[string]string {
 	log.Infof("ProcessingSwitchTemplates")
 
 	templatenodes := map[string]*TemplateNode{}
+
+	bgp_later := generateLoop(p, ir.IslSubInterfaces, wr, templatenodes)
 
 	// routing policy & systeminterfaces
 	for nodename, node := range n {
@@ -196,7 +198,8 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		}
 	}
 
-	processAppConfBgp(appConfig, wr, ir, multusInfo, templatenodes, config)
+	processAppConfBgp(appConfig, wr, ir, multusInfo, templatenodes, config, bgp_later)
+
 	// Second run after "processAppConfBgp()"
 	// networkinstance
 	for nodename, data := range wr.NetworkInstances {
@@ -207,7 +210,7 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 	}
 
 	// BGP for NetworkInstances without Loopbacks
-	BgpForNonLoopbackNIs(config, templatenodes, ir.DefaultProtocolBGP, wr)
+	BgpForNonLoopbackNIs(config, templatenodes, ir.DefaultProtocolBGP, wr, bgp_later)
 
 	// bgp
 	for nodename, bgp := range ir.DefaultProtocolBGP {
@@ -309,7 +312,7 @@ func processAppConfSrNhg(appconf map[string]*parser.AppConfig, ir *types.Infrast
 	return globalStaticRoutes
 }
 
-func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadResults, ir *types.InfrastructureResult, multusInfo map[string]*parser.MultusInfo, templatenodes map[string]*TemplateNode, config *parser.Config) {
+func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadResults, ir *types.InfrastructureResult, multusInfo map[string]*parser.MultusInfo, templatenodes map[string]*TemplateNode, config *parser.Config, bgp_later []*BGPLaterAdd) {
 	for cnfName, cnf := range appconf {
 		if cnfName != "upf" && cnfName != "smf" {
 			continue
@@ -381,6 +384,13 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 							wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces = append(wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces, losubif)
 						}
 
+						for _, bgp_later_entry := range bgp_later {
+							if bgp_later_entry.nivid == *bar.VlanID && bgp_later_entry.nodename == nodename {
+								foo.Neighbors = append(foo.Neighbors, bgp_later_entry.bgpconf...)
+								foo.PeerGroups = append(foo.PeerGroups, &types.PeerGroup{Protocols: []string{"bgp"}, Name: "LOOP", PolicyName: "bgp_export_policy_default"})
+							}
+						}
+
 						templatenodes[nodename].AddBgp(niName, processBgp(foo))
 					}
 				}
@@ -389,7 +399,7 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 	}
 }
 
-func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*TemplateNode, defProtoBgp map[string]*types.K8ssrlprotocolsbgp, wr *types.WorkloadResults) {
+func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*TemplateNode, defProtoBgp map[string]*types.K8ssrlprotocolsbgp, wr *types.WorkloadResults, bgp_later []*BGPLaterAdd) {
 	for wlname, wl := range config.Workloads {
 		_ = wlname
 		if len(wl["servers"].Loopbacks) > 0 {
@@ -428,6 +438,12 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 						TransportAddress: ip.String(),
 					},
 				},
+			}
+			for _, bgp_later_entry := range bgp_later {
+				if bgp_later_entry.nivid == vlanid && bgp_later_entry.nodename == nodename {
+					foo.Neighbors = append(foo.Neighbors, bgp_later_entry.bgpconf...)
+					foo.PeerGroups = append(foo.PeerGroups, &types.PeerGroup{Protocols: []string{"bgp"}, Name: "LOOP", PolicyName: "bgp_export_policy_default"})
+				}
 			}
 			templatenodes[nodename].AddBgp(niName, processBgp(foo))
 		}
@@ -587,6 +603,117 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 		networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
 		globalStaticRoutes.addEntry(*llbInterfInfoArr.Target, networkInstance.networkInstance.Name, sr)
 	}
+}
+
+func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrlsubinterface, wr *types.WorkloadResults, templatenodes map[string]*TemplateNode) []*BGPLaterAdd {
+
+	bgplater := []*BGPLaterAdd{}
+
+	config := p.Config
+	//var ipv4prefix, ipv6prefix string
+	netwInfo := config.Infrastructure.Networks["loop"]
+
+	var infraNIName string
+	var infraVID int
+
+	// determine name of Infrastructure NI
+	for wlname, workload := range p.Config.Workloads {
+		if strings.Contains(strings.ToLower(wlname), "infrastru") {
+			infraNIName = wlname
+			infraVID = *workload["dcgw-grp1"].Itfces["itfce"].VlanID
+			break
+		}
+	}
+
+	for wlname, workload := range p.Config.Workloads {
+		_ = workload
+		if !strings.Contains(wlname, "mgmt") && !strings.Contains(wlname, "sba") {
+			continue
+		}
+		for _, l := range p.Links {
+			if *l.Kind == "loop" {
+				ipamName := "loop"
+				var ipv4Cidr *string
+				var ipv6Cidr *string
+				for i := 0; i < len(netwInfo.Ipv4Cidr); i++ {
+					ipv4Cidr = netwInfo.Ipv4Cidr[i]
+					ipv6Cidr = netwInfo.Ipv6Cidr[i]
+					if err := p.IPAM[ipamName].IPAMAllocateLinkPrefix(l, ipv4Cidr, ipv6Cidr); err != nil {
+						log.Error(err)
+					}
+				}
+
+				vlanid := *workload["dcgw-grp1"].Itfces["itfce"].VlanID
+
+				csiA := &types.K8ssrlsubinterface{
+					InterfaceRealName:  *l.A.RealName,
+					InterfaceShortName: *l.A.ShortName,
+					VlanTagging:        true,
+					VlanID:             strconv.Itoa(vlanid),
+					Kind:               "routed",
+					IPv4Prefix:         *l.A.IPv4Address + "/" + strconv.Itoa(*l.A.IPv4PrefixLength),
+					IPv6Prefix:         *l.A.IPv6Address + "/" + strconv.Itoa(*l.A.IPv6PrefixLength),
+				}
+				csiB := &types.K8ssrlsubinterface{
+					InterfaceRealName:  *l.B.RealName,
+					InterfaceShortName: *l.B.ShortName,
+					VlanTagging:        true,
+					VlanID:             strconv.Itoa(vlanid),
+					Kind:               "routed",
+					IPv4Prefix:         *l.B.IPv4Address + "/" + strconv.Itoa(*l.B.IPv4PrefixLength),
+					IPv6Prefix:         *l.B.IPv6Address + "/" + strconv.Itoa(*l.B.IPv6PrefixLength),
+				}
+
+				subifs[*l.A.Node.ShortName][*l.A.RealName] = append(subifs[*l.A.Node.ShortName][*l.A.RealName], csiA)
+				wr.NetworkInstances[*l.A.Node.ShortName][infraVID].SubInterfaces = append(wr.NetworkInstances[*l.A.Node.ShortName][infraVID].SubInterfaces, csiA)
+
+				subifs[*l.B.Node.ShortName][*l.B.RealName] = append(subifs[*l.B.Node.ShortName][*l.B.RealName], csiB)
+				wr.NetworkInstances[*l.B.Node.ShortName][vlanid].SubInterfaces = append(wr.NetworkInstances[*l.B.Node.ShortName][vlanid].SubInterfaces, csiB)
+
+				NeighA := []*types.Neighbor{
+					{
+						PeerIP:           *l.B.IPv4Address,
+						PeerAS:           searchLocalASInConfig(config, vlanid),
+						PeerGroup:        "LOOP",
+						LocalAS:          searchLocalASInConfig(config, infraVID),
+						TransportAddress: *l.A.IPv4Address,
+					},
+				}
+				NeighB := []*types.Neighbor{
+					{
+						PeerIP:           *l.A.IPv4Address,
+						PeerAS:           searchLocalASInConfig(config, infraVID),
+						PeerGroup:        "LOOP",
+						LocalAS:          searchLocalASInConfig(config, vlanid),
+						TransportAddress: *l.B.IPv4Address,
+					},
+				}
+
+				bgplater = append(bgplater,
+					&BGPLaterAdd{
+						nodename: *l.A.Node.ShortName,
+						niname:   infraNIName,
+						nivid:    infraVID,
+						bgpconf:  NeighA,
+					},
+					&BGPLaterAdd{
+						nodename: *l.B.Node.ShortName,
+						niname:   wlname,
+						nivid:    vlanid,
+						bgpconf:  NeighB,
+					},
+				)
+			}
+		}
+	}
+	return bgplater
+}
+
+type BGPLaterAdd struct {
+	nodename string
+	niname   string
+	nivid    int
+	bgpconf  []*types.Neighbor
 }
 
 func processStaticRoute(nhg *types.StaticRouteNHG) string {

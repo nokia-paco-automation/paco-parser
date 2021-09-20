@@ -175,6 +175,17 @@ func (p *Parser) WriteInfrastructure() ([]string, *types.InfrastructureResult) {
 					systemsubinterfaces = append(systemsubinterfaces, systemsubinterface)
 					allsubinterfaces = append(allsubinterfaces, systemsubinterface)
 				}
+				if *ep.Kind == "loop" {
+					islinterface := &types.K8ssrlinterface{
+						Kind:        "loop",
+						Name:        *ep.RealName,
+						VlanTagging: *ep.VlanTagging,
+						PortSpeed:   *ep.Speed,
+						Lag:         false,
+						LagMember:   false,
+					}
+					islinterfaces = append(islinterfaces, islinterface)
+				}
 			}
 		}
 		if found {
@@ -442,8 +453,8 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 
 		// records the target group, such that we can write to the target group for the resources that allow it
 		var targetGroup string
+
 		for cgName, wlInfo := range clients {
-			// if _, ok := wlInfo.Loopbacks["loopback"]; ok {
 
 			// 	ipvrfVlanId := wlInfo.Itfces["ipvlan"].VlanID
 			// 	loopbackinstance := wlInfo.Loopbacks["loopback"]

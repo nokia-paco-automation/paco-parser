@@ -59,6 +59,20 @@ var parseCmd = &cobra.Command{
 			log.Fatal(err)
 		}
 
+		// initialize IPAM for the loop of the network elements
+		netwInfo = &parser.NetworkInfo{
+			Kind:                  parser.StringPtr("loop"),
+			AddressingSchema:      p.Config.Infrastructure.AddressingSchema,
+			Ipv4Cidr:              p.Config.Infrastructure.Networks["loop"].Ipv4Cidr,
+			Ipv4ItfcePrefixLength: p.Config.Infrastructure.Networks["loop"].Ipv4ItfcePrefixLength,
+			Ipv6Cidr:              p.Config.Infrastructure.Networks["loop"].Ipv6Cidr,
+			Ipv6ItfcePrefixLength: p.Config.Infrastructure.Networks["loop"].Ipv6ItfcePrefixLength,
+		}
+		p.IPAM["loop"], err = parser.NewIPAM(netwInfo)
+		if err != nil {
+			log.Fatal(err)
+		}
+
 		// Parse the topology part of the configuration
 		if err = p.ParseTopology(); err != nil {
 			return err
@@ -127,7 +141,7 @@ var parseCmd = &cobra.Command{
 		appConfig := p.ParseApplicationData()
 		_ = appConfig
 
-		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes, appConfig, p.Config.Application["paco"].Global.Multus, p.Config)
+		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes, appConfig, p.Config.Application["paco"].Global.Multus, p.Config, p)
 		writeSwitchConfigs(srl_configs)
 
 		writeNokiaYml(p.Config)
