@@ -401,7 +401,7 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 
 func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*TemplateNode, defProtoBgp map[string]*types.K8ssrlprotocolsbgp, wr *types.WorkloadResults, bgp_later []*BGPLaterAdd) {
 	for wlname, wl := range config.Workloads {
-		_ = wlname
+		wlname = strings.TrimPrefix(wlname, "multus-")
 		if len(wl["servers"].Loopbacks) > 0 {
 			// skip NIs with loopbacks configure, they are handled in 'processAppConfBgp(...)'
 			continue
