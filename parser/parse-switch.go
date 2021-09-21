@@ -179,7 +179,7 @@ func (p *Parser) WriteInfrastructure() ([]string, *types.InfrastructureResult) {
 					islinterface := &types.K8ssrlinterface{
 						Kind:        "loop",
 						Name:        *ep.RealName,
-						VlanTagging: *ep.VlanTagging,
+						VlanTagging: true,
 						PortSpeed:   *ep.Speed,
 						Lag:         false,
 						LagMember:   false,
