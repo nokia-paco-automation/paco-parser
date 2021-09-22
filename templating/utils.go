@@ -103,3 +103,19 @@ func GeneralTemplateProcessing(templateFile string, templateName string, data in
 
 	return buf.String()
 }
+
+func incrementIP(ip net.IP) (result net.IP) {
+	result = make([]byte, len(ip)) // start off with a nice empty ip of proper length
+
+	carry := true
+	for i := len(ip) - 1; i >= 0; i-- {
+		result[i] = ip[i]
+		if carry {
+			result[i]++
+			if result[i] != 0 {
+				carry = false
+			}
+		}
+	}
+	return
+}

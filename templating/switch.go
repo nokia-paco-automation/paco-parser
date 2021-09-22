@@ -345,7 +345,7 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 						transportIP := wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces[0].IPv4Prefix
 
 						ip, ipnet, err := net.ParseCIDR(transportIP)
-						peerIP := nextIP(ip, 1)
+						peerIP := incrementIP(ip)
 						_ = ipnet
 						_ = ip
 						_ = err
@@ -417,7 +417,7 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 		for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
 
 			ip, ipnet, err := net.ParseCIDR(wr.NetworkInstances[nodename][vlanid].SubInterfaces[0].IPv4Prefix)
-			peerIP := nextIP(ip, 1)
+			peerIP := incrementIP(ip)
 			_ = ipnet
 			_ = ip
 			_ = err
@@ -429,16 +429,34 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 				PeerGroups: []*types.PeerGroup{
 					{Protocols: []string{"bgp"}, Name: "DCGW", PolicyName: "bgp_export_policy_default"},
 				},
-				Neighbors: []*types.Neighbor{
-					{
-						PeerIP:           peerIP.String(),
-						PeerAS:           searchLocalASInConfig(config, vlanid),
-						PeerGroup:        "DCGW",
-						LocalAS:          defProtoBgp[nodename].AS,
-						TransportAddress: ip.String(),
-					},
-				},
 			}
+
+			neighborv4 := &types.Neighbor{
+				PeerIP:           peerIP.String(),
+				PeerAS:           searchLocalASInConfig(config, vlanid),
+				PeerGroup:        "DCGW",
+				LocalAS:          defProtoBgp[nodename].AS,
+				TransportAddress: ip.String(),
+			}
+
+			foo.Neighbors = append(foo.Neighbors, neighborv4)
+
+			ip, ipnet, err = net.ParseCIDR(wr.NetworkInstances[nodename][vlanid].SubInterfaces[0].IPv6Prefix)
+			peerIP = incrementIP(ip)
+			_ = ipnet
+			_ = ip
+			_ = err
+
+			neighborv6 := &types.Neighbor{
+				PeerIP:           peerIP.String(),
+				PeerAS:           searchLocalASInConfig(config, vlanid),
+				PeerGroup:        "DCGW",
+				LocalAS:          defProtoBgp[nodename].AS,
+				TransportAddress: ip.String(),
+			}
+
+			foo.Neighbors = append(foo.Neighbors, neighborv6)
+
 			for _, bgp_later_entry := range bgp_later {
 				if bgp_later_entry.nivid == vlanid && bgp_later_entry.nodename == nodename {
 					foo.Neighbors = append(foo.Neighbors, bgp_later_entry.bgpconf...)
@@ -447,7 +465,6 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 			}
 			templatenodes[nodename].AddBgp(niName, processBgp(foo))
 		}
-
 	}
 }
 
@@ -460,17 +477,6 @@ func searchLocalASInConfig(config *parser.Config, vlanid int) uint32 {
 		}
 	}
 	return 0
-}
-
-func nextIP(ip net.IP, inc uint) net.IP {
-	i := ip.To4()
-	v := uint(i[0])<<24 + uint(i[1])<<16 + uint(i[2])<<8 + uint(i[3])
-	v += inc
-	v3 := byte(v & 0xFF)
-	v2 := byte((v >> 8) & 0xFF)
-	v1 := byte((v >> 16) & 0xFF)
-	v0 := byte((v >> 24) & 0xFF)
-	return net.IPv4(v0, v1, v2, v3)
 }
 
 func checkIfSubIFAlreadyExists(subifs []*types.K8ssrlsubinterface, name string, id string) bool {
