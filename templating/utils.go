@@ -64,6 +64,30 @@ func findRelatedIRBv4(irbsubinterface map[string][]*types.K8ssrlirbsubinterface,
 	return nil
 }
 
+func findRelatedIRBv6(irbsubinterface map[string][]*types.K8ssrlirbsubinterface, ipv6 string) *types.K8ssrlirbsubinterface {
+	appIp, _, err := net.ParseCIDR(ipv6 + "/128")
+	if err != nil {
+		log.Fatalln("Not a valid IP.")
+	}
+	for _, irbsubifs := range irbsubinterface {
+		for _, irbsubif := range irbsubifs {
+			//fmt.Printf("Node: %s, ifname: %s, IPv4: %s, IPv6: %s\n", nodename, irbsubif.InterfaceRealName, irbsubif.IPv4Prefix, irbsubif.IPv6Prefix)
+			for _, entry := range irbsubif.IPv6Prefix {
+				_, irbnet, err := net.ParseCIDR(entry)
+				if err != nil {
+					log.Fatalln("IP Parsing error")
+				}
+				if irbnet.Contains(appIp) {
+					//fmt.Printf("MATCH: Ipv4: %s, Net %s\n", ipv4, irbnet.String())
+					return irbsubif
+				}
+			}
+		}
+	}
+	log.Fatalln("not found!")
+	return nil
+}
+
 func findNetworkInstanceOfSRLInterface(networkinstances map[string]map[int]*types.K8ssrlNetworkInstance, ipv4 string) *NetworkInstanceLookupResult {
 	appIp, _, err := net.ParseCIDR(ipv4 + "/32")
 	if err != nil {

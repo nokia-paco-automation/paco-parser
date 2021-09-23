@@ -538,6 +538,35 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 
 			globalStaticRoutes.addEntry(leafnode, networkInstance.networkInstance.Name, sr)
 		}
+
+		// v6 start
+		destPrefix = *workloads[i][0]["loopback"]["lmgLbk"][0].Ipv6Addresses[0].IPAddress
+		log.Debugf(fmt.Sprintf("SR - LMG %d - WLName: %s, prefix: %s/32", lmgNo, wlName, destPrefix))
+		// loop over switch
+		for x := 1; x < len(workloads[i]); x++ {
+			lmgInterfInfoArr := workloads[i][x]["itfce"]["intIP"][0]
+
+			nhindex := x
+			nextHop := *lmgInterfInfoArr.Ipv6Addresses[0].IPAddress
+			leafnode := *lmgInterfInfoArr.Target
+			sourceIP := lmgInterfInfoArr.Ipv6GwPerWl[x][0]
+
+			log.Debugf(fmt.Sprintf("Lmg %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", lmgNo, wlName, nextHop, leafnode, sourceIP))
+
+			sr := types.NewStaticRouteNHG(destPrefix)
+			sr.SetNHGroupName(fmt.Sprintf("%s-lmg%d-bgp", wlName, lmgNo))
+			nhgentry := &types.NHGroupEntry{
+				Index:     nhindex,
+				NHIp:      nextHop,
+				LocalAddr: sourceIP,
+			}
+			sr.AddNHGroupEntry(nhgentry)
+
+			irbintef := findRelatedIRBv6(wr.IrbSubInterfaces, sourceIP)
+			networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
+
+			globalStaticRoutes.addEntry(leafnode, networkInstance.networkInstance.Name, sr)
+		}
 	}
 }
 
@@ -569,6 +598,37 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 			sr.AddNHGroupEntry(nhgentry)
 
 			irbintef := findRelatedIRBv4(wr.IrbSubInterfaces, sourceIP)
+			networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
+
+			globalStaticRoutes.addEntry(leafNode, networkInstance.networkInstance.Name, sr)
+		}
+	}
+	for llbLoopbackIndex, llbLoopbackIPAddress := range llbLoopbackInfoArr.Ipv6Addresses {
+		destPrefix := *llbLoopbackIPAddress.IPAddress
+		groupindex := llbLoopbackIndex
+		log.Debugf(fmt.Sprintf("SR - LLB %d - WLName: %s, prefix: %s/32", groupindex, wlName, destPrefix))
+
+		for x := 1; x < len(workloads[0]); x++ {
+			llbInterfInfoArr := workloads[0][x]["itfce"]["intIP"][0]
+
+			nhindex := x
+			nextHop := *llbInterfInfoArr.Ipv6Addresses[llbLoopbackIndex].IPAddress
+			sourceIP := llbInterfInfoArr.Ipv6GwPerWl[x][llbLoopbackIndex]
+			leafNode := *llbInterfInfoArr.Target
+
+			log.Debugf(fmt.Sprintf("LLb %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", groupindex, wlName, nextHop, leafNode, sourceIP))
+
+			sr := types.NewStaticRouteNHG(destPrefix)
+			sr.SetNHGroupName(fmt.Sprintf("%s-llb%d-bgp", wlName, groupindex))
+
+			nhgentry := &types.NHGroupEntry{
+				Index:     nhindex,
+				NHIp:      nextHop,
+				LocalAddr: sourceIP,
+			}
+			sr.AddNHGroupEntry(nhgentry)
+
+			irbintef := findRelatedIRBv6(wr.IrbSubInterfaces, sourceIP)
 			networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
 
 			globalStaticRoutes.addEntry(leafNode, networkInstance.networkInstance.Name, sr)

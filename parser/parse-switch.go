@@ -1009,8 +1009,8 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 								AnycastGW:         false,
 								VrID:              10,
 								IPv4Prefix:        ipv4prefixlist,
-								//IPv6Prefix:        ipv6prefixlist,
-								NwType: nwtype,
+								IPv6Prefix:        ipv6prefixlist,
+								NwType:            nwtype,
 							}
 							irbSubInterfaces[nodeName] = append(irbSubInterfaces[nodeName], irb)
 
