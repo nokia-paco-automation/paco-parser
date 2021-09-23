@@ -669,6 +669,36 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 		networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
 		globalStaticRoutes.addEntry(*llbInterfInfoArr.Target, networkInstance.networkInstance.Name, sr)
 	}
+	for x := 1; x < len(workloads[0]); x++ {
+		llbInterfInfoArr := workloads[0][x]["itfce"]["intIP"][0]
+
+		destPrefix := *bgpLoopbackInfoArr.Ipv6Addresses[0].IPAddress
+
+		log.Debugf(fmt.Sprintf("SR - BGP - WLName: %s, prefix: %s/32", wlName, destPrefix))
+
+		sr := types.NewStaticRouteNHG(destPrefix)
+		sr.SetNHGroupName(fmt.Sprintf("%s-llb-bgp", wlName))
+
+		for ipIndex, ipAddress := range llbInterfInfoArr.Ipv6Addresses {
+			nextHop := *ipAddress.IPAddress
+			nhIndex := ipIndex
+			leafName := *llbInterfInfoArr.Target
+			sourceIP := llbInterfInfoArr.Ipv6GwPerWl[x][ipIndex]
+
+			log.Debugf(fmt.Sprintf("BGP loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", wlName, nextHop, leafName, sourceIP))
+
+			nhgentry := &types.NHGroupEntry{
+				Index:     nhIndex,
+				NHIp:      nextHop,
+				LocalAddr: sourceIP,
+			}
+			sr.AddNHGroupEntry(nhgentry)
+		}
+		localIRBIP := llbInterfInfoArr.Ipv6GwPerWl[x][0]
+		irbintef := findRelatedIRBv6(wr.IrbSubInterfaces, localIRBIP)
+		networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
+		globalStaticRoutes.addEntry(*llbInterfInfoArr.Target, networkInstance.networkInstance.Name, sr)
+	}
 }
 
 func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrlsubinterface, wr *types.WorkloadResults, templatenodes map[string]*TemplateNode) []*BGPLaterAdd {
