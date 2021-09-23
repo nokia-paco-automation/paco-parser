@@ -94,6 +94,21 @@
                 }
               }
             }
+          },
+          {
+            "sequence-id": 40,
+            "match": {
+              "protocol": "static"
+            },
+            "action": {
+              "accept": {
+                "bgp": {
+                  "local-preference": {
+                    "set": 100
+                  }
+                }
+              }
+            }
           }
         ]
       },
