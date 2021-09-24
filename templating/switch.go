@@ -562,7 +562,7 @@ func wlnametranslate(name string, data map[string]*parser.MultusInfo) string {
 func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
 	// loop over lmg's
 	for i := 1; i < len(workloads); i++ {
-		destPrefix := *workloads[i][0]["loopback"]["lmgLbk"][0].Ipv4Addresses[0].IPAddress
+		destPrefix := *workloads[i][0]["loopback"]["lmgLbk"][0].Ipv4Addresses[0].IPAddress + "/32"
 		lmgNo := i - 1
 		log.Debugf(fmt.Sprintf("SR - LMG %d - WLName: %s, prefix: %s/32", lmgNo, wlName, destPrefix))
 		// loop over switch
@@ -592,7 +592,7 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 		}
 
 		// v6 start
-		destPrefix = *workloads[i][0]["loopback"]["lmgLbk"][0].Ipv6Addresses[0].IPAddress
+		destPrefix = *workloads[i][0]["loopback"]["lmgLbk"][0].Ipv6Addresses[0].IPAddress + "/128"
 		log.Debugf(fmt.Sprintf("SR - LMG %d - WLName: %s, prefix: %s/128", lmgNo, wlName, destPrefix))
 		// loop over switch
 		for x := 1; x < len(workloads[i]); x++ {
@@ -625,7 +625,7 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
 	llbLoopbackInfoArr := workloads[0][0]["loopback"]["llbLbk"][0]
 	for llbLoopbackIndex, llbLoopbackIPAddress := range llbLoopbackInfoArr.Ipv4Addresses {
-		destPrefix := *llbLoopbackIPAddress.IPAddress
+		destPrefix := *llbLoopbackIPAddress.IPAddress + "/32"
 		groupindex := llbLoopbackIndex
 		log.Debugf(fmt.Sprintf("SR - LLB %d - WLName: %s, prefix: %s/32", groupindex, wlName, destPrefix))
 
@@ -656,7 +656,7 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 		}
 	}
 	for llbLoopbackIndex, llbLoopbackIPAddress := range llbLoopbackInfoArr.Ipv6Addresses {
-		destPrefix := *llbLoopbackIPAddress.IPAddress
+		destPrefix := *llbLoopbackIPAddress.IPAddress + "/128"
 		groupindex := llbLoopbackIndex
 		log.Debugf(fmt.Sprintf("SR - LLB %d - WLName: %s, prefix: %s/128", groupindex, wlName, destPrefix))
 
@@ -694,7 +694,7 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 	for x := 1; x < len(workloads[0]); x++ {
 		llbInterfInfoArr := workloads[0][x]["itfce"]["intIP"][0]
 
-		destPrefix := *bgpLoopbackInfoArr.Ipv4Addresses[0].IPAddress
+		destPrefix := *bgpLoopbackInfoArr.Ipv4Addresses[0].IPAddress + "/32"
 
 		log.Debugf(fmt.Sprintf("SR - BGP - WLName: %s, prefix: %s/32", wlName, destPrefix))
 
@@ -724,7 +724,7 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 	for x := 1; x < len(workloads[0]); x++ {
 		llbInterfInfoArr := workloads[0][x]["itfce"]["intIP"][0]
 
-		destPrefix := *bgpLoopbackInfoArr.Ipv6Addresses[0].IPAddress
+		destPrefix := *bgpLoopbackInfoArr.Ipv6Addresses[0].IPAddress + "/128"
 
 		log.Debugf(fmt.Sprintf("SR - BGP - WLName: %s, prefix: %s/128", wlName, destPrefix))
 
