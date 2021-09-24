@@ -302,10 +302,10 @@ func processAppConfSrNhg(appconf map[string]*parser.AppConfig, ir *types.Infrast
 			continue
 		}
 		for wlName, workloads := range cnf.Networks {
-			generateLlbBgpRoutes(workloads, wlName, globalStaticRoutes, wr)
-			generateLlbInterfaceRoutes(workloads, wlName, globalStaticRoutes, wr)
+			generateLlbBgpRoutes(workloads, wlName, cnfName, globalStaticRoutes, wr)
+			generateLlbInterfaceRoutes(workloads, wlName, cnfName, globalStaticRoutes, wr)
 			if cnfName == "upf" {
-				generateLmgRoutes(workloads, wlName, globalStaticRoutes, wr)
+				generateLmgRoutes(workloads, wlName, cnfName, globalStaticRoutes, wr)
 			}
 		}
 	}
@@ -559,11 +559,10 @@ func wlnametranslate(name string, data map[string]*parser.MultusInfo) string {
 	return *data[name].WorkloadName
 }
 
-func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
+func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, cnfName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
 	// loop over lmg's
 	for i := 1; i < len(workloads); i++ {
 		destPrefix := *workloads[i][0]["loopback"]["lmgLbk"][0].Ipv4Addresses[0].IPAddress + "/32"
-		cnf := "upf"
 		lmgNo := i - 1
 		log.Debugf(fmt.Sprintf("SR - LMG %d - WLName: %s, prefix: %s/32", lmgNo, wlName, destPrefix))
 		// loop over switch
@@ -578,7 +577,7 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 			log.Debugf(fmt.Sprintf("Lmg %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", lmgNo, wlName, nextHop, leafnode, sourceIP))
 
 			sr := types.NewStaticRouteNHG(destPrefix)
-			sr.SetNHGroupName(fmt.Sprintf("%s-%s-lmg%d", wlName, cnf, lmgNo))
+			sr.SetNHGroupName(fmt.Sprintf("%s-%s-lmg%d", wlName, cnfName, lmgNo))
 			nhgentry := &types.NHGroupEntry{
 				Index:     nhindex,
 				NHIp:      nextHop,
@@ -607,7 +606,7 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 			log.Debugf(fmt.Sprintf("Lmg %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", lmgNo, wlName, nextHop, leafnode, sourceIP))
 
 			sr := types.NewStaticRouteNHG(destPrefix)
-			sr.SetNHGroupName(fmt.Sprintf("%s-%s-lmg%d-v6", wlName, cnf,lmgNo))
+			sr.SetNHGroupName(fmt.Sprintf("%s-%s-lmg%d-v6", wlName, cnfName,lmgNo))
 			nhgentry := &types.NHGroupEntry{
 				Index:     nhindex,
 				NHIp:      nextHop,
@@ -623,7 +622,7 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 	}
 }
 
-func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
+func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, cnfName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
 	llbLoopbackInfoArr := workloads[0][0]["loopback"]["llbLbk"][0]
 
 	for llbLoopbackIndex, llbLoopbackIPAddress := range llbLoopbackInfoArr.Ipv4Addresses {
@@ -642,7 +641,7 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 			log.Debugf(fmt.Sprintf("LLb %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", groupindex, wlName, nextHop, leafNode, sourceIP))
 
 			sr := types.NewStaticRouteNHG(destPrefix)
-			sr.SetNHGroupName(fmt.Sprintf("%s-llb%d", wlName, groupindex))
+			sr.SetNHGroupName(fmt.Sprintf("%s-%s-llb%d", wlName, cnfName, groupindex))
 
 			nhgentry := &types.NHGroupEntry{
 				Index:     nhindex,
@@ -673,7 +672,7 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 			log.Debugf(fmt.Sprintf("LLb %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", groupindex, wlName, nextHop, leafNode, sourceIP))
 
 			sr := types.NewStaticRouteNHG(destPrefix)
-			sr.SetNHGroupName(fmt.Sprintf("%s-llb%d-v6", wlName, groupindex))
+			sr.SetNHGroupName(fmt.Sprintf("%s-%s-llb%d-v6", wlName, cnfName, groupindex))
 
 			nhgentry := &types.NHGroupEntry{
 				Index:     nhindex,
@@ -690,7 +689,7 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 	}
 }
 
-func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
+func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, cnfName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
 	bgpLoopbackInfoArr := workloads[0][0]["loopback"]["bgpLbk"][0]
 
 	for x := 1; x < len(workloads[0]); x++ {
@@ -701,7 +700,7 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 		log.Debugf(fmt.Sprintf("SR - BGP - WLName: %s, prefix: %s/32", wlName, destPrefix))
 
 		sr := types.NewStaticRouteNHG(destPrefix)
-		sr.SetNHGroupName(fmt.Sprintf("%s-llb-bgp", wlName))
+		sr.SetNHGroupName(fmt.Sprintf("%s-%s-llb-bgp", wlName, cnfName))
 
 		for ipIndex, ipAddress := range llbInterfInfoArr.Ipv4Addresses {
 			nextHop := *ipAddress.IPAddress
@@ -731,7 +730,7 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 		log.Debugf(fmt.Sprintf("SR - BGP - WLName: %s, prefix: %s/128", wlName, destPrefix))
 
 		sr := types.NewStaticRouteNHG(destPrefix)
-		sr.SetNHGroupName(fmt.Sprintf("%s-llb-bgp-v6", wlName))
+		sr.SetNHGroupName(fmt.Sprintf("%s-%s-llb-bgp-v6", wlName, cnfName))
 
 		for ipIndex, ipAddress := range llbInterfInfoArr.Ipv6Addresses {
 			nextHop := *ipAddress.IPAddress
