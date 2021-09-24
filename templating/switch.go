@@ -326,7 +326,7 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 				mywlname := wlnametranslate(wlName, multusInfo)
 				mywlname = strcase.KebabCase(strings.Replace(mywlname, "multus-", "", 1))
 				niName := mywlname + "-ipvrf-itfce-" + strconv.Itoa(*bar.VlanID)
-
+				mywlname = mywlname + "-" + cnfName
 				for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
 					perNodeLo[nodename] = &types.K8ssrlsubinterface{
 						InterfaceRealName:  "lo0",
