@@ -398,7 +398,7 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 					for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
 
 						losubif := perNodeLo[nodename]
-						losubif.IPv4Prefix = *y.IP + "/128"
+						losubif.IPv6Prefix = *y.IP + "/128"
 
 						transportIP := wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces[0].IPv6Prefix
 
@@ -593,7 +593,7 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 
 		// v6 start
 		destPrefix = *workloads[i][0]["loopback"]["lmgLbk"][0].Ipv6Addresses[0].IPAddress
-		log.Debugf(fmt.Sprintf("SR - LMG %d - WLName: %s, prefix: %s/32", lmgNo, wlName, destPrefix))
+		log.Debugf(fmt.Sprintf("SR - LMG %d - WLName: %s, prefix: %s/128", lmgNo, wlName, destPrefix))
 		// loop over switch
 		for x := 1; x < len(workloads[i]); x++ {
 			lmgInterfInfoArr := workloads[i][x]["itfce"]["intIP"][0]
@@ -658,7 +658,7 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 	for llbLoopbackIndex, llbLoopbackIPAddress := range llbLoopbackInfoArr.Ipv6Addresses {
 		destPrefix := *llbLoopbackIPAddress.IPAddress
 		groupindex := llbLoopbackIndex
-		log.Debugf(fmt.Sprintf("SR - LLB %d - WLName: %s, prefix: %s/32", groupindex, wlName, destPrefix))
+		log.Debugf(fmt.Sprintf("SR - LLB %d - WLName: %s, prefix: %s/128", groupindex, wlName, destPrefix))
 
 		for x := 1; x < len(workloads[0]); x++ {
 			llbInterfInfoArr := workloads[0][x]["itfce"]["intIP"][0]
@@ -726,7 +726,7 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 
 		destPrefix := *bgpLoopbackInfoArr.Ipv6Addresses[0].IPAddress
 
-		log.Debugf(fmt.Sprintf("SR - BGP - WLName: %s, prefix: %s/32", wlName, destPrefix))
+		log.Debugf(fmt.Sprintf("SR - BGP - WLName: %s, prefix: %s/128", wlName, destPrefix))
 
 		sr := types.NewStaticRouteNHG(destPrefix)
 		sr.SetNHGroupName(fmt.Sprintf("%s-llb-bgp-v6", wlName))
