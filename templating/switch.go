@@ -312,39 +312,61 @@ func processAppConfSrNhg(appconf map[string]*parser.AppConfig, ir *types.Infrast
 	return globalStaticRoutes
 }
 
+type AppConfBgpLoTempStoreEntry struct {
+	lo  map[string]*types.K8ssrlsubinterface
+	bgp map[string]*types.K8ssrlprotocolsbgp
+	vid int
+}
+
 func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadResults, ir *types.InfrastructureResult, multusInfo map[string]*parser.MultusInfo, templatenodes map[string]*TemplateNode, config *parser.Config, bgp_later []*BGPLaterAdd) {
+
+	appConfBgpLoStore := map[string]*AppConfBgpLoTempStoreEntry{}
+
 	for cnfName, cnf := range appconf {
 		if cnfName != "upf" && cnfName != "smf" {
 			continue
 		}
+
 		for wlName, workloads := range cnf.Networks {
 			for _, bar := range workloads[0][0]["loopback"]["bgpLbk"] {
-
-				perNodeLo := map[string]*types.K8ssrlsubinterface{}
-				perNodeBgp := map[string]*types.K8ssrlprotocolsbgp{}
+				var perNodeLo map[string]*types.K8ssrlsubinterface
+				var perNodeBgp map[string]*types.K8ssrlprotocolsbgp
 
 				mywlname := wlnametranslate(wlName, multusInfo)
 				mywlname = strcase.KebabCase(strings.Replace(mywlname, "multus-", "", 1))
 				niName := mywlname + "-ipvrf-itfce-" + strconv.Itoa(*bar.VlanID)
 
+				if _, ok := appConfBgpLoStore[niName]; ok {
+					perNodeLo = appConfBgpLoStore[niName].lo
+					perNodeBgp = appConfBgpLoStore[niName].bgp
+				} else {
+					perNodeLo = map[string]*types.K8ssrlsubinterface{}
+					perNodeBgp = map[string]*types.K8ssrlprotocolsbgp{}
+					appConfBgpLoStore[niName] = &AppConfBgpLoTempStoreEntry{lo: perNodeLo, bgp: perNodeBgp, vid: *bar.VlanID}
+				}
+
 				for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
-					perNodeLo[nodename] = &types.K8ssrlsubinterface{
-						InterfaceRealName:  "lo0",
-						InterfaceShortName: "lo0",
-						VlanTagging:        false,
-						VlanID:             strconv.Itoa(*bar.VlanID),
-						Kind:               "loopback",
-						//IPv4Prefix:         "",
-						//IPv6Prefix:         "",
+					if _, ok := perNodeLo[nodename]; !ok {
+						perNodeLo[nodename] = &types.K8ssrlsubinterface{
+							InterfaceRealName:  "lo0",
+							InterfaceShortName: "lo0",
+							VlanTagging:        false,
+							VlanID:             strconv.Itoa(*bar.VlanID),
+							Kind:               "loopback",
+							//IPv4Prefix:         "",
+							//IPv6Prefix:         "",
+						}
 					}
-					perNodeBgp[nodename] = &types.K8ssrlprotocolsbgp{
-						NetworkInstanceName: niName,
-						//AS:                  *y.AS,
-						//RouterID:            *y.IP,
-						PeerGroups: []*types.PeerGroup{
-							{Protocols: []string{"bgp"}, Name: mywlname, PolicyName: "bgp_export_policy_default"},
-							{Protocols: []string{"bgp"}, Name: "DCGW", PolicyName: "bgp_export_policy_default"},
-						},
+					if _, ok := perNodeBgp[nodename]; !ok {
+						perNodeBgp[nodename] = &types.K8ssrlprotocolsbgp{
+							NetworkInstanceName: niName,
+							//AS:                  *y.AS,
+							//RouterID:            *y.IP,
+							PeerGroups: []*types.PeerGroup{
+								{Protocols: []string{"bgp"}, Name: mywlname, PolicyName: "bgp_export_policy_default"},
+								{Protocols: []string{"bgp"}, Name: "DCGW", PolicyName: "bgp_export_policy_default"},
+							},
+						}
 					}
 				}
 
@@ -430,24 +452,28 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 						foo.Neighbors = append(foo.Neighbors, dcgwNbrv6, Nbrv6)
 					}
 				}
-
-				for nodename, lo0conf := range perNodeLo {
-					templatenodes[nodename].AddSubInterface(lo0conf.InterfaceShortName, lo0conf.VlanID, processSrlSubInterface(nodename, lo0conf.InterfaceShortName, lo0conf))
-					if !checkIfSubIFAlreadyExists(wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces, lo0conf.InterfaceRealName, lo0conf.VlanID) {
-						wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces = append(wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces, lo0conf)
-					}
-				}
-				for nodename, bgpconf := range perNodeBgp {
-					for _, bgp_later_entry := range bgp_later {
-						if bgp_later_entry.nivid == *bar.VlanID && bgp_later_entry.nodename == nodename {
-							bgpconf.Neighbors = append(bgpconf.Neighbors, bgp_later_entry.bgpconf...)
-							bgpconf.PeerGroups = append(bgpconf.PeerGroups, &types.PeerGroup{Protocols: []string{"bgp"}, Name: "LOOP", PolicyName: "bgp_export_policy_default"})
-						}
-					}
-					templatenodes[nodename].AddBgp(niName, processBgp(bgpconf))
-				}
-
 			}
+		}
+	}
+	for niName, appconfbgpstoreentry := range appConfBgpLoStore {
+		perNodeLo := appconfbgpstoreentry.lo
+		perNodeBgp := appconfbgpstoreentry.bgp
+		vid := appconfbgpstoreentry.vid
+
+		for nodename, lo0conf := range perNodeLo {
+			templatenodes[nodename].AddSubInterface(lo0conf.InterfaceShortName, lo0conf.VlanID, processSrlSubInterface(nodename, lo0conf.InterfaceShortName, lo0conf))
+			if !checkIfSubIFAlreadyExists(wr.NetworkInstances[nodename][vid].SubInterfaces, lo0conf.InterfaceRealName, lo0conf.VlanID) {
+				wr.NetworkInstances[nodename][vid].SubInterfaces = append(wr.NetworkInstances[nodename][vid].SubInterfaces, lo0conf)
+			}
+		}
+		for nodename, bgpconf := range perNodeBgp {
+			for _, bgp_later_entry := range bgp_later {
+				if bgp_later_entry.nivid == vid && bgp_later_entry.nodename == nodename {
+					bgpconf.Neighbors = append(bgpconf.Neighbors, bgp_later_entry.bgpconf...)
+					bgpconf.PeerGroups = append(bgpconf.PeerGroups, &types.PeerGroup{Protocols: []string{"bgp"}, Name: "LOOP", PolicyName: "bgp_export_policy_default"})
+				}
+			}
+			templatenodes[nodename].AddBgp(niName, processBgp(bgpconf))
 		}
 	}
 }
@@ -606,7 +632,7 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 			log.Debugf(fmt.Sprintf("Lmg %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", lmgNo, wlName, nextHop, leafnode, sourceIP))
 
 			sr := types.NewStaticRouteNHG(destPrefix)
-			sr.SetNHGroupName(fmt.Sprintf("%s-%s-lmg%d-v6", wlName, cnfName,lmgNo))
+			sr.SetNHGroupName(fmt.Sprintf("%s-%s-lmg%d-v6", wlName, cnfName, lmgNo))
 			nhgentry := &types.NHGroupEntry{
 				Index:     nhindex,
 				NHIp:      nextHop,
