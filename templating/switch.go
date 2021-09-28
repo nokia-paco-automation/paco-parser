@@ -320,7 +320,9 @@ type AppConfBgpLoTempStoreEntry struct {
 
 func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadResults, ir *types.InfrastructureResult, multusInfo map[string]*parser.MultusInfo, templatenodes map[string]*TemplateNode, config *parser.Config, bgp_later []*BGPLaterAdd) {
 
-	appConfBgpLoStore := map[string]*AppConfBgpLoTempStoreEntry{}
+	appConfBgpLoStore := map[string]*AppConfBgpLoTempStoreEntry{} // niname indexed
+
+	dcgw_needs_add := map[string]map[string]map[string]bool{} // nodename, niname, ipversion -> bool
 
 	for cnfName, cnf := range appconf {
 		if cnfName != "upf" && cnfName != "smf" {
@@ -335,13 +337,14 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 				mywlname := wlnametranslate(wlName, multusInfo)
 				mywlname = strcase.KebabCase(strings.Replace(mywlname, "multus-", "", 1))
 				niName := mywlname + "-ipvrf-itfce-" + strconv.Itoa(*bar.VlanID)
+				mywlname = mywlname + "-" + cnfName
 
 				if _, ok := appConfBgpLoStore[niName]; ok {
 					perNodeLo = appConfBgpLoStore[niName].lo
 					perNodeBgp = appConfBgpLoStore[niName].bgp
 				} else {
-					perNodeLo = map[string]*types.K8ssrlsubinterface{}
-					perNodeBgp = map[string]*types.K8ssrlprotocolsbgp{}
+					perNodeLo = map[string]*types.K8ssrlsubinterface{}  // nodename indexed
+					perNodeBgp = map[string]*types.K8ssrlprotocolsbgp{} // nodename indexed
 					appConfBgpLoStore[niName] = &AppConfBgpLoTempStoreEntry{lo: perNodeLo, bgp: perNodeBgp, vid: *bar.VlanID}
 				}
 
@@ -363,10 +366,20 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 							//AS:                  *y.AS,
 							//RouterID:            *y.IP,
 							PeerGroups: []*types.PeerGroup{
-								{Protocols: []string{"bgp"}, Name: mywlname, PolicyName: "bgp_export_policy_default"},
 								{Protocols: []string{"bgp"}, Name: "DCGW", PolicyName: "bgp_export_policy_default"},
 							},
 						}
+					}
+					// check if the peergroup needs to be added
+					peergrouop_exists := false
+					for _, entry := range perNodeBgp[nodename].PeerGroups {
+						if entry.Name == mywlname {
+							peergrouop_exists = true
+						}
+					}
+					// add peergroup if required
+					if !peergrouop_exists {
+						perNodeBgp[nodename].PeerGroups = append(perNodeBgp[nodename].PeerGroups, &types.PeerGroup{Protocols: []string{"bgp"}, Name: mywlname, PolicyName: "bgp_export_policy_default"})
 					}
 				}
 
@@ -374,11 +387,24 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 
 					//fmt.Printf("node: %s, wlname: %s, PeerIP: %s, PeerAS: %d, LocalAddress: %s, LocalAS: %d, vlanid: %d\n", niName, wlName, *bar.IPv4BGPAddress, *bar.AS, *y.IP, *y.AS, *bar.VlanID)
 					//dcgw_ip := wr.NetworkInstances[strconv.Itoa(*bar.VlanID)]
+					nodename := y.Node
 
-					for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
+					// init the storage for remembering if dcgw was already added as neighbor (per ip version)
+					if _, ok := dcgw_needs_add[nodename]; !ok {
+						dcgw_needs_add[nodename] = map[string]map[string]bool{}
+					}
+					if _, ok := dcgw_needs_add[nodename][niName]; !ok {
+						dcgw_needs_add[nodename][niName] = map[string]bool{}
+						dcgw_needs_add[nodename][niName]["v4"] = true
+						dcgw_needs_add[nodename][niName]["v6"] = true
+					}
 
-						losubif := perNodeLo[nodename]
-						losubif.IPv4Prefix = *y.IP + "/32"
+					losubif := perNodeLo[nodename]
+					losubif.IPv4Prefix = *y.IP + "/32"
+
+					foo := perNodeBgp[nodename]
+
+					if dcgw_needs_add[nodename][niName]["v4"] {
 
 						transportIP := wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces[0].IPv4Prefix
 
@@ -395,32 +421,47 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 							LocalAS:          *y.AS,
 							TransportAddress: ip.String(),
 						}
-
-						Nbrv4 := &types.Neighbor{
-							PeerIP:           *bar.IPv4BGPAddress,
-							PeerAS:           *bar.AS,
-							PeerGroup:        mywlname,
-							LocalAS:          *y.AS,
-							TransportAddress: *y.IP,
-						}
-						foo := perNodeBgp[nodename]
-
-						foo.AS = *y.AS
-						foo.RouterID = *y.IP
-
-						foo.Neighbors = append(foo.Neighbors, dcgwNbrv4, Nbrv4)
-
+						foo.Neighbors = append(foo.Neighbors, dcgwNbrv4)
+						dcgw_needs_add[nodename][niName]["v4"] = false
 					}
+
+					Nbrv4 := &types.Neighbor{
+						PeerIP:           *bar.IPv4BGPAddress,
+						PeerAS:           *bar.AS,
+						PeerGroup:        mywlname,
+						LocalAS:          *y.AS,
+						TransportAddress: *y.IP,
+					}
+
+					foo.AS = *y.AS
+					foo.RouterID = *y.IP
+
+					foo.Neighbors = append(foo.Neighbors, Nbrv4)
+
 				}
 				for _, y := range bar.IPv6BGPPeers {
 
 					//fmt.Printf("node: %s, wlname: %s, PeerIP: %s, PeerAS: %d, LocalAddress: %s, LocalAS: %d, vlanid: %d\n", niName, wlName, *bar.IPv4BGPAddress, *bar.AS, *y.IP, *y.AS, *bar.VlanID)
 					//dcgw_ip := wr.NetworkInstances[strconv.Itoa(*bar.VlanID)]
 
-					for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
+					nodename := y.Node
 
-						losubif := perNodeLo[nodename]
-						losubif.IPv6Prefix = *y.IP + "/128"
+					// init the storage for remembering if dcgw was already added as neighbor (per ip version)
+					if _, ok := dcgw_needs_add[nodename]; !ok {
+						dcgw_needs_add[nodename] = map[string]map[string]bool{}
+					}
+					if _, ok := dcgw_needs_add[nodename][niName]; !ok {
+						dcgw_needs_add[nodename][niName] = map[string]bool{}
+						dcgw_needs_add[nodename][niName]["v4"] = true
+						dcgw_needs_add[nodename][niName]["v6"] = true
+					}
+
+					losubif := perNodeLo[nodename]
+					losubif.IPv6Prefix = *y.IP + "/128"
+
+					foo := perNodeBgp[nodename]
+
+					if dcgw_needs_add[nodename][niName]["v6"] {
 
 						transportIP := wr.NetworkInstances[nodename][*bar.VlanID].SubInterfaces[0].IPv6Prefix
 
@@ -437,20 +478,20 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 							LocalAS:          *y.AS,
 							TransportAddress: ip.String(),
 						}
+						foo.Neighbors = append(foo.Neighbors, dcgwNbrv6)
 
-						Nbrv6 := &types.Neighbor{
-							PeerIP:           *bar.IPv6BGPAddress,
-							PeerAS:           *bar.AS,
-							PeerGroup:        mywlname,
-							LocalAS:          *y.AS,
-							TransportAddress: *y.IP,
-						}
-						foo := perNodeBgp[nodename]
-
-						foo.AS = *y.AS
-
-						foo.Neighbors = append(foo.Neighbors, dcgwNbrv6, Nbrv6)
+						dcgw_needs_add[nodename][niName]["v6"] = false
 					}
+					Nbrv6 := &types.Neighbor{
+						PeerIP:           *bar.IPv6BGPAddress,
+						PeerAS:           *bar.AS,
+						PeerGroup:        mywlname,
+						LocalAS:          *y.AS,
+						TransportAddress: *y.IP,
+					}
+
+					foo.AS = *y.AS
+					foo.Neighbors = append(foo.Neighbors, Nbrv6)
 				}
 			}
 		}

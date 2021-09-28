@@ -548,13 +548,15 @@ func (p *Parser) AssignSwitchBgpLoopback(version, ipcidr, wlName, netwType *stri
 					switch *version {
 					case "ipv4":
 						p.SwitchInfo.switchBgpPeersIPv4[*wlName][switchIndex] = &BGPPeerInfo{
-							IP: allocateIP.IPAddress,
-							AS: p.Nodes[switchName].AS,
+							IP:   allocateIP.IPAddress,
+							AS:   p.Nodes[switchName].AS,
+							Node: switchName,
 						}
 					case "ipv6":
 						p.SwitchInfo.switchBgpPeersIPv6[*wlName][switchIndex] = &BGPPeerInfo{
-							IP: allocateIP.IPAddress,
-							AS: p.Nodes[switchName].AS,
+							IP:   allocateIP.IPAddress,
+							AS:   p.Nodes[switchName].AS,
+							Node: switchName,
 						}
 					}
 				}

@@ -169,8 +169,9 @@ type NetworkInfo struct {
 }
 
 type BGPPeerInfo struct {
-	IP *string
-	AS *uint32
+	IP   *string
+	AS   *uint32
+	Node string
 }
 
 // Protocols
