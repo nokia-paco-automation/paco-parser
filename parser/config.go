@@ -177,6 +177,7 @@ type BGPPeerInfo struct {
 type Protocols struct {
 	Protocol        *string   `yaml:"protocol,omitempty"`
 	AsPool          []*uint32 `yaml:"as_pool,omitempty"`
+	AsPoolLoop          []*uint32 `yaml:"as_pool_loop,omitempty"`
 	OverlayAs       *uint32   `yaml:"overlay_as,omitempty"`
 	OverlayProtocol *string   `yaml:"overlay_protocol,omitempty"`
 }

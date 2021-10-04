@@ -37,6 +37,7 @@ infrastructure:
   protocols:
     protocol: ebgp
     as_pool: [65000, 65100]
+    as_pool_loop: [65902, 65903]
     overlay_as: 65002
     overlay_protocol: evpn
 
