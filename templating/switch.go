@@ -822,36 +822,36 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 				NeighAv4 := []*types.Neighbor{
 					{
 						PeerIP:           *l.B.IPv4Address,
-						PeerAS:           searchLocalASInConfig(config, vlanid),
+						PeerAS:           *p.Config.Infrastructure.Protocols.AsPoolLoop[1],
 						PeerGroup:        "LOOP",
-						LocalAS:          searchLocalASInConfig(config, infraVID),
+						LocalAS:          *p.Config.Infrastructure.Protocols.AsPoolLoop[0],
 						TransportAddress: *l.A.IPv4Address,
 					},
 				}
 				NeighBv4 := []*types.Neighbor{
 					{
 						PeerIP:           *l.A.IPv4Address,
-						PeerAS:           searchLocalASInConfig(config, infraVID),
+						PeerAS:           *p.Config.Infrastructure.Protocols.AsPoolLoop[0],
 						PeerGroup:        "LOOP",
-						LocalAS:          searchLocalASInConfig(config, vlanid),
+						LocalAS:          *p.Config.Infrastructure.Protocols.AsPoolLoop[1],
 						TransportAddress: *l.B.IPv4Address,
 					},
 				}
 				NeighAv6 := []*types.Neighbor{
 					{
 						PeerIP:           *l.B.IPv6Address,
-						PeerAS:           searchLocalASInConfig(config, vlanid),
+						PeerAS:           *p.Config.Infrastructure.Protocols.AsPoolLoop[1],
 						PeerGroup:        "LOOP",
-						LocalAS:          searchLocalASInConfig(config, infraVID),
+						LocalAS:          *p.Config.Infrastructure.Protocols.AsPoolLoop[0],
 						TransportAddress: *l.A.IPv6Address,
 					},
 				}
 				NeighBv6 := []*types.Neighbor{
 					{
 						PeerIP:           *l.A.IPv6Address,
-						PeerAS:           searchLocalASInConfig(config, infraVID),
+						PeerAS:           *p.Config.Infrastructure.Protocols.AsPoolLoop[0],
 						PeerGroup:        "LOOP",
-						LocalAS:          searchLocalASInConfig(config, vlanid),
+						LocalAS:          *p.Config.Infrastructure.Protocols.AsPoolLoop[1],
 						TransportAddress: *l.B.IPv6Address,
 					},
 				}
