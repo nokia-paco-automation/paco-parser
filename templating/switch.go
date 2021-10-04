@@ -418,7 +418,7 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 							PeerIP:           peerIP.String(),
 							PeerAS:           searchLocalASInConfig(config, *bar.VlanID),
 							PeerGroup:        "DCGW",
-							LocalAS:          *y.AS,
+							//LocalAS:          *y.AS,
 							TransportAddress: ip.String(),
 						}
 						foo.Neighbors = append(foo.Neighbors, dcgwNbrv4)
@@ -429,11 +429,11 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 						PeerIP:           *bar.IPv4BGPAddress,
 						PeerAS:           *bar.AS,
 						PeerGroup:        mywlname,
-						LocalAS:          *y.AS,
+						//LocalAS:          *y.AS,
 						TransportAddress: *y.IP,
 					}
 
-					foo.AS = *y.AS
+					foo.AS = *config.Infrastructure.Protocols.OverlayAs
 					foo.RouterID = *y.IP
 
 					foo.Neighbors = append(foo.Neighbors, Nbrv4)
@@ -475,7 +475,7 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 							PeerIP:           peerIP.String(),
 							PeerAS:           searchLocalASInConfig(config, *bar.VlanID),
 							PeerGroup:        "DCGW",
-							LocalAS:          *y.AS,
+							//LocalAS:          *y.AS,
 							TransportAddress: ip.String(),
 						}
 						foo.Neighbors = append(foo.Neighbors, dcgwNbrv6)
@@ -486,11 +486,11 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 						PeerIP:           *bar.IPv6BGPAddress,
 						PeerAS:           *bar.AS,
 						PeerGroup:        mywlname,
-						LocalAS:          *y.AS,
+						//LocalAS:          *y.AS,
 						TransportAddress: *y.IP,
 					}
 
-					foo.AS = *y.AS
+					foo.AS = *config.Infrastructure.Protocols.OverlayAs
 					foo.Neighbors = append(foo.Neighbors, Nbrv6)
 				}
 			}
@@ -543,7 +543,7 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 
 			foo := &types.K8ssrlprotocolsbgp{
 				NetworkInstanceName: niName,
-				AS:                  defProtoBgp[nodename].AS,
+				AS:                  *config.Infrastructure.Protocols.OverlayAs,
 				RouterID:            defProtoBgp[nodename].RouterID,
 				PeerGroups: []*types.PeerGroup{
 					{Protocols: []string{"bgp"}, Name: "DCGW", PolicyName: "bgp_export_policy_default"},
@@ -554,7 +554,7 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 				PeerIP:           peerIP.String(),
 				PeerAS:           searchLocalASInConfig(config, vlanid),
 				PeerGroup:        "DCGW",
-				LocalAS:          defProtoBgp[nodename].AS,
+				//LocalAS:          defProtoBgp[nodename].AS,
 				TransportAddress: ip.String(),
 			}
 
@@ -570,7 +570,7 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 				PeerIP:           peerIP.String(),
 				PeerAS:           searchLocalASInConfig(config, vlanid),
 				PeerGroup:        "DCGW",
-				LocalAS:          defProtoBgp[nodename].AS,
+				//LocalAS:          defProtoBgp[nodename].AS,
 				TransportAddress: ip.String(),
 			}
 
@@ -944,8 +944,8 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 					},
 					&BGPLaterAdd{
 						nodename: *l.B.Node.ShortName,
-						niname:   infraNIName,
-						nivid:    infraVID,
+						niname:   wlname,
+						nivid:    vlanid,
 						bgpconf:  NeighBv6,
 					},
 				)
