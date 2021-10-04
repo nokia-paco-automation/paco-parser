@@ -43,7 +43,7 @@
     {
 {{- if ne $element.LocalAS 0}}
       "local-as": [
-       {"as-number": "{{$element.LocalAS}}"}
+       {"as-number": "{{$element.LocalAS}}", "prepend-global-as": false}
       ],
 {{- end}}
       "peer-address": "{{$element.PeerIP}}",
