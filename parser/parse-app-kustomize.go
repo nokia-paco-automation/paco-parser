@@ -105,7 +105,7 @@ type PodResources struct {
 }
 
 type Resource struct {
-	Cpu          *int
+	Cpu          *string
 	Memory       *string
 	Hugepages1Gi *string
 	Multus       []*MultusCnfInfo

@@ -95,7 +95,7 @@ type ContainerRepo struct {
 type ContainerInfo struct {
 	ImageName           *string
 	ImageTag            *string
-	CPU                 *int
+	CPU                 *string
 	Memory              *string
 	Hugepages1Gi        *string
 	NodeSelector        *string
@@ -659,11 +659,11 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 				tag = podtag.(string)
 			}
 		}
-		var cpu int
+		var cpu string
 		if podcpu, ok := podInfo["cpu"]; ok {
 			switch podcpu.(type) {
-			case int:
-				cpu = podcpu.(int)
+			case string:
+				cpu = podcpu.(string)
 			}
 		}
 		var mem string
@@ -727,7 +727,7 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 			Enabled:             BoolPtr(enabled),
 			ImageName:           StringPtr(imageName),
 			ImageTag:            StringPtr(tag),
-			CPU:                 IntPtr(cpu),
+			CPU:                 StringPtr(cpu),
 			Memory:              StringPtr(mem),
 			Hugepages1Gi:        StringPtr(hugepages),
 			NodeSelector:        StringPtr(nodeSelector),
