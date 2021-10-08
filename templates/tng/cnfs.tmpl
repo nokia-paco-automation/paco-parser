@@ -1,0 +1,12 @@
+{{- define "tngcnfs" -}}
+  {{- range . }}
+    - asnumber: {{.AsNumber}}
+      llbpods: {{.LlbPods}}
+      lmgpods: {{.LmgPods}}
+      name: {{.Name}}
+      multus:
+        {{- range .Multus}}
+        - name: {{.}}
+        {{- end -}}
+  {{- end -}}
+{{- end}}

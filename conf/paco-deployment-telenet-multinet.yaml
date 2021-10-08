@@ -268,7 +268,7 @@ topology:
       kind: srl
       mgmt_ipv4: 172.20.20.4
       labels: {"target": "leaf-grp1"}
-      as: 4259845498 
+      as: 4259845498
     master0:
       kind: linux
       mgmt_ipv4: 100.112.3.11

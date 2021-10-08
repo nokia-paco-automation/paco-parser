@@ -144,6 +144,8 @@ var parseCmd = &cobra.Command{
 		srl_configs := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes, appConfig, p.Config.Application["paco"].Global.Multus, p.Config, p)
 		writeSwitchConfigs(srl_configs)
 
+		writeTngFile(templating.ProcessTNG(p, workloadResults, infrastructureResult, clientGroupResults, appConfig))
+
 		writeNokiaYml(p.Config)
 
 		return nil
@@ -178,6 +180,16 @@ func writeNokiaYml(config *parser.Config) {
 	templateFile := path.Join("templates", "Nokia.yml.tmpl")
 	data := templating.GeneralTemplateProcessing(templateFile, "nokia", config)
 	conf := path.Join(output, "Nokia.yml")
+	f, err := os.Create(path.Join(conf))
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+	f.WriteString(data)
+	f.Close()
+}
+
+func writeTngFile(data string) {
+	conf := path.Join(output, "tng.yml")
 	f, err := os.Create(path.Join(conf))
 	if err != nil {
 		log.Fatalf("%v", err)
