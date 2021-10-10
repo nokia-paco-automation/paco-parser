@@ -342,7 +342,7 @@ global:
         cpu: {{ $podInfo.CPU }}
         memory: {{ $podInfo.Memory }}
       nodeSelector: {{ $podInfo.NodeSelector }}
-{{- if (eq $podName "necc") (eq $appc.StorageClass "manual")}}
+{{- if and (eq $podName "necc") (eq $appc.StorageClass "manual")}}
       pvc: false
 {{- end}}
 {{- if eq $podName "cmm-operator"}}
