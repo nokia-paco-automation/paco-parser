@@ -12,19 +12,11 @@
 {{- /* appc.Networks; itfceSubType: itfce; group 1..16: intIP(UPF-LMG)  */}}
 {{- $appc := .Appc}}
 {{- $appipmap := .AppIPMap}}
-tags:
-  all: true
-  amms: {{ $appc.Amms}}
-  dbs: {{ $appc.Dbs}}
-  emms: {{ $appc.Emms}}
-  ipds: {{ $appc.Ipds}}
-  ipps: {{ $appc.Ipps}}
-  necc: {{ $appc.Necc}}
-  paps: {{ $appc.Paps}}
-  networkcrd: true
-  pvc: true
+---
 global:
   env_name: amf
+  # external: kubectl get ep -n default kubernetes
+  # internal: kubectl get svc -n default kubernetes
   k8s_apiserver_endpoints:
     - "{{ $appc.K8sApiServer }}"
   k8s_apiserver_port: 443
@@ -34,28 +26,56 @@ global:
   necccount: 2
   storageclass: {{ $appc.StorageClass}}
   timezone: Europe/Brussels
-  stdout_logging: true
   aws_ip_mgmt: {{$appc.Aws}}
   aws_ip_mgmt_image: {{$appc.ContainerRepo.ImageRepo}}/aws_ip_mgmt:2.3
-  disable_hpa: false
   disable_apparmor: true
   rbac_resourcename:
   openshift: false
   cbam: false
   bcmt: false
-  multi_container: false
   cluster_cidr: []
+  necc_stdout_logging: true
+  necc_stdout_logs:
+    - /data-logs/master.log
+    - /data-logs/fslog.log
+    - /data-logs/signaling.log
+  pod_disruption_budget: true
+  pod_disruption_value:
+    amms:
+      maxUnavailable: 1
+    emms:
+      minAvailable: 1
+    dbs:
+      minAvailable: 1
+    ipds:
+      minAvailable: 50%
+    ipps:
+      minAvailable: 1
+    paps:
+      minAvailable: 1
+    necc:
+      minAvailable: 2
+    alms:
+      maxUnavailable: '0'
+    ctcs:
+      minAvailable: 1
+    eems:
+      minAvailable: 1
+    lihs:
+      minAvailable: 1
   scale:
     amms:
       minReplicas: 2
       maxReplicas: 3
       cpu_utilization: 80
       memory_utilization: 91
+      ue_utilization: 350000
     emms:
-      minReplicas: 0
-      maxReplicas: 0
+      minReplicas: 2
+      maxReplicas: 3
       cpu_utilization: 80
       memory_utilization: 91
+      ue_utilization: 350000
     dbs:
       minReplicas: 2
       maxReplicas: 3
@@ -65,14 +85,32 @@ global:
       minReplicas: 2
       maxReplicas: 2
       cpu_utilization: 80
+    eems:
+      minReplicas: 2
+      maxReplicas: 3
+      cpu_utilization: 95
+      memory_utilization: 95
+    alms:
+      minReplicas: 1
+      maxReplicas: 1
+      cpu_utilization: 80
+      memory_utilization: 91
+    ctcs:
+      minReplicas: 1
+      maxReplicas: 1
+      cpu_utilization: 80
+      memory_utilization: 91
+    # dummy scale for ipps/paps:
     ipps:
       minReplicas: 0
       maxReplicas: 0
-      cpu_utilization: 81
     paps:
       minReplicas: 0
-      maxReplicas: 0
-      cpu_utilization: 82
+      maxReplicas: 0  
+    lihs:
+      minReplicas: 1
+      maxReplicas: 1
+  # kubectl get svc -n kube-system kube-dns
   kubeDNS:
     ip: {{ $appc.K8sDns }}
   prometheus:
@@ -80,19 +118,23 @@ global:
       permission: talk-to-all
     podLabel:
       app: Prometheus
-  sbi_net_container_native: true
+  sbi_net_container_native: false
   sbi_net_container_lb: none
   pvc_hostpath_prefix: /opt/amf
   skipNeccPvcCleanupJob: true
-  seLinuxOptions:
-    user: false
-    role: false
-    type: false
-    level: false
+  istio:
+    createGateway: True
+    gateways:
+      - ingress
+    privateKey: /etc/istio/ingressgateway-certs/tls.key
+    serverCertificate: /etc/istio/ingressgateway-certs/tls.crt
+  traefik:
+    entryPoints:
+    - websecure
   dbs_duplex:  false
   neccvolumes:
     pcmd_pvc: 1Gi
-    perf_pvc: 1Gi
+    perf_pvc: 5Gi
     logs_pvc: 1Gi
     kafka_pvc: 1Gi
     influx_pvc: 1Gi
@@ -101,7 +143,12 @@ global:
     pm_pvc: 1Gi
     shared_pvc: 1Gi
     store_pvc: 5Gi
-    mariadb_pvc: 5Gi
+    mariadb_pvc: 2Gi
+    sgsnmon_pvc: 1Gi
+  almsvolumes:
+    redis_pvc: 1Gi
+  ctcsvolumes:
+    redis_pvc: 1Gi
 {{- /* process interface IPs on NECC/OAM workload in ipvlan start */}}
 {{- $workloads := index $appc.Networks "oam"}}
 {{- $groups := index $workloads 0}}
@@ -113,16 +160,24 @@ global:
     type: ipv4
     ipv4:
       ip:
-{{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
-      - {{$allocatedIP.IPAddress}}
-{{- end}}
-      floating_ip: {{ $networkInfo.Ipv4FloatingIP}}
+        - {{ (index $networkInfo.Ipv4Addresses 0).IPAddress }}
+        - {{ (index $networkInfo.Ipv4Addresses 1).IPAddress }}
+        - {{ (index $networkInfo.Ipv4Addresses 2).IPAddress }}
+      floating_ip: {{ $networkInfo.Ipv4FloatingIP }}
+      cidr: {{ $networkInfo.Ipv4Cidr}}
+      gw: {{ $networkInfo.Ipv4Gw}}
+    interface: {{ $networkInfo.InterfaceEthernetName}}
+    host_interface: {{$networkInfo.InterfaceName}}.{{$networkInfo.VlanID}}
+  alms:
+    type: ipv4
+    ipv4:
+      - {{ (index $networkInfo.Ipv4Addresses 3).IPAddress }}
       cidr: {{ $networkInfo.Ipv4Cidr}}
       gw: {{ $networkInfo.Ipv4Gw}}
     interface: {{ $networkInfo.InterfaceEthernetName}}
     host_interface: {{$networkInfo.InterfaceName}}.{{$networkInfo.VlanID}}
   external_cni: {{$networkInfo.Cni}}
-{{- /* process interface IPs on NECC/OAM workload in ipvlan finished */}}
+{{- /* process interface IPs on NECC/OAM/ALMS workload in ipvlan finished */}}
 {{- /* process interface IPs on IPDS workload in ipvlan start */}}
   external:
     ipds:
@@ -146,7 +201,6 @@ global:
 {{- end}}
 {{- end}}
 {{- end}}
-
 {{- end}}
   secrets:
     users:
@@ -160,7 +214,12 @@ global:
       trainee_passwd:
       ca4mn_passwd:
       cmmsecurity_passwd:
-      root_passwd:
+      root_passwd: 
+    operator_pre_check:
+      worker_node_user:
+      worker_node_passwd:
+      worker_node_sudo_passwd:
+      necc_passwd: 
   provisioning:
     # Site specific config
     network_name: {{ $appc.NetworkName }}
@@ -283,8 +342,11 @@ global:
         cpu: {{ $podInfo.CPU }}
         memory: {{ $podInfo.Memory }}
       nodeSelector: {{ $podInfo.NodeSelector }}
-{{- if eq $podName "necc"}}
+{{- if (eq $podName "necc") (eq $appc.StorageClass "manual")}}
       pvc: false
+{{- end}}
+{{- if eq $podName "cmm-operator"}}
+      imagePullSecret: {{$appc.ContainerRepo.name}}
 {{- end}}
 {{- $aalength := len $podInfo.Antiaffinity }}
 {{- if eq  $aalength 0}}
