@@ -1,0 +1,34 @@
+{{ define "tngleafgroups" }}
+  name: {{.Name}}
+  spineas: {{.SpineAs}}
+  leafs:
+  {{- range .Leafs }}
+    - name: {{.Name}}
+      bgpas: {{.BgpAs}}
+      id: {{.id}}
+      irbname: {{.IrbName}}
+      loname: {{.LoName}}
+      uplink_lagname: {{.UplinkLagName}}
+      vxlname: {{.VxlName}}
+  {{- end }}
+  ipvrfs:
+  {{- range .IpVrfs}}
+    - name: {{.Name}}
+      standardname: {{.StandardName}}
+      loopback_cidr: {{.LoopbackCIDR}}
+      vxlanvni: {{.VxlanVni}}
+      spine_uplink:
+        subnet: {{.SpineUplink.Subnetv4}}
+        vlan: {{.SpineUplink.Vlan}}
+      subnets:
+        {{- range .Subnets }}
+        - cidr: {{.Cidrv4}}
+          name: {{.Name }}
+          {{- if ne .Target "" }}
+          target: {{.Target}}
+          {{- end }}
+          type: {{.Type}}
+          vlan: {{.Vlan}}
+        {{- end -}}
+  {{- end -}}
+{{- end -}}
