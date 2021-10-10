@@ -346,7 +346,7 @@ global:
       pvc: false
 {{- end}}
 {{- if eq $podName "cmm-operator"}}
-      imagePullSecret: {{$appc.ContainerRepo.name}}
+      imagePullSecret: {{$appc.ContainerRepo.RepoName}}
 {{- end}}
 {{- $aalength := len $podInfo.Antiaffinity }}
 {{- if eq  $aalength 0}}
