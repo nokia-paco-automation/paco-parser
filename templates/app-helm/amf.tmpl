@@ -34,6 +34,11 @@ global:
   cbam: false
   bcmt: false
   cluster_cidr: []
+  seLinuxOptions:
+    user: system_u
+    role: system_r
+    type: container_t
+    level: "s0:c4,c350"
   necc_stdout_logging: true
   necc_stdout_logs:
     - /data-logs/master.log
