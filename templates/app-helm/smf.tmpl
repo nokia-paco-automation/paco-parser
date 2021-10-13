@@ -12,6 +12,7 @@
 {{- /* appc.Networks; itfceSubType: itfce; group 1..16: intIP(UPF-LMG)  */}}
 {{- $appc := .Appc}}
 {{- $appipmap := .AppIPMap}}
+{{- $overlayas := .OverlayAs}}
 {{- $lenWl := len $appc.Networks}}
 {{- $lenSwitch := derefInt $appc.SwitchesPerServer}}
 {{- $lenLlb := $appc.Llbs}}
@@ -483,7 +484,7 @@ vprn:
 {{- range $sId, $bgpPeer := $networkInfo.IPv4BGPPeers}}
   - subnet: {{ $bgpPeer.IP}}
     export: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
-    peerAs: {{ $bgpPeer.AS}}
+    peerAs: {{ $overlayas}} 
     localAddress: {{$networkInfo.IPv4BGPAddress}}
     multiHop: 10
 {{- end}}

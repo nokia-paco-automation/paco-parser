@@ -18,11 +18,13 @@ func (p *Parser) WriteCnfValues(t *template.Template, dirName, cnfName *string, 
 	}
 
 	s := struct {
-		AppIPMap *AppIPMap
-		Appc     *AppConfig
+		AppIPMap  *AppIPMap
+		Appc      *AppConfig
+		OverlayAs *uint32
 	}{
-		AppIPMap: appIPMap,
-		Appc:     appc,
+		AppIPMap:  appIPMap,
+		Appc:      appc,
+		OverlayAs: p.Config.Infrastructure.Protocols.OverlayAs,
 	}
 
 	for wlName, workloads := range appc.Networks {
