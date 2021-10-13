@@ -90,6 +90,7 @@ type ClientLinkInfo struct {
 type ContainerRepo struct {
 	ImageRepo   *string
 	ImageSecret *string
+	RepoName	*string
 }
 
 type ContainerInfo struct {
@@ -572,6 +573,7 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 	var containerRegistry string
 	var containerRegistryImageDir string
 	var containerRegistrySecret string
+	var containerRepoName string
 	if c.Server != nil {
 		containerRegistry = *c.Server
 	}
@@ -582,9 +584,14 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 		containerRegistrySecret = *c.Secret
 	}
 
+	if c.Name != nil {
+		containerRepoName = *c.Name
+	}
+
 	a.ContainerRepo = &ContainerRepo{
 		ImageRepo:   StringPtr(containerRegistry + "/" + containerRegistryImageDir),
 		ImageSecret: StringPtr(containerRegistrySecret),
+		RepoName: StringPtr(containerRepoName),
 	}
 
 	// initialize the CNF POD/container information
@@ -661,7 +668,7 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 		}
 		var cpu string
 		if podcpu, ok := podInfo["cpu"]; ok {
-			switch podcpu.(type) {
+		    switch podcpu.(type) {
 			case string:
 				cpu = podcpu.(string)
 			}
@@ -719,10 +726,19 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 			}
 		}
 
-		imageName := podName
-		if podName == "emms_amms" {
-			imageName = "cpps"
+		var imageName string
+		if podImageName, ok := podInfo["imageName"]; ok {
+			switch podImageName.(type) {
+			case string:
+				imageName = podImageName.(string)
+			}
+		} else {
+		    imageName = podName
 		}
+		//imageName := podName
+		//if podName == "emms_amms" {
+		//	imageName = "cpps"
+		//}
 		a.Containers[podName] = &ContainerInfo{
 			Enabled:             BoolPtr(enabled),
 			ImageName:           StringPtr(imageName),
