@@ -12,6 +12,7 @@
 {{- /* appc.Networks; itfceSubType: itfce; group 1..16: intIP(UPF-LMG)  */}}
 {{- $appc := .Appc}}
 {{- $appipmap := .AppIPMap}}
+{{- $hostdevice := .HostDevice}}
 ---
 global:
   env_name: amf
@@ -172,7 +173,7 @@ global:
       cidr: {{ $networkInfo.Ipv4Cidr}}
       gw: {{ $networkInfo.Ipv4Gw}}
     interface: {{ $networkInfo.InterfaceEthernetName}}
-    host_interface: {{$networkInfo.InterfaceName}}.{{$networkInfo.VlanID}}
+    host_interface: {{$hostdevice}}.{{$networkInfo.VlanID}}
   alms:
     type: ipv4
     ipv4:
@@ -180,7 +181,7 @@ global:
       cidr: {{ $networkInfo.Ipv4Cidr}}
       gw: {{ $networkInfo.Ipv4Gw}}
     interface: {{ $networkInfo.InterfaceEthernetName}}
-    host_interface: {{$networkInfo.InterfaceName}}.{{$networkInfo.VlanID}}
+    host_interface: {{$hostdevice}}.{{$networkInfo.VlanID}}
   external_cni: {{$networkInfo.Cni}}
 {{- /* process interface IPs on NECC/OAM/ALMS workload in ipvlan finished */}}
 {{- /* process interface IPs on IPDS workload in ipvlan start */}}
@@ -195,7 +196,7 @@ global:
 {{- if ne $wlName "oam"}}
     - name: {{$wlName}}
       type: ipv4
-      host_interface: {{$networkInfo.InterfaceName}}.{{$networkInfo.VlanID}}
+      host_interface: {{$hostdevice}}.{{$networkInfo.VlanID}}
       interface: {{$networkInfo.InterfaceEthernetName}}
       ipv4:
         cidr: {{ $networkInfo.Ipv4Cidr}}

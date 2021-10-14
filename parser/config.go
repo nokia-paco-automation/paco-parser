@@ -69,6 +69,7 @@ type CnfInfo struct {
 	NameSpace    *string                           `yaml:"namespace,omitempty"`
 	StorageClass *string                           `yaml:"storage_class,omitempty"`
 	PrometheusIP *string                           `yaml:"prometheus_ip,omitempty"`
+	HostDevice   *string                           `yaml:"host_device,omitempty"`
 	Networking   *PacoNetworkInfo                  `yaml:"networking,omitempty"`
 	Pods         map[string]map[string]interface{} `yaml:"pods,omitempty"`
 }
@@ -178,7 +179,7 @@ type BGPPeerInfo struct {
 type Protocols struct {
 	Protocol        *string   `yaml:"protocol,omitempty"`
 	AsPool          []*uint32 `yaml:"as_pool,omitempty"`
-	AsPoolLoop          []*uint32 `yaml:"as_pool_loop,omitempty"`
+	AsPoolLoop      []*uint32 `yaml:"as_pool_loop,omitempty"`
 	OverlayAs       *uint32   `yaml:"overlay_as,omitempty"`
 	OverlayProtocol *string   `yaml:"overlay_protocol,omitempty"`
 }
