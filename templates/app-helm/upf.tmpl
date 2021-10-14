@@ -296,9 +296,7 @@ multus:
     enable: 0
 gwConfig: upf
 gwRedundancy:
-  mode: NtoK
-  N: 1
-  K: 1
+  type: many-to-many
   active: 1
 lmgScale:
   minReplicas: 2
@@ -419,6 +417,8 @@ plmn:
   mnc: "{{$appc.Mnc}}"
 uuid: 842887ce-329d-4add-9a1c-e7dd03faa00f
 network:
+  autonomousSystem: {{$networkInfo.AS}}
+  ecmp: 8
   interface:
 {{- /* identify the interfaces to be used in SMF in the Base instance*/}}
 {{- /* system IP */}}
@@ -490,11 +490,11 @@ network:
 {{- $networkInfo := index $networkTypes 0 }}
 {{- if eq $group 0}}
     {{- /*- name: rt-bgp-{{$networkInfo.VrfUpId}}-{{$networkInfo.NetworkShortName}}
-      tag: "target:{{$networkInfo.AS}}:{{$networkInfo.VrfUpId}}"
+      members: "target:{{$networkInfo.AS}}:{{$networkInfo.VrfUpId}}"
     */}}
 {{- else}}
     - name: rt-lmg{{$group}}-{{add $networkInfo.VrfUpId $group}}-{{$networkInfo.NetworkShortName}}
-      tag: "target:{{$networkInfo.AS}}:{{add $networkInfo.VrfUpId $group}}"
+      members: "target:{{$networkInfo.AS}}:{{add $networkInfo.VrfUpId $group}}"
 {{- end }}
 {{- end }}
 {{- end }}
@@ -532,7 +532,7 @@ network:
         from:
           prefixList: lmg{{$group}}-sig-loopback-{{$networkInfo.NetworkShortName}}
         action:
-          addCommunity: rt-lmg{{$group}}-{{add $networkInfo.VrfUpId $group}}-{{$networkInfo.NetworkShortName}}
+          community: rt-lmg{{$group}}-{{add $networkInfo.VrfUpId $group}}-{{$networkInfo.NetworkShortName}}
 {{- end }}
 
 {{- end }}
@@ -579,7 +579,7 @@ vprn:
 {{- /* bgp loopback processing start */}}
 - id: {{$networkInfo.VrfCpId}}
   ecmp: 8
-  as: {{$networkInfo.AS}}
+  autonomousSystem: {{$networkInfo.AS}}
   staticRoute:
   - subnet: 0.0.0.0/0
     nextHop:
@@ -610,13 +610,17 @@ vprn:
 {{- end}}
 {{- /* static route, loop over all BGP peers and associated GWs finished */}}
   bgp:
+    group:
+    - name: Leafs
+      neighbour:
 {{- /* bgp peers, loop over bgp peers start */}}
-{{- range $sId, $bgpPeer := $networkInfo.IPv4BGPPeers}}
-  - subnet: {{ $bgpPeer.IP}}
-    export: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
-    peerAs: {{ $bgpPeer.AS}}
-    localAddress: {{$networkInfo.IPv4BGPAddress}}
-    multiHop: 10
+{{- range $sId, $bgpPeer := $networkInfo.IPv4BGPPeers}}    
+      - peerIp: {{ $bgpPeer.IP}}
+        export: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
+        peerAs: {{ $bgpPeer.AS}}
+        localIp: {{$networkInfo.IPv4BGPAddress}}
+        multiHop: 10
+        minRouteAdvertisement: 2
 {{- end}}
 {{- /* bgp peers, loop over bgp peers finished */}}
   interface:
@@ -711,7 +715,7 @@ vprn:
   mgGroup: {{$group}}
   ecmp: 8
   vrfExport: export-vprn{{add $networkInfo.VrfUpId $group}}
-  as: {{$networkInfo.AS}}
+  autonomousSystem: {{$networkInfo.AS}}
 {{- if eq $wlName "3GPP_Internet"}}
   ipLocalPool:
   - name: pool1
