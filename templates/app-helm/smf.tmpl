@@ -12,6 +12,7 @@
 {{- /* appc.Networks; itfceSubType: itfce; group 1..16: intIP(UPF-LMG)  */}}
 {{- $appc := .Appc}}
 {{- $appipmap := .AppIPMap}}
+{{- $overlayas := .OverlayAs}}
 {{- $lenWl := len $appc.Networks}}
 {{- $lenSwitch := derefInt $appc.SwitchesPerServer}}
 {{- $lenLlb := $appc.Llbs}}
@@ -485,12 +486,11 @@ vprn:
       neighbour:
 {{- /* bgp peers, loop over bgp peers start */}}
 {{- range $sId, $bgpPeer := $networkInfo.IPv4BGPPeers}}
-      - peerIp: {{ $bgpPeer.IP}}
-        export: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
-        peerAs: {{ $bgpPeer.AS}}
-        localIp: {{$networkInfo.IPv4BGPAddress}}
-        multiHop: 10
-        minRouteAdvertisement: 2
+  - subnet: {{ $bgpPeer.IP}}
+    export: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
+    peerAs: {{ $overlayas}} 
+    localAddress: {{$networkInfo.IPv4BGPAddress}}
+    multiHop: 10
 {{- end}}
 {{- /* bgp peers, loop over bgp peers finished */}}
   interface:

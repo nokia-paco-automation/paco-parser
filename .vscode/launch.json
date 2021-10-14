@@ -16,6 +16,17 @@
     "args": [
     "-d","-c","conf/paco-deployment-telenet-multinet.yaml","-o","./out/","parse"
     ],
-    }
-    ]
-    }
+    },
+    
+    {
+        "name": "prod parse",
+        "type": "go",
+        "request": "launch",
+        "mode": "debug",
+        "program": "${workspaceFolder}",
+        "args": [
+        "-d","-c","conf/prod-input.yaml","-o","./out/","parse"
+        ],
+        }
+        ]
+        }
