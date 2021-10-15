@@ -46,9 +46,17 @@ imagePullSecret: {{$appc.ContainerRepo.RepoName}}
 {{- else }}
 {{- if eq $podName "lmg" }}
 image:
+  imagePullSecret: {{$appc.ContainerRepo.RepoName}}
   repository: {{ $appc.ContainerRepo.ImageRepo }}
-  name: lmg
-  tag: {{ $podInfo.ImageTag }}
+  name: {{ $podInfo.ImageName }}
+  loamA:
+    tag: {{ $podInfo.ImageTag }}
+  loamB:
+    tag: {{ $podInfo.ImageTag }}
+  llb:
+    tag: {{ $podInfo.ImageTag }}
+  lmg:
+    tag: {{ $podInfo.ImageTag }}
   pullPolicy: IfNotPresent
 {{- else }}
 {{$podName }}:
@@ -102,6 +110,10 @@ image:
 {{- end }}
 {{- end }}
 {{- end}}
+livenessProbe:
+  lmgEnable: 1
+readinessProbe:
+  lmgEnable: 1
 multus:
   loam:
     ip:
