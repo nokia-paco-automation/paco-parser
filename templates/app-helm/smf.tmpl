@@ -498,11 +498,11 @@ vprn:
       neighbour:
 {{- /* bgp peers, loop over bgp peers start */}}
 {{- range $sId, $bgpPeer := $networkInfo.IPv4BGPPeers}}
-  - subnet: {{ $bgpPeer.IP}}
-    export: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
-    peerAs: {{ $overlayas}} 
-    localAddress: {{$networkInfo.IPv4BGPAddress}}
-    multiHop: 10
+      - peerIP: {{ $bgpPeer.IP}}
+        export: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
+        peerAs: {{ $overlayas}} 
+        localIP: {{$networkInfo.IPv4BGPAddress}}
+        multiHop: 10
 {{- end}}
 {{- /* bgp peers, loop over bgp peers finished */}}
   interface:
