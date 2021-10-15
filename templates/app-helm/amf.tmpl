@@ -267,7 +267,7 @@ global:
     # min 1 tac
     tac:
 {{- range $tac := $appc.TrackingArea }}
-    - {{ $tac }}
+      - {{ $tac }}
 {{- end }}
     # local IP addresses:
 {{- $appipmapExternal := index $appipmap.IPinfo "3GPP_External"}}
