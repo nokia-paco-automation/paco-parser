@@ -434,7 +434,7 @@ apn:
 {{- $networks := index $switchGroups "loopback" }}
 {{- $networkTypes := index $networks "llbLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
-  - router: vprn{{add $networkInfo.VrfUpId $groups}}
+  - router: vprn{{$networkInfo.VrfCpId}}
     name: pool1
 uepool:
 {{- $workloads := index $appc.Networks "3GPP_Internal"}}
@@ -445,7 +445,7 @@ uepool:
 {{- $networkInfo := index $networkTypes 0 }}
   name: pool1
   ipv4Prefix: 
-cnfName: upf
+cnfName: smf
 vprn:
 {{- /*per workload process first loopback information and after interface information */}}
 {{- /*loopback: static routes, bgp loopback, llb loopback, sig loopback */}}
