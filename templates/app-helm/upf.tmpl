@@ -628,10 +628,10 @@ vprn:
       neighbour:
 {{- /* bgp peers, loop over bgp peers start */}}
 {{- range $sId, $bgpPeer := $networkInfo.IPv4BGPPeers}}
-      - peerIP: {{ $bgpPeer.IP}}
+      - peerIp: {{ $bgpPeer.IP}}
         export: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
         peerAs: {{ $overlayas}}
-        localIP: {{$networkInfo.IPv4BGPAddress}}
+        localIp: {{$networkInfo.IPv4BGPAddress}}
         multiHop: 10
 {{- end}}
 {{- /* bgp peers, loop over bgp peers finished */}}
