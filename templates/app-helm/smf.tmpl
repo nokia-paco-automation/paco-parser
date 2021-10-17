@@ -38,7 +38,6 @@ service:
       nodePort: 31000
       port: 2000
       targetPort: 2000
-imagePullSecret: {{$appc.ContainerRepo.RepoName}}
 {{- /* loop over all containers and provide the necessary info */}}
 {{- /* special case for llb/loam/lmg -> they are all aggregated in the same image since they share the same code */}}
 {{- range $podName, $podInfo := $appc.Containers }}
