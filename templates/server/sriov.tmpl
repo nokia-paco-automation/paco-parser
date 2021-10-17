@@ -23,7 +23,7 @@ config.json:
             "resourceName": "sriov_numa{{$numa}}_{{$InterfaceName}}_{{$switchName}}",
             "resourcePrefix": "gke",
             "selectors": {
-                "pfNames": [{{list2string $switchInfo }}]
+                "pfNames": ["{{list2string $switchInfo }}"]
             }
         }
 {{- if eq (lastmap $switchName $numaInfo) false}}
