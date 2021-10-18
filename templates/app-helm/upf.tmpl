@@ -255,6 +255,7 @@ multus:
 {{- /* For ConnectivityMode == vlanAwareApp -> no vlan required since the vlan is in the app */}}
     - name: numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
 {{- end }}
+      type: sriov
       cniVersion: 0.3.1
       resourceName: gke/{{$appcontype}}_numa{{$networkInfo.Numa}}_{{$networkInfo.InterfaceName}}_{{$networkInfo.Target}}
 {{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
@@ -272,6 +273,7 @@ multus:
 {{- /* For ConnectivityMode == vlanAwareApp -> no vlan required since the vlan is in the app */}}
     - name: numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
 {{- end }}
+      type: sriov
       cniVersion: 0.3.1
       resourceName: gke/{{$appcontype}}_numa{{$networkInfo.Numa}}_{{$networkInfo.InterfaceName}}_{{$networkInfo.Target}}
 {{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
@@ -289,6 +291,7 @@ multus:
 {{- if eq $connType $appcontype}}
 {{- range $clientIndex, $clientinfo := $clientLinks}}
   - name: numa{{$clientinfo.Numa}}-{{$clientinfo.InterfaceName}}-{{$switchName}}-{{$wlShortName}}
+    type: sriov
     cniVersion: 0.3.1
     resourceName: gke/{{$appcontype}}_numa{{$clientinfo.Numa}}_{{$clientinfo.InterfaceName}}_{{$switchName}}
     type: {{$appcontype}}

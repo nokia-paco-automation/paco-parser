@@ -198,6 +198,7 @@ multus:
     - name: numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
 {{- end }}
       cniVersion: 0.3.1
+      type: sriov
       resourceName: gke/{{$appcontype}}_numa{{$networkInfo.Numa}}_{{$networkInfo.InterfaceName}}_{{$networkInfo.Target}}
 {{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
       vlan: {{ $networkInfo.VlanID}}
@@ -215,6 +216,7 @@ multus:
     - name: numa{{$networkInfo.Numa}}-{{$networkInfo.InterfaceName}}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
 {{- end }}
       cniVersion: 0.3.1
+      type: sriov
       resourceName: gke/{{$appcontype}}_numa{{$networkInfo.Numa}}_{{$networkInfo.InterfaceName}}_{{$networkInfo.Target}}
 {{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
       vlan: {{ $networkInfo.VlanID}}
@@ -232,6 +234,7 @@ multus:
 {{- range $clientIndex, $clientinfo := $clientLinks}}
   - name: numa{{$clientinfo.Numa}}-{{$clientinfo.InterfaceName}}-{{$switchName}}-{{$wlShortName}}
     cniVersion: 0.3.1
+    type: sriov
     resourceName: gke/{{$appcontype}}_numa{{$clientinfo.Numa}}_{{$clientinfo.InterfaceName}}_{{$switchName}}
     type: {{$appcontype}}
 {{- end}}
