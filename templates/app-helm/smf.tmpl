@@ -495,7 +495,7 @@ vprn:
   bgp:
     group:
     - name: Leafs
-      neighbour:
+      neighbor:
 {{- /* bgp peers, loop over bgp peers start */}}
 {{- range $sId, $bgpPeer := $networkInfo.IPv4BGPPeers}}
       - peerIp: {{ $bgpPeer.IP}}
