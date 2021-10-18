@@ -117,14 +117,14 @@ readinessProbe:
 multus:
   loam:
     ip:
-      loamA: 6.6.6.41
-      loamB: 6.6.6.51
-      active: 6.6.6.40
-      standby: 6.6.6.50
+      loamA: 10.1.11.42
+      loamB: 10.1.11.43
+      active: 10.1.11.40
+      standby: 10.1.11.41
     netMask: 24
-    subnet: 6.6.6.0
-    gw: 6.6.6.1
-    hostInterface: eno2
+    subnet: 10.1.11.0
+    gw: 10.1.11.1
+    hostInterface: bond0.101
     cniVersion: 0.3.1
   lmg:
     numDevices: 0
