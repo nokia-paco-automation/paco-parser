@@ -269,7 +269,7 @@ resources:
 {{- if ne (deref $podInfo.Hugepages1Gi) ""}}
     hugepages1Gi: {{ deref $podInfo.Hugepages1Gi}}
 {{- end }}
-{{- if or (eq $podName "llb") (eq $podName "lmg")}}
+{{- if (eq $podName "llb") }}
     multus:
 {{- $sriovLinks := index $appc.UniqueClientServer2NetworkLinks $appcontype}}
 {{- range $interfaceName, $interfaceInfo := $sriovLinks}}
