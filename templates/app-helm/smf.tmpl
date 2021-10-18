@@ -17,6 +17,7 @@
 {{- $lenSwitch := derefInt $appc.SwitchesPerServer}}
 {{- $lenLlb := $appc.Llbs}}
 {{- $appcontype := deref $appc.ConnType}}
+{{- $interfaceMap := interfaceCounterMap }}
 service:
   loamA:
     console:
@@ -538,7 +539,6 @@ vprn:
     bfd: false
 {{- end}}
 {{- /* loopback  llb-sig-loopback processing finished */}}
-
 {{- /* itfce processing */}}
 {{- $groups := index $workloads 0}}
 {{- range $switchIndex, $switchGroups := $groups }}
@@ -550,10 +550,11 @@ vprn:
 {{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
 {{- $networkInfo := index $networkTypes 0 }}
 {{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+{{- interfaceCounterMapIncrement $ipIndex $interfaceMap }}
   - name: llb{{ $ipIndex | inc }}-{{$networkInfo.InterfaceName }}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
     ip: {{ $allocatedIP.IPAddress}}
     subnet: {{$networkInfo.Ipv4PrefixLength}}
-    sap: {{add $networkInfo.SwitchIndex 16 }}/1/{{$ipIndex | inc}}
+    sap: {{add $ipIndex 17 }}/1/{{interfaceCounterMapGet $ipIndex $interfaceMap }}
     bfd: true
 {{- end}}
 {{- /* For ConnectivityMode == vlanInApp -> app sap contains a vlan */}}

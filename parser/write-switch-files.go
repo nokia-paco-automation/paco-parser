@@ -443,9 +443,9 @@ spec:
 			var str string
 			for i, v := range s {
 				if i < len(s)-1 {
-					str = str + fmt.Sprintf("%s, ", *v)
+					str = str + fmt.Sprintf("\"%s\", ", *v)
 				} else {
-					str = str + fmt.Sprintf("%s", *v)
+					str = str + fmt.Sprintf("\"%s\"", *v)
 				}
 			}
 			return str
@@ -469,6 +469,19 @@ spec:
 				i++
 			}
 			return false
+		},
+		"interfaceCounterMap": func() map[int]int {
+           return map[int]int{}
+		},
+		"interfaceCounterMapIncrement": func(key int, counter map[int]int) string{
+			if _,exists := counter[key]; !exists {
+        	    counter[key] = 0
+			}
+			counter[key] = counter[key] + 1
+			return ""
+		},
+		"interfaceCounterMapGet": func(key int, counter map[int]int) int{
+        	return counter[key]
 		},
 	}
 )
