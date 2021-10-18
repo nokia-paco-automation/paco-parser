@@ -345,6 +345,9 @@ resources:
 {{- end }}
 {{- end }}
 {{- end }}
+antiAffinity:
+  loam: soft
+  loamLmg: soft
 storage:
 #pvCreation to be set to 0 in case Persistent Volume already created
   pvCreation: 1
