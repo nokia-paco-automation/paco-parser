@@ -348,6 +348,12 @@ peers:
   s11:
     interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
     router: vprn{{$networkInfo.VrfCpId }}
+  nrf:
+    ip: 100.112.3.129
+    port: 80
+    uuid: abcdef00-b261-40a8-b605-6d301c3d0000
+    interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+    router: vprn{{$networkInfo.VrfCpId }}
   upf:
     peerList:
 {{- /* TODO IS THIS NEEDED */}}
