@@ -415,9 +415,9 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 						_ = err
 
 						dcgwNbrv4 := &types.Neighbor{
-							PeerIP:           peerIP.String(),
-							PeerAS:           searchLocalASInConfig(config, *bar.VlanID),
-							PeerGroup:        "DCGW",
+							PeerIP:    peerIP.String(),
+							PeerAS:    searchLocalASInConfig(config, *bar.VlanID),
+							PeerGroup: "DCGW",
 							//LocalAS:          *y.AS,
 							TransportAddress: ip.String(),
 						}
@@ -426,9 +426,9 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 					}
 
 					Nbrv4 := &types.Neighbor{
-						PeerIP:           *bar.IPv4BGPAddress,
-						PeerAS:           *bar.AS,
-						PeerGroup:        mywlname,
+						PeerIP:    *bar.IPv4BGPAddress,
+						PeerAS:    *bar.AS,
+						PeerGroup: mywlname,
 						//LocalAS:          *y.AS,
 						TransportAddress: *y.IP,
 					}
@@ -472,9 +472,9 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 						_ = err
 
 						dcgwNbrv6 := &types.Neighbor{
-							PeerIP:           peerIP.String(),
-							PeerAS:           searchLocalASInConfig(config, *bar.VlanID),
-							PeerGroup:        "DCGW",
+							PeerIP:    peerIP.String(),
+							PeerAS:    searchLocalASInConfig(config, *bar.VlanID),
+							PeerGroup: "DCGW",
 							//LocalAS:          *y.AS,
 							TransportAddress: ip.String(),
 						}
@@ -483,9 +483,9 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 						dcgw_needs_add[nodename][niName]["v6"] = false
 					}
 					Nbrv6 := &types.Neighbor{
-						PeerIP:           *bar.IPv6BGPAddress,
-						PeerAS:           *bar.AS,
-						PeerGroup:        mywlname,
+						PeerIP:    *bar.IPv6BGPAddress,
+						PeerAS:    *bar.AS,
+						PeerGroup: mywlname,
 						//LocalAS:          *y.AS,
 						TransportAddress: *y.IP,
 					}
@@ -551,9 +551,9 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 			}
 
 			neighborv4 := &types.Neighbor{
-				PeerIP:           peerIP.String(),
-				PeerAS:           searchLocalASInConfig(config, vlanid),
-				PeerGroup:        "DCGW",
+				PeerIP:    peerIP.String(),
+				PeerAS:    searchLocalASInConfig(config, vlanid),
+				PeerGroup: "DCGW",
 				//LocalAS:          defProtoBgp[nodename].AS,
 				TransportAddress: ip.String(),
 			}
@@ -567,9 +567,9 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 			_ = err
 
 			neighborv6 := &types.Neighbor{
-				PeerIP:           peerIP.String(),
-				PeerAS:           searchLocalASInConfig(config, vlanid),
-				PeerGroup:        "DCGW",
+				PeerIP:    peerIP.String(),
+				PeerAS:    searchLocalASInConfig(config, vlanid),
+				PeerGroup: "DCGW",
 				//LocalAS:          defProtoBgp[nodename].AS,
 				TransportAddress: ip.String(),
 			}
@@ -644,6 +644,11 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 			log.Debugf(fmt.Sprintf("Lmg %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", lmgNo, wlName, nextHop, leafnode, sourceIP))
 
 			sr := types.NewStaticRouteNHG(destPrefix)
+			sr.RType = "lmg"
+			sr.CnfName = cnfName
+			sr.IpVersion = "v4"
+			sr.WlName = wlName
+			sr.TargetLeaf = leafnode
 			sr.SetNHGroupName(fmt.Sprintf("%s-%s-lmg%d", wlName, cnfName, lmgNo))
 			nhgentry := &types.NHGroupEntry{
 				Index:     nhindex,
@@ -654,7 +659,7 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 
 			irbintef := findRelatedIRBv4(wr.IrbSubInterfaces, sourceIP)
 			networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
-
+			sr.VlanID = networkInstance.networkInstance.Evi
 			globalStaticRoutes.addEntry(leafnode, networkInstance.networkInstance.Name, sr)
 		}
 
@@ -673,6 +678,11 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 			log.Debugf(fmt.Sprintf("Lmg %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", lmgNo, wlName, nextHop, leafnode, sourceIP))
 
 			sr := types.NewStaticRouteNHG(destPrefix)
+			sr.CnfName = cnfName
+			sr.RType = "lmg"
+			sr.IpVersion = "v6"
+			sr.WlName = wlName
+			sr.TargetLeaf = leafnode
 			sr.SetNHGroupName(fmt.Sprintf("%s-%s-lmg%d-v6", wlName, cnfName, lmgNo))
 			nhgentry := &types.NHGroupEntry{
 				Index:     nhindex,
@@ -683,7 +693,7 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 
 			irbintef := findRelatedIRBv6(wr.IrbSubInterfaces, sourceIP)
 			networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
-
+			sr.VlanID = networkInstance.networkInstance.Evi
 			globalStaticRoutes.addEntry(leafnode, networkInstance.networkInstance.Name, sr)
 		}
 	}
@@ -708,6 +718,11 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 			log.Debugf(fmt.Sprintf("LLb %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", groupindex, wlName, nextHop, leafNode, sourceIP))
 
 			sr := types.NewStaticRouteNHG(destPrefix)
+			sr.CnfName = cnfName
+			sr.RType = "llb"
+			sr.IpVersion = "v4"
+			sr.WlName = wlName
+			sr.TargetLeaf = leafNode
 			sr.SetNHGroupName(fmt.Sprintf("%s-%s-llb%d", wlName, cnfName, groupindex))
 
 			nhgentry := &types.NHGroupEntry{
@@ -719,7 +734,7 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 
 			irbintef := findRelatedIRBv4(wr.IrbSubInterfaces, sourceIP)
 			networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
-
+			sr.VlanID = networkInstance.networkInstance.Evi
 			globalStaticRoutes.addEntry(leafNode, networkInstance.networkInstance.Name, sr)
 		}
 	}
@@ -739,6 +754,11 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 			log.Debugf(fmt.Sprintf("LLb %d loopback NH - WLName: %s, NH: %s, Targetleaf: %s, BFD SRC: %s", groupindex, wlName, nextHop, leafNode, sourceIP))
 
 			sr := types.NewStaticRouteNHG(destPrefix)
+			sr.CnfName = cnfName
+			sr.RType = "llb"
+			sr.IpVersion = "v6"
+			sr.WlName = wlName
+			sr.TargetLeaf = leafNode
 			sr.SetNHGroupName(fmt.Sprintf("%s-%s-llb%d-v6", wlName, cnfName, groupindex))
 
 			nhgentry := &types.NHGroupEntry{
@@ -750,7 +770,7 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 
 			irbintef := findRelatedIRBv6(wr.IrbSubInterfaces, sourceIP)
 			networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
-
+			sr.VlanID = networkInstance.networkInstance.Evi
 			globalStaticRoutes.addEntry(leafNode, networkInstance.networkInstance.Name, sr)
 		}
 	}
@@ -767,6 +787,11 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 		log.Debugf(fmt.Sprintf("SR - BGP - WLName: %s, prefix: %s/32", wlName, destPrefix))
 
 		sr := types.NewStaticRouteNHG(destPrefix)
+		sr.CnfName = cnfName
+		sr.RType = "llbbgp"
+		sr.IpVersion = "v4"
+		sr.WlName = wlName
+		sr.TargetLeaf = ""
 		sr.SetNHGroupName(fmt.Sprintf("%s-%s-llb-bgp", wlName, cnfName))
 
 		for ipIndex, ipAddress := range llbInterfInfoArr.Ipv4Addresses {
@@ -787,6 +812,7 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 		localIRBIP := llbInterfInfoArr.Ipv4GwPerWl[x][0]
 		irbintef := findRelatedIRBv4(wr.IrbSubInterfaces, localIRBIP)
 		networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
+		sr.VlanID = networkInstance.networkInstance.Evi
 		globalStaticRoutes.addEntry(*llbInterfInfoArr.Target, networkInstance.networkInstance.Name, sr)
 	}
 	for x := 1; x < len(workloads[0]); x++ {
@@ -797,6 +823,11 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 		log.Debugf(fmt.Sprintf("SR - BGP - WLName: %s, prefix: %s/128", wlName, destPrefix))
 
 		sr := types.NewStaticRouteNHG(destPrefix)
+		sr.CnfName = cnfName
+		sr.RType = "llbbgp"
+		sr.IpVersion = "v6"
+		sr.WlName = wlName
+		sr.TargetLeaf = ""
 		sr.SetNHGroupName(fmt.Sprintf("%s-%s-llb-bgp-v6", wlName, cnfName))
 
 		for ipIndex, ipAddress := range llbInterfInfoArr.Ipv6Addresses {
@@ -817,6 +848,7 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 		localIRBIP := llbInterfInfoArr.Ipv6GwPerWl[x][0]
 		irbintef := findRelatedIRBv6(wr.IrbSubInterfaces, localIRBIP)
 		networkInstance := findNetworkInstanceOfIrb(wr.NetworkInstances, irbintef)
+		sr.VlanID = networkInstance.networkInstance.Evi
 		globalStaticRoutes.addEntry(*llbInterfInfoArr.Target, networkInstance.networkInstance.Name, sr)
 	}
 }

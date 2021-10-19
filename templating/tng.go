@@ -18,13 +18,27 @@ type TngRoot struct {
 }
 
 type TngCnf struct {
+	Name      string
+	AsNumber  uint32
+	Workloads []*TngCnfWorkload
+}
+type TngCnfWorkload struct {
+	LlbPods  []*TngCnfPodRoutes
+	LmgPods  []*TngCnfPodRoutes
+	Llbvipv4 string
+	Llbvipv6 string
 	Name     string
-	AsNumber uint32
-	LlbPods  int
-	LmgPods  int
-	Multus   []*struct {
-		Name string
-	}
+}
+
+type TngCnfPodRoutes struct {
+	Systemip string
+	Leaf1    *TngCnfPodLeafIPInfo
+	Leaf2    *TngCnfPodLeafIPInfo
+}
+
+type TngCnfPodLeafIPInfo struct {
+	Ip string
+	Gw string
 }
 
 type TngLeafGroup struct {
@@ -44,8 +58,8 @@ type TngIpVrf struct {
 }
 
 type TngSubnet struct {
-	Cidrv4 string
-	Cidrv6 string
+	Cidrv4 []string
+	Cidrv6 []string
 	Name   string
 	Type   string
 	Vlan   int
@@ -74,7 +88,7 @@ func ProcessTNG(p *parser.Parser, wr *types.WorkloadResults, ir *types.Infrastru
 		Cnfs:    []*TngCnf{},
 	}
 
-	processTNGCnfs(p, tng)
+	processTNGCnfs(appconfig, ir, wr, tng, p)
 	processTNGLeafGroups(p, tng, wr, ir, cg, appconfig)
 	return populateTemplate(tng)
 }
@@ -98,23 +112,19 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 			LoopbackCIDR: *wl["servers"].Loopbacks["loopback"].Ipv4Cidr[0],
 			Name:         niName,
 			SpineUplink:  &TngSpineUplink{},
-			StandardName: "", // TODO
+			StandardName: niName,
 			Subnets:      []*TngSubnet{},
 			VxlanVni:     vni,
 		}
 
 		for name, entry := range wl["servers"].Itfces {
-			tngcidrv4 := ""
-			sep := ""
+			tngcidrv4 := []string{}
 			for _, cidr := range entry.Ipv4Cidr {
-				tngcidrv4 = tngcidrv4 + sep + *cidr // TODO just a single CIDR is expected ... What shall we do!
-				sep = " "
+				tngcidrv4 = append(tngcidrv4, *cidr)
 			}
-			tngcidrv6 := ""
-			sep = ""
+			tngcidrv6 := []string{}
 			for _, cidr := range entry.Ipv6Cidr {
-				tngcidrv6 = tngcidrv6 + sep + *cidr // TODO just a single CIDR is expected ... What shall we do!
-				sep = " "
+				tngcidrv6 = append(tngcidrv6, *cidr)
 			}
 
 			tngsubnet := &TngSubnet{
@@ -140,30 +150,106 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 		tng.Leafgrp.IpVrfs = append(tng.Leafgrp.IpVrfs, tngVrf)
 		tng.Leafgrp.SpineAs = 0 // TODO
 		tng.Leafgrp.Name = "leaf-grp1"
-
 	}
-
 }
 
-func processTNGCnfs(p *parser.Parser, tng *TngRoot) {
-	for cnfname, cnf := range p.Config.Application["paco"].Cnfs {
+func processTNGCnfs(appconf map[string]*parser.AppConfig, ir *types.InfrastructureResult, wr *types.WorkloadResults, tng *TngRoot, p *parser.Parser) {
 
-		if cnf.Networking.AS == nil {
-			continue
-		}
+	resultmap := map[string]*TngCnf{}
 
-		new_cnf := &TngCnf{}
-		tng.Cnfs = append(tng.Cnfs, new_cnf)
+	tng_cnf_workloads := map[string]map[string]*TngCnfWorkload{} // CNF, Workload
 
-		new_cnf.AsNumber = *cnf.Networking.AS
-		if val, ok := p.Config.AppNetworkIndexes["itfce"][cnfname]["llb"]; ok {
-			new_cnf.LlbPods = *val
+	cnfpodroutes := TngCnfPodRoutes{
+		Systemip: "",
+		Leaf1:    &TngCnfPodLeafIPInfo{},
+		Leaf2:    &TngCnfPodLeafIPInfo{},
+	}
+	_ = tng_cnf_workloads
+	_ = cnfpodroutes
+
+	GlobalStaticRoutes := processAppConfSrNhg(appconf, ir, wr)
+	podRouteStore := map[string]*TngCnfPodRoutes{}
+	for device, switchdata := range GlobalStaticRoutes.Data {
+		for wlname, routearr := range switchdata {
+			for _, routeentry := range routearr {
+				_ = device
+				_ = wlname
+
+				if _, exists := tng_cnf_workloads[routeentry.CnfName]; !exists {
+					tng_cnf_workloads[routeentry.CnfName] = map[string]*TngCnfWorkload{}
+				}
+				if _, exists := tng_cnf_workloads[routeentry.CnfName][wlname]; !exists {
+					newWorkload := &TngCnfWorkload{}
+					tng_cnf_workloads[routeentry.CnfName][wlname] = newWorkload
+					if _, exists := resultmap[routeentry.CnfName]; !exists {
+						asnumber := p.Config.Application["paco"].Cnfs[routeentry.CnfName].Networking.AS
+						newCnf := &TngCnf{Name: routeentry.CnfName, AsNumber: *asnumber, Workloads: []*TngCnfWorkload{}}
+						resultmap[routeentry.CnfName] = newCnf
+						tng.Cnfs = append(tng.Cnfs, newCnf)
+					}
+					resultmap[routeentry.CnfName].Workloads = append(resultmap[routeentry.CnfName].Workloads, newWorkload)
+				}
+
+				if routeentry.RType == "llbbgp" {
+					tng_cnf_workloads[routeentry.CnfName][wlname].Name = wlname
+					if routeentry.IpVersion == "v4" {
+						tng_cnf_workloads[routeentry.CnfName][wlname].Llbvipv4 = routeentry.Prefix
+					}
+					if routeentry.IpVersion == "v6" {
+						tng_cnf_workloads[routeentry.CnfName][wlname].Llbvipv6 = routeentry.Prefix
+					}
+
+				} else if routeentry.RType == "llb" {
+					if tng_cnf_workloads[routeentry.CnfName][wlname].LlbPods == nil {
+						tng_cnf_workloads[routeentry.CnfName][wlname].LlbPods = []*TngCnfPodRoutes{}
+					}
+					if _, exists := podRouteStore[routeentry.Prefix]; !exists {
+						newPodRoute := &TngCnfPodRoutes{
+							Systemip: routeentry.Prefix,
+							Leaf1:    &TngCnfPodLeafIPInfo{},
+							Leaf2:    &TngCnfPodLeafIPInfo{},
+						}
+						podRouteStore[routeentry.Prefix] = newPodRoute
+						tng_cnf_workloads[routeentry.CnfName][wlname].LlbPods = append(tng_cnf_workloads[routeentry.CnfName][wlname].LlbPods, newPodRoute)
+					}
+
+					if _, exists := routeentry.NHGroup.Entries[1]; exists {
+						podRouteStore[routeentry.Prefix].Leaf1.Ip = routeentry.NHGroup.Entries[1].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf1.Gw = routeentry.NHGroup.Entries[1].NHIp
+					}
+
+					if _, exists := routeentry.NHGroup.Entries[2]; exists {
+						podRouteStore[routeentry.Prefix].Leaf2.Ip = routeentry.NHGroup.Entries[2].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf2.Gw = routeentry.NHGroup.Entries[2].NHIp
+					}
+
+				} else if routeentry.RType == "lmg" {
+					if tng_cnf_workloads[routeentry.CnfName][wlname].LmgPods == nil {
+						tng_cnf_workloads[routeentry.CnfName][wlname].LmgPods = []*TngCnfPodRoutes{}
+					}
+					if _, exists := podRouteStore[routeentry.Prefix]; !exists {
+						newPodRoute := &TngCnfPodRoutes{
+							Systemip: routeentry.Prefix,
+							Leaf1:    &TngCnfPodLeafIPInfo{},
+							Leaf2:    &TngCnfPodLeafIPInfo{},
+						}
+						podRouteStore[routeentry.Prefix] = newPodRoute
+						tng_cnf_workloads[routeentry.CnfName][wlname].LmgPods = append(tng_cnf_workloads[routeentry.CnfName][wlname].LmgPods, newPodRoute)
+					}
+
+					if _, exists := routeentry.NHGroup.Entries[1]; exists {
+						podRouteStore[routeentry.Prefix].Leaf1.Ip = routeentry.NHGroup.Entries[1].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf1.Gw = routeentry.NHGroup.Entries[1].NHIp
+					}
+
+					if _, exists := routeentry.NHGroup.Entries[2]; exists {
+						podRouteStore[routeentry.Prefix].Leaf2.Ip = routeentry.NHGroup.Entries[2].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf2.Gw = routeentry.NHGroup.Entries[2].NHIp
+					}
+
+				}
+			}
 		}
-		if val, ok := p.Config.AppNetworkIndexes["itfce"][cnfname]["lmg"]; ok {
-			new_cnf.LmgPods = *val
-		}
-		new_cnf.Name = cnfname
-		new_cnf.Multus = append(new_cnf.Multus, &struct{ Name string }{Name: "FOO"}) // TODO
 	}
 }
 

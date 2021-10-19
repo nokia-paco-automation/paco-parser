@@ -22,7 +22,10 @@
         vlan: {{.SpineUplink.Vlan}}
       subnets:
         {{- range .Subnets }}
-        - cidr: {{.Cidrv4}}
+        - cidr: 
+          {{- range .Cidrv4 }}
+          - {{ . }}
+          {{- end}}
           name: {{.Name }}
           {{- if ne .Target "" }}
           target: {{.Target}}
