@@ -132,7 +132,8 @@ readinessProbe:
   lmgEnable: 0
 multus:
   lmg:
-    numDevices: {{ mul $lenWl $lenSwitch}}
+    #numDevices: {{ mul $lenWl $lenSwitch}}
+    numDevices: 6
     netNames:
 {{- /* identify the interfaces and vlans required per workload and per switch in the pod */}}
 {{- /* Loop over workload and pick the interface info pe switch */}}
@@ -185,7 +186,8 @@ multus:
 {{- end}}
 */}}
   llb:
-    numDevices: {{ mul $lenWl $lenSwitch}}
+    #numDevices: {{ mul $lenWl $lenSwitch}}
+    numDevices: 6
     netNames:
 {{- /* identify the interfaces and vlans required per workload and per switch in the pod */}}
 {{- /* Loop over workload and pick the interface info pe switch */}}
