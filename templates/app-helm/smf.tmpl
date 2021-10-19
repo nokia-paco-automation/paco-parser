@@ -328,6 +328,7 @@ podsecuritypolicy:
 # Delete when configuring CNF statically
 gwConfig: smf
 gwRedundancy:
+  type: many-to-many
   active: 1
 isa:
   nat:
@@ -338,16 +339,15 @@ isa:
 {{- $switchGroups := index $groups 0 }}
 {{- $networks := index $switchGroups "loopback" }}
 {{- $networkTypes := index $networks "sysLbk" }}
-{{- range $ni, $networkInfo := $networkTypes}}
-sba_interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
-sba_router: vprn{{$networkInfo.VrfCpId }}
-sba_port: 8080
-{{- end }} 
+{{- $networkInfo := index $networkTypes 0 }}
 peers:
-#  cdbx:
-#    ip: 10.100.11.9
-#    port: 5679
-#    interface: sx
+  sba:
+    interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+    router: vprn{{$networkInfo.VrfCpId }}
+    port: 8080
+  s11:
+    interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+    router: vprn{{$networkInfo.VrfCpId }}
   upf:
     peerList:
 {{- /* TODO IS THIS NEEDED */}}
@@ -366,18 +366,13 @@ peers:
           ipv4Prefix: {{ $appc.UePoolCidr}}
     interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
     router: vprn{{$networkInfo.VrfCpId }}
-
-{{- $networkTypes := index $networks "sysLbk" }}
-{{- $networkInfo := index $networkTypes 0 }}
   s5:
     interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
-    router: vprn{{$networkInfo.VrfCpId }} 
-
-{{- $networkTypes := index $networks "sysLbk" }}
-{{- $networkInfo := index $networkTypes 0 }}
-  s11:
-    interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
     router: vprn{{$networkInfo.VrfCpId }}
+#  cdbx:
+#    ip: 10.100.11.9
+#    port: 5679
+#    interface: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
 plmn:
 - mcc: "{{$appc.Mcc}}"
   mnc: "{{$appc.Mnc}}"
@@ -434,23 +429,8 @@ network:
 apn:
 - name: {{$appc.Apn}}
   uepool:
-{{- $workloads := index $appc.Networks "3GPP_Internal"}}
-{{- $groups := index $workloads 0}}
-{{- $switchGroups := index $groups 0 }}
-{{- $networks := index $switchGroups "loopback" }}
-{{- $networkTypes := index $networks "llbLbk" }}
-{{- $networkInfo := index $networkTypes 0 }}
-  - router: vprn{{$networkInfo.VrfCpId}}
+  - router: Base
     name: pool1
-uepool:
-{{- $workloads := index $appc.Networks "3GPP_Internal"}}
-{{- $groups := index $workloads 0}}
-{{- $switchGroups := index $groups 0 }}
-{{- $networks := index $switchGroups "loopback" }}
-{{- $networkTypes := index $networks "llbLbk" }}
-{{- $networkInfo := index $networkTypes 0 }}
-  name: pool1
-  ipv4Prefix: 
 cnfName: smf
 vprn:
 {{- /*per workload process first loopback information and after interface information */}}
