@@ -433,6 +433,9 @@ network:
         from:
           prefixList: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
 {{- end}}
+  ipLocalPool:
+    - name: pool1
+      ipv4Prefix: 100.64.0.0/16
 apn:
 - name: {{$appc.Apn}}
   uepool:
