@@ -177,7 +177,8 @@ global:
   alms:
     type: ipv4
     ipv4:
-      - {{ (index $networkInfo.Ipv4Addresses 3).IPAddress }}
+      ip:
+        - {{ (index $networkInfo.Ipv4Addresses 3).IPAddress }}
       cidr: {{ $networkInfo.Ipv4Cidr}}
       gw: {{ $networkInfo.Ipv4Gw}}
     interface: {{ $networkInfo.InterfaceEthernetName}}
@@ -266,7 +267,7 @@ global:
     # min 1 tac
     tac:
 {{- range $tac := $appc.TrackingArea }}
-    - {{ $tac }}
+      - {{ $tac }}
 {{- end }}
     # local IP addresses:
 {{- $appipmapExternal := index $appipmap.IPinfo "3GPP_External"}}
@@ -327,12 +328,12 @@ global:
     dns_ipds_ip2: {{ $appipmapSBA.DnsIpdsIPv42}}
     # remote endpoints AMF talks to:
     primary_dns_ip: {{ $appipmapOam.InternetDNS}}
-    #nrf_endpoint_ip: 100.112.3.129
+    #nrf_endpoint_ip: 
     #nrf_endpoint_fqdn:
-    #nrf_endpoint_port: 8080
-    #nssf_endpoint_ip: 100.112.3.129
+    #nrf_endpoint_port: 
+    #nssf_endpoint_ip: 
     #nssf_endpoint_fqdn:
-    #nssf_endpoint_port: 8080
+    #nssf_endpoint_port: 
     ausf_endpoint_ip: {{ $appipmapSBA.AusfIPv4}}
     ausf_endpoint_port: 8080
     udm_endpoint_ip: {{ $appipmapSBA.UdmIPv4}}
