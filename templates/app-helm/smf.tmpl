@@ -130,7 +130,7 @@ multus:
     numDevices: 0
   llb:
     #numDevices: {{ mul $lenWl $lenSwitch}}
-    #numDevices: 4
+    numDevices: 4
     netNames:
 {{- /* identify the interfaces and vlans required per workload and per switch in the pod */}}
 {{- /* Loop over workload and pick the interface info pe switch */}}
