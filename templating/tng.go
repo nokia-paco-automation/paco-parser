@@ -45,16 +45,17 @@ type TngLeafGroup struct {
 	Name    string
 	SpineAs uint32
 	IpVrfs  []*TngIpVrf
-	Leafs   []*TngLeaf
+	Leafs   []*TngLeafGroupLeaf
 }
 
 type TngIpVrf struct {
-	LoopbackCIDR string
-	Name         string
-	SpineUplink  *TngSpineUplink
-	StandardName string
-	Subnets      []*TngSubnet
-	VxlanVni     int
+	LoopbackCIDRv4 string
+	LoopbackCIDRv6 string
+	Name           string
+	SpineUplink    *TngSpineUplink
+	StandardName   string
+	Subnets        []*TngSubnet
+	VxlanVni       int
 }
 
 type TngSubnet struct {
@@ -72,7 +73,7 @@ type TngSpineUplink struct {
 	Vlan     int
 }
 
-type TngLeaf struct {
+type TngLeafGroupLeaf struct {
 	BgpAs         uint32
 	Id            string
 	IrbName       string
@@ -90,6 +91,7 @@ func ProcessTNG(p *parser.Parser, wr *types.WorkloadResults, ir *types.Infrastru
 
 	processTNGCnfs(appconfig, ir, wr, tng, p)
 	processTNGLeafGroups(p, tng, wr, ir, cg, appconfig)
+	processLeafGroupLeafs(tng, p)
 	return populateTemplate(tng)
 }
 
@@ -109,12 +111,13 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 		niName := wlname + "-ipvrf-itfce-" + strconv.Itoa(vni)
 
 		tngVrf := &TngIpVrf{
-			LoopbackCIDR: *wl["servers"].Loopbacks["loopback"].Ipv4Cidr[0],
-			Name:         niName,
-			SpineUplink:  &TngSpineUplink{},
-			StandardName: niName,
-			Subnets:      []*TngSubnet{},
-			VxlanVni:     vni,
+			LoopbackCIDRv4: *wl["servers"].Loopbacks["loopback"].Ipv4Cidr[0],
+			LoopbackCIDRv6: *wl["servers"].Loopbacks["loopback"].Ipv6Cidr[0],
+			Name:           niName,
+			SpineUplink:    &TngSpineUplink{},
+			StandardName:   niName,
+			Subnets:        []*TngSubnet{},
+			VxlanVni:       vni,
 		}
 
 		for name, entry := range wl["servers"].Itfces {
@@ -148,10 +151,45 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 		tngVrf.SpineUplink.Vlan = *wl["dcgw-grp1"].Itfces["itfce"].VlanID
 
 		tng.Leafgrp.IpVrfs = append(tng.Leafgrp.IpVrfs, tngVrf)
-		tng.Leafgrp.SpineAs = 0 // TODO
+		tng.Leafgrp.SpineAs = 4259845498 // TODO
 		tng.Leafgrp.Name = "leaf-grp1"
 	}
 }
+
+func processLeafGroupLeafs(tng *TngRoot, p *parser.Parser) {
+	for name, leaf := range get_leafs(p) {
+		new_leafgroupleaf := &TngLeafGroupLeaf{
+			BgpAs:         *leaf.AS, //TODO
+			Id:            *leaf.MgmtIPv4,
+			IrbName:       "irb0",
+			LoName:        "lo0",
+			Name:          name,
+			UplinkLagName: "TODO", // TODO
+			VxlName:       "vxlan0",
+		}
+		tng.Leafgrp.Leafs = append(tng.Leafgrp.Leafs, new_leafgroupleaf)
+	}
+}
+
+func get_leafs(p *parser.Parser) map[string]*parser.NodeConfig {
+	result := map[string]*parser.NodeConfig{}
+	for name, ndata := range p.Config.Topology.Nodes {
+		if *ndata.Kind == "srl" {
+			result[name] = ndata
+		}
+	}
+	return result
+}
+
+// func match_label(actual map[string]string, match_labels map[string]string) bool {
+// 	for k, v := range match_labels {
+// 		_, exists := actual[k]
+// 		if !exists || v != actual[k] {
+// 			return false
+// 		}
+// 	}
+// 	return true
+// }
 
 func processTNGCnfs(appconf map[string]*parser.AppConfig, ir *types.InfrastructureResult, wr *types.WorkloadResults, tng *TngRoot, p *parser.Parser) {
 
