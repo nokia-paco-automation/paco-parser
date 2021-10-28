@@ -340,7 +340,10 @@ global:
     udm_endpoint_port: 8080
     smf_endpoint_ip: {{ $appipmapSBA.SmfIPv4}}
     smf_endpoint_port: 8080
-    prometheus_ip: {{ $appipmapOam.PrometheusIP}}
+    #prometheus_ip: {{ $appipmapOam.PrometheusIP}}
+    enable_prometheusPushGW: True
+    # kubectl get svc -A |grep prometheus -> get prometheus push GW service name + namespace
+    prometheusPushGWservicename: prometheus-pushgateway.kube-system.svc.cluster.local
   containers:
 {{- range $podName, $podInfo := $appc.Containers }}
     {{ $podName }}:
