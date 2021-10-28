@@ -14,17 +14,17 @@ data:
     {
         "resourceList": [
 {{- $sriov := index .Sriovc "sriov"}}
+{{- $putcomma := false -}}
 {{- range $InterfaceName, $interfaceInfo := $sriov  }}
 {{- range $numa, $numaInfo := $interfaceInfo }}
-{{- range $switchName, $switchInfo :=  $numaInfo }}
-            {
+{{- range $switchName, $switchInfo := $numaInfo }}
+             {{if $putcomma }},{{- end}}{{$putcomma = true}}{
                 "resourceName": "sriov_numa{{$numa}}_{{$InterfaceName}}_{{$switchName}}",
                 "resourcePrefix": "gke",
                 "selectors": {
                     "pfNames": [{{list2string $switchInfo }}]
                 }
             }
-            ,        
 {{- end}}
 {{- end}}
 {{- end}}
