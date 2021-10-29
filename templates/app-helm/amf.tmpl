@@ -177,8 +177,7 @@ global:
   alms:
     type: ipv4
     ipv4:
-      ip:
-        - {{ (index $networkInfo.Ipv4Addresses 3).IPAddress }}
+      ip: {{ (index $networkInfo.Ipv4Addresses 3).IPAddress }}
       cidr: {{ $networkInfo.Ipv4Cidr}}
       gw: {{ $networkInfo.Ipv4Gw}}
     interface: {{ $networkInfo.InterfaceEthernetName}}
