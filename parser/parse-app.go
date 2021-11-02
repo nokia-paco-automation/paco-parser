@@ -90,7 +90,7 @@ type ClientLinkInfo struct {
 type ContainerRepo struct {
 	ImageRepo   *string
 	ImageSecret *string
-	RepoName	*string
+	RepoName    *string
 }
 
 type ContainerInfo struct {
@@ -591,7 +591,7 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 	a.ContainerRepo = &ContainerRepo{
 		ImageRepo:   StringPtr(containerRegistry + "/" + containerRegistryImageDir),
 		ImageSecret: StringPtr(containerRegistrySecret),
-		RepoName: StringPtr(containerRepoName),
+		RepoName:    StringPtr(containerRepoName),
 	}
 
 	// initialize the CNF POD/container information
@@ -668,7 +668,7 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 		}
 		var cpu string
 		if podcpu, ok := podInfo["cpu"]; ok {
-		    switch podcpu.(type) {
+			switch podcpu.(type) {
 			case string:
 				cpu = podcpu.(string)
 			}
@@ -733,7 +733,7 @@ func (a *AppConfig) InitializeCnfContainerData(c *ContainerRegistry, pods map[st
 				imageName = podImageName.(string)
 			}
 		} else {
-		    imageName = podName
+			imageName = podName
 		}
 		//imageName := podName
 		//if podName == "emms_amms" {
@@ -1279,24 +1279,53 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 							}
 						}
 					}
+
 					// initialize the Multus interface related information
 					// netwType is ipvlan, sriov1.x, sriov2.x
 					count := 0
 					for netwType, netwInfo := range wlInfo.Itfces {
 						// Allocate the CNF interface IP(s)
 
+						// key1 is network/subnet/vlan; key2 = switch;
+						// e.g. sriov1.1 map[1]map[1][]*AllocatedIPInfo
+						// e.g. sriov2.6 map[6]map[2][]*AllocatedIPInfo
+						// e.g. ipvlan map[0]map[0][]*AllocatedIPInfo
+						ipAddresses := make(map[string]map[int]map[string][]*AllocatedIPInfo)
+						ipAddresses["ipv4"] = make(map[int]map[string][]*AllocatedIPInfo)
+						ipAddresses["ipv6"] = make(map[int]map[string][]*AllocatedIPInfo)
+						ipAddresses["ipv4"][0] = make(map[string][]*AllocatedIPInfo)
+						ipAddresses["ipv6"][0] = make(map[string][]*AllocatedIPInfo)
+
+						var ipv4Cidr *string
+						var ipv6Cidr *string
+
+						for i := 0; i < len(netwInfo.Ipv4Cidr); i++ {
+
+							ipv4Cidr = netwInfo.Ipv4Cidr[i]
+							ipv6Cidr = netwInfo.Ipv6Cidr[i]
+
+							_, ipv4Net, err := net.ParseCIDR(*ipv4Cidr)
+							if err != nil {
+								log.WithError(err).Error("Cidr Parsing error")
+							}
+							_, ipv6Net, err := net.ParseCIDR(*ipv6Cidr)
+							if err != nil {
+								log.WithError(err).Error("Cidr Parsing error")
+							}
+
+							fmt.Println("XXX - CnfName: " + cnfName + ", multusGenericWlName: " + multusGenericWlName + ", netwType: " + netwType)
+
+							// allocate 4 addresses out of the multus network
+							if (cnfName == "upf" || cnfName == "smf") && netwType == "ipvlan" && multusGenericWlName == "oam" {
+								itfcidx := p.GetApplicationIndex(StringPtr("itfce"), StringPtr(cnfName), StringPtr("int"))
+								for i := 0; i < 4; i++ {
+									AllocateIP(&ipAddresses, StringPtr(cnfName), IntPtr(0), StringPtr("intIP"), StringPtr("interface SMF"), IntPtr(*itfcidx+i), ipv4Net, ipv6Net, p.DeploymentIPAM[wlName][netwType])
+								}
+							}
+						}
 						// Only process the information that is relevant for the application
 						// Only SRIOV or IPVLAN e.g.
 						if strings.Contains(netwType, *connType) {
-							// key1 is network/subnet/vlan; key2 = switch;
-							// e.g. sriov1.1 map[1]map[1][]*AllocatedIPInfo
-							// e.g. sriov2.6 map[6]map[2][]*AllocatedIPInfo
-							// e.g. ipvlan map[0]map[0][]*AllocatedIPInfo
-							ipAddresses := make(map[string]map[int]map[string][]*AllocatedIPInfo)
-							ipAddresses["ipv4"] = make(map[int]map[string][]*AllocatedIPInfo)
-							ipAddresses["ipv6"] = make(map[int]map[string][]*AllocatedIPInfo)
-							ipAddresses["ipv4"][0] = make(map[string][]*AllocatedIPInfo)
-							ipAddresses["ipv6"][0] = make(map[string][]*AllocatedIPInfo)
 
 							// indicates which switch the network is connected to
 							switchIndex, networkIndex := getSwitchIndexes(netwType)
@@ -1305,8 +1334,7 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 							var fipv6 *string
 
 							// TODO -> handling different addressing scheme, we assume dual stack for now
-							var ipv4Cidr *string
-							var ipv6Cidr *string
+
 							var ipv4PrefixLength int
 							var ipv6PrefixLength int
 							var clientLink *ClientLinkInfo
@@ -1333,6 +1361,7 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 								lmgPodsPerGroup = 0
 								switch cnfName {
 								case "smf":
+									// IPv4 and IPv6
 
 									// allocate an ip per llb from each subnet, max 6 subnets (6 llbs per cnf upf)
 									llbs := getLLBs(cnfInfo)
@@ -1350,6 +1379,7 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 									clientLink = p.UpdateUniqueClientLink(cnfInfo, StringPtr("llb"), connType, a.UniqueClientServer2NetworkLinks)
 
 								case "upf":
+
 									// allocate an ip per llb from each subnet, max 6 subnets (6 llbs per cnf upf)
 									llbs := getLLBs(cnfInfo)
 

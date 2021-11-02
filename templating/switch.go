@@ -629,6 +629,9 @@ func wlnametranslate(name string, data map[string]*parser.MultusInfo) string {
 func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, cnfName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
 	// loop over lmg's
 	for i := 1; i < len(workloads); i++ {
+		if len(workloads[i][0]["loopback"]["lmgLbk"]) == 0 {
+			continue
+		}
 		destPrefix := *workloads[i][0]["loopback"]["lmgLbk"][0].Ipv4Addresses[0].IPAddress + "/32"
 		lmgNo := i - 1
 		log.Debugf(fmt.Sprintf("SR - LMG %d - WLName: %s, prefix: %s/32", lmgNo, wlName, destPrefix))
@@ -700,6 +703,9 @@ func generateLmgRoutes(workloads map[int]map[int]map[string]map[string][]*parser
 }
 
 func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, cnfName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
+	if len(workloads[0][0]["loopback"]["llbLbk"]) == 0 {
+		return
+	}
 	llbLoopbackInfoArr := workloads[0][0]["loopback"]["llbLbk"][0]
 
 	for llbLoopbackIndex, llbLoopbackIPAddress := range llbLoopbackInfoArr.Ipv4Addresses {
@@ -777,6 +783,11 @@ func generateLlbInterfaceRoutes(workloads map[int]map[int]map[string]map[string]
 }
 
 func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*parser.RenderedNetworkInfo, wlName string, cnfName string, globalStaticRoutes *GlobalStaticRoutes, wr *types.WorkloadResults) {
+
+	if len(workloads[0][0]["loopback"]["bgpLbk"]) == 0 {
+		return
+	}
+
 	bgpLoopbackInfoArr := workloads[0][0]["loopback"]["bgpLbk"][0]
 
 	for x := 1; x < len(workloads[0]); x++ {
