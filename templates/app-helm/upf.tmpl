@@ -21,20 +21,9 @@
 {{- $wlInternal := index $appc.Networks "3GPP_Internal"}}
 {{- $wlExternal := index $appc.Networks "3GPP_External"}}
 {{- $lmgs := derefInt $appc.Lmgs}}
+{{- $interfaceMap := interfaceCounterMap }}
+{{- $interfaceMapLmg := interfaceCounterMap }}
 service:
-  loam:
-    telnet:
-      nodePort: 32023
-      port: 2323
-      targetPort: 2323
-    ssh:
-      nodePort: 32221
-      port: 2222
-      targetPort: 2222
-    snmp1:
-      nodePort: 32164
-      port: 164
-      targetPort: 164
   loamA:
     console:
       nodePort: 32000
@@ -131,6 +120,17 @@ livenessProbe:
 readinessProbe:
   lmgEnable: 0
 multus:
+  loam:
+    ip:
+      loamA: 10.1.11.52
+      loamB: 10.1.11.53
+      active: 10.1.11.50
+      standby: 10.1.11.51
+    netMask: 24
+    subnet: 10.1.11.0
+    gw: 10.1.11.1
+    hostInterface: bond0.101
+    cniVersion: 0.3.1
   lmg:
     #numDevices: {{ mul $lenWl $lenSwitch}}
     numDevices: 6
@@ -356,7 +356,7 @@ antiAffinity:
 storage:
 #pvCreation to be set to 0 in case Persistent Volume already created
   pvCreation: 1
-  parentPath: /mnt/glusterfs/
+  parentPath: /mnt/upf/
   pvLogsName: logs-volume-upf
   pvStorageClass: manual
   pvLogsClaimName: logs-volume-claim
@@ -689,10 +689,11 @@ vprn:
 {{- if eq (deref $appc.ConnectivityMode) "multiNet"}}
 {{- $networkInfo := index $networkTypes 0 }}
 {{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
+{{- interfaceCounterMapIncrement $ipIndex $interfaceMap }}
   - name: llb{{ $ipIndex | inc }}-{{$networkInfo.InterfaceName }}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
     ip: {{ $allocatedIP.IPAddress}}
     subnet: {{$networkInfo.Ipv4PrefixLength}}
-    sap: {{add $networkInfo.SwitchIndex 16 }}/1/{{$ipIndex | inc}}
+    sap: {{ add $ipIndex 17 }}/1/{{interfaceCounterMapGet $ipIndex $interfaceMap }}
     bfd: true
 {{- end}}
 {{- /* For ConnectivityMode == vlanAwareApp -> app sap contains a vlan */}}
@@ -784,10 +785,11 @@ vprn:
 {{- range $ni, $networkInfo := $networkTypes }}
 {{- if eq $ni 0}}
 {{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
-  - name: llb{{$group}}-{{$networkInfo.InterfaceName }}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
+{{- interfaceCounterMapIncrement $group $interfaceMapLmg }}
+  - name: lmg{{$group}}-{{$networkInfo.InterfaceName }}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
     ip: {{ $allocatedIP.IPAddress}}
     subnet: {{$networkInfo.Ipv4PrefixLength}}
-    sap: {{$group }}/1/{{$networkInfo.SwitchIndex}}
+    sap: {{$group}}/1/{{interfaceCounterMapGet $group $interfaceMapLmg }}
     bfd: true
 {{- end}}
 {{- end}}
