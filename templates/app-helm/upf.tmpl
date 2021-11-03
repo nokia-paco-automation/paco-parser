@@ -502,7 +502,7 @@ network:
 {{- end }}
     community:
 {{- /* one community per lmg and one community for bgp but TBD if we need this one*/}}
-{{- range $wlName, $networkGroups := $appc.Networks}}
+{{- range $wlName, $workloads := $appc.Networks}}
 {{- range $group, $groups := $workloads}}
 {{- $switchGroups := index $groups 0 }}
 {{- $networks := index $switchGroups "loopback" }}
