@@ -156,11 +156,19 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 					break
 				}
 			}
+			if leafrids[no] == "" {
+				for _, sif := range ir.DefaultNetworkInstances[node].SubInterfaces {
+					if sif.Kind == "loopback" {
+						leafrids[no] = sif.IPv4Prefix
+						break
+					}
+				}
+			}
 		}
 
 		tngVrf := &TngIpVrf{
-			Leaf1routerid: leafrids[0],
-			Leaf2routerid: leafrids[1],
+			Leaf1routerid: strings.Split(leafrids[0], "/")[0],
+			Leaf2routerid: strings.Split(leafrids[1], "/")[0],
 			Name:          niName,
 			SpineUplink:   &TngSpineUplink{},
 			InfraBgp:      infrabgp,
