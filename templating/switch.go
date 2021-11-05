@@ -2,6 +2,7 @@ package templating
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"path"
@@ -15,12 +16,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, n map[string]*parser.Node, appConfig map[string]*parser.AppConfig, multusInfo map[string]*parser.MultusInfo, config *parser.Config, p *parser.Parser) map[string]string {
+func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, n map[string]*parser.Node, appConfig map[string]*parser.AppConfig, multusInfo map[string]*parser.MultusInfo, config *parser.Config, p *parser.Parser) (map[string]string, *SwitchGoTNGResult) {
 	log.Infof("ProcessingSwitchTemplates")
 
 	templatenodes := map[string]*TemplateNode{}
 
-	bgp_later := generateLoop(p, ir.IslSubInterfaces, wr, templatenodes)
+	switchgotngresult := &SwitchGoTNGResult{
+		LoopTngInfos: []*LoopTNGResultEntry{},
+		SpineUplinks: []*SpineUplinkTng{},
+		RouterIdTngs: []*RouterIdTNG{},
+	}
+
+	bgp_later := generateLoop(p, ir.IslSubInterfaces, wr, templatenodes, switchgotngresult)
 
 	// routing policy & systeminterfaces
 	for nodename, node := range n {
@@ -198,7 +205,7 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		}
 	}
 
-	processAppConfBgp(appConfig, wr, ir, multusInfo, templatenodes, config, bgp_later)
+	processAppConfBgp(appConfig, wr, ir, multusInfo, templatenodes, config, bgp_later, switchgotngresult)
 
 	// Second run after "processAppConfBgp()"
 	// networkinstance
@@ -210,7 +217,7 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 	}
 
 	// BGP for NetworkInstances without Loopbacks
-	BgpForNonLoopbackNIs(config, templatenodes, ir.DefaultProtocolBGP, wr, bgp_later)
+	BgpForNonLoopbackNIs(config, templatenodes, ir.DefaultProtocolBGP, wr, bgp_later, switchgotngresult)
 
 	// bgp
 	for nodename, bgp := range ir.DefaultProtocolBGP {
@@ -247,7 +254,7 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		}
 		perNodeConfig[name] = string(indentresult)
 	}
-	return perNodeConfig
+	return perNodeConfig, switchgotngresult
 }
 
 func processNetworkInstanceDefault(defaultinstance *types.K8ssrlNetworkInstance, defaultprotobgp *types.K8ssrlprotocolsbgp) string {
@@ -318,7 +325,7 @@ type AppConfBgpLoTempStoreEntry struct {
 	vid int
 }
 
-func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadResults, ir *types.InfrastructureResult, multusInfo map[string]*parser.MultusInfo, templatenodes map[string]*TemplateNode, config *parser.Config, bgp_later []*BGPLaterAdd) {
+func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadResults, ir *types.InfrastructureResult, multusInfo map[string]*parser.MultusInfo, templatenodes map[string]*TemplateNode, config *parser.Config, bgp_later []*BGPLaterAdd, switchgotngresult *SwitchGoTNGResult) {
 
 	appConfBgpLoStore := map[string]*AppConfBgpLoTempStoreEntry{} // niname indexed
 
@@ -421,6 +428,15 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 							//LocalAS:          *y.AS,
 							TransportAddress: ip.String(),
 						}
+						uplinkv4 := &SpineUplinkTng{
+							Vlanid:    *bar.VlanID,
+							Leafname:  nodename,
+							ipversion: "v4",
+							local_ip:  ip.String(),
+							peer_ips:  []string{peerIP.String()},
+						}
+						switchgotngresult.SpineUplinks = append(switchgotngresult.SpineUplinks, uplinkv4)
+
 						foo.Neighbors = append(foo.Neighbors, dcgwNbrv4)
 						dcgw_needs_add[nodename][niName]["v4"] = false
 					}
@@ -478,6 +494,16 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 							//LocalAS:          *y.AS,
 							TransportAddress: ip.String(),
 						}
+
+						uplinkv6 := &SpineUplinkTng{
+							Vlanid:    *bar.VlanID,
+							Leafname:  nodename,
+							ipversion: "v6",
+							local_ip:  ip.String(),
+							peer_ips:  []string{peerIP.String()},
+						}
+						switchgotngresult.SpineUplinks = append(switchgotngresult.SpineUplinks, uplinkv6)
+
 						foo.Neighbors = append(foo.Neighbors, dcgwNbrv6)
 
 						dcgw_needs_add[nodename][niName]["v6"] = false
@@ -519,7 +545,21 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 	}
 }
 
-func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*TemplateNode, defProtoBgp map[string]*types.K8ssrlprotocolsbgp, wr *types.WorkloadResults, bgp_later []*BGPLaterAdd) {
+type SpineUplinkTng struct {
+	Vlanid    int
+	Leafname  string
+	ipversion string
+	local_ip  string
+	peer_ips  []string
+}
+
+type RouterIdTNG struct {
+	Vlanid   int
+	Leafname string
+	RouterID string
+}
+
+func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*TemplateNode, defProtoBgp map[string]*types.K8ssrlprotocolsbgp, wr *types.WorkloadResults, bgp_later []*BGPLaterAdd, switchgotngresult *SwitchGoTNGResult) {
 	for wlname, wl := range config.Workloads {
 		wlname = strings.TrimPrefix(wlname, "multus-")
 		if len(wl["servers"].Loopbacks) > 0 {
@@ -560,6 +600,15 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 
 			foo.Neighbors = append(foo.Neighbors, neighborv4)
 
+			uplinkv4 := &SpineUplinkTng{
+				Vlanid:    vlanid,
+				Leafname:  nodename,
+				ipversion: "v4",
+				local_ip:  ip.String(),
+				peer_ips:  []string{peerIP.String()},
+			}
+			switchgotngresult.SpineUplinks = append(switchgotngresult.SpineUplinks, uplinkv4)
+
 			ip, ipnet, err = net.ParseCIDR(wr.NetworkInstances[nodename][vlanid].SubInterfaces[0].IPv6Prefix)
 			peerIP = incrementIP(ip)
 			_ = ipnet
@@ -575,6 +624,16 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 			}
 
 			foo.Neighbors = append(foo.Neighbors, neighborv6)
+
+			uplinkv6 := &SpineUplinkTng{
+				Vlanid:    vlanid,
+				Leafname:  nodename,
+				ipversion: "v6",
+				local_ip:  ip.String(),
+				peer_ips:  []string{peerIP.String()},
+			}
+
+			switchgotngresult.SpineUplinks = append(switchgotngresult.SpineUplinks, uplinkv6)
 
 			for _, bgp_later_entry := range bgp_later {
 				if bgp_later_entry.nivid == vlanid && bgp_later_entry.nodename == nodename {
@@ -853,7 +912,7 @@ func generateLlbBgpRoutes(workloads map[int]map[int]map[string]map[string][]*par
 	}
 }
 
-func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrlsubinterface, wr *types.WorkloadResults, templatenodes map[string]*TemplateNode) []*BGPLaterAdd {
+func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrlsubinterface, wr *types.WorkloadResults, templatenodes map[string]*TemplateNode, switchgotngresult *SwitchGoTNGResult) []*BGPLaterAdd {
 
 	bgplater := []*BGPLaterAdd{}
 
@@ -936,6 +995,7 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 						TransportAddress: *l.B.IPv4Address,
 					},
 				}
+
 				NeighAv6 := []*types.Neighbor{
 					{
 						PeerIP:           *l.B.IPv6Address,
@@ -955,6 +1015,21 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 					},
 				}
 
+				fmt.Println(infraNIName + " " + strconv.Itoa(vlanid) + " " + *l.A.Node.ShortName)
+				switchgotngresult.LoopTngInfos = append(switchgotngresult.LoopTngInfos, &LoopTNGResultEntry{
+					local_address: *l.A.IPv6Address,
+					peer_address:  *l.B.IPv6Address,
+					leaf:          *l.A.Node.ShortName,
+					vlanid:        vlanid,
+					ipversion:     "v6",
+				})
+				switchgotngresult.LoopTngInfos = append(switchgotngresult.LoopTngInfos, &LoopTNGResultEntry{
+					local_address: *l.A.IPv4Address,
+					peer_address:  *l.B.IPv4Address,
+					leaf:          *l.A.Node.ShortName,
+					vlanid:        vlanid,
+					ipversion:     "v4",
+				})
 				bgplater = append(bgplater,
 					&BGPLaterAdd{
 						nodename: *l.A.Node.ShortName,
@@ -985,6 +1060,38 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 		}
 	}
 	return bgplater
+}
+
+type SwitchGoTNGResult struct {
+	LoopTngInfos []*LoopTNGResultEntry // indexed by vid, leafname
+	SpineUplinks []*SpineUplinkTng
+	RouterIdTngs []*RouterIdTNG
+}
+
+func (ltngr *SwitchGoTNGResult) GetSpineUplinkFor(vid int, leafname string, ipv string) *SpineUplinkTng {
+	for _, x := range ltngr.SpineUplinks {
+		if x.Vlanid == vid && x.Leafname == leafname && x.ipversion == ipv {
+			return x
+		}
+	}
+	return nil
+}
+
+func (ltngr *SwitchGoTNGResult) GetLoopEntryFor(vid int, leafname string, ipv string) (*LoopTNGResultEntry, error) {
+	for _, entry := range ltngr.LoopTngInfos {
+		if entry.leaf == leafname && entry.vlanid == vid && entry.ipversion == ipv {
+			return entry, nil
+		}
+	}
+	return nil, errors.New("Not Found!")
+}
+
+type LoopTNGResultEntry struct {
+	local_address string
+	peer_address  string
+	leaf          string
+	vlanid        int
+	ipversion     string
 }
 
 type BGPLaterAdd struct {
