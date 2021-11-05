@@ -789,7 +789,7 @@ vprn:
   - name: lmg{{$group}}-{{$networkInfo.InterfaceName }}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
     ip: {{ $allocatedIP.IPAddress}}
     subnet: {{$networkInfo.Ipv4PrefixLength}}
-    sap: {{$group}}/1/{{interfaceCounterMapGet $group $interfaceMapLmg }}
+    sap: {{$group}}/3/{{interfaceCounterMapGet $group $interfaceMapLmg }}
     bfd: true
 {{- end}}
 {{- end}}
@@ -802,7 +802,7 @@ vprn:
   - name: lmg{{$group}}-{{$networkInfo.InterfaceName }}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
     ip: {{ $allocatedIP.IPAddress}}
     subnet: {{$networkInfo.Ipv4PrefixLength}}
-    sap: {{$group }}/1/{{$networkInfo.SwitchIndex}}
+    sap: {{$group }}/3/{{$networkInfo.SwitchIndex}}
     vlan: {{$networkInfo.VlanID}}
     bfd: true
 {{- end}}
