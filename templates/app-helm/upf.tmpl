@@ -471,13 +471,15 @@ network:
 {{- if eq $group 0}}
 {{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
     - name: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
-      prefix: {{ $allocatedIP.IPAddress}}/32
+      prefix: 
+      - {{ $allocatedIP.IPAddress}}/32
 {{- end }}
 {{- /* for the lmg groups */}}
 {{- else }}
 {{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
     - name: lmg{{$group}}-sig-loopback-{{$networkInfo.NetworkShortName}}
-      prefix: {{ $allocatedIP.IPAddress}}/32
+      prefix: 
+      - {{ $allocatedIP.IPAddress}}/32
 {{- end }}
 {{- end }}
 

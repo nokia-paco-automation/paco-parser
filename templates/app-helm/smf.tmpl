@@ -416,7 +416,8 @@ network:
 {{- $networkInfo := index $networkTypes 0 }}
 {{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
     - name: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
-      prefix: {{ $allocatedIP.IPAddress}}/32
+      prefix: 
+      - {{ $allocatedIP.IPAddress}}/32
 {{- end }}
 {{- end }}
     policyStatement:
