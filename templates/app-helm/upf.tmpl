@@ -421,7 +421,7 @@ peers:
 {{- $networkInfo := index $networkTypes 0 }}
     interface: lmg-sig-loopback-{{$networkInfo.NetworkShortName}}
 {{- /*TODO we need to add all the vrfs of all lmgs */}}
-    router: vprn{{add $networkInfo.VrfUpId $groups}}
+    router: vprn{{add $networkInfo.VrfUpId 1}}
   n3:
 {{- $workloads := index $appc.Networks "3GPP_External"}}
 {{- $groups := index $workloads 1}}
@@ -431,7 +431,7 @@ peers:
 {{- $networkInfo := index $networkTypes 0 }}
     interface: lmg-sig-loopback-{{$networkInfo.NetworkShortName}}
 {{- /*TODO we need to add all the vrfs of all lmgs */}}
-    router: vprn{{add $networkInfo.VrfUpId $groups}}
+    router: vprn{{add $networkInfo.VrfUpId 1}}
 plmn:
 - mcc: "{{$appc.Mcc}}"
   mnc: "{{$appc.Mnc}}"
