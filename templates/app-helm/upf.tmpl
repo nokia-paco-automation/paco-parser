@@ -419,7 +419,7 @@ peers:
 {{- $networks := index $switchGroups "loopback" }}
 {{- $networkTypes := index $networks "sigLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
-    interface: lmg-sig-loopback-{{$networkInfo.NetworkShortName}}
+    interface: lmg1-sig-loopback-{{$networkInfo.NetworkShortName}}
 {{- /*TODO we need to add all the vrfs of all lmgs */}}
     router: vprn{{add $networkInfo.VrfUpId 1}}
   n3:
@@ -429,7 +429,7 @@ peers:
 {{- $networks := index $switchGroups "loopback" }}
 {{- $networkTypes := index $networks "sigLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
-    interface: lmg-sig-loopback-{{$networkInfo.NetworkShortName}}
+    interface: lmg1-sig-loopback-{{$networkInfo.NetworkShortName}}
 {{- /*TODO we need to add all the vrfs of all lmgs */}}
     router: vprn{{add $networkInfo.VrfUpId 1}}
 plmn:
