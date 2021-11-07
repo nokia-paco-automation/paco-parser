@@ -533,7 +533,7 @@ network:
       entryList:
       - id: 10
         from:
-          communityExpression: "[{{ rtCommExpr $networkInfo.VrfUpId $lmgs $networkInfo.NetworkShortName }}]"
+          communityExpression: "{{ rtCommExpr $networkInfo.VrfUpId $lmgs $networkInfo.NetworkShortName }}"
 {{- /*export expression exports the signalling loopbacks from all groups*/}}
     - name: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
       entryList:

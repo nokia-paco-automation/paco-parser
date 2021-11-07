@@ -452,9 +452,9 @@ spec:
 		},
 		"rtCommExpr": func(vrfUpId, lmgs int, wlShortname string) string {
 			// if we come here there should be at least 1 element
-			rtCommExpr := fmt.Sprintf("rt-lmg%d-%d-%s", 1, vrfUpId+1, wlShortname)
+			rtCommExpr := fmt.Sprintf("[rt-lmg%d-%d-%s]", 1, vrfUpId+1, wlShortname)
 			for i := 2; i <= lmgs; i++ {
-				rtCommExpr += fmt.Sprintf(" OR rt-lmg%d-%d-%s", i, vrfUpId+i, wlShortname)
+				rtCommExpr += fmt.Sprintf(" OR [rt-lmg%d-%d-%s]", i, vrfUpId+i, wlShortname)
 			}
 			return rtCommExpr
 		},
