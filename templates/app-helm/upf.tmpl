@@ -570,7 +570,7 @@ apn:
 {{- $networks := index $switchGroups "loopback" }}
 {{- $networkTypes := index $networks "lmgLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
-  - router: vprn{{add $networkInfo.VrfUpId $groups}}
+  - router: vprn{{add $networkInfo.VrfUpId 1}}
     name: pool1
 uepool:
 {{- /* get the uepool from the lmg loopback i group1 */}}
@@ -581,7 +581,7 @@ uepool:
 {{- $networks := index $switchGroups "loopback" }}
 {{- $networkTypes := index $networks "lmgLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
-- router: vprn{{add $networkInfo.VrfUpId $groups}}
+- router: vprn{{add $networkInfo.VrfUpId 1}}
   name: pool1
   ipv4Prefix: 
 cnfName: upf
