@@ -26,11 +26,11 @@ all:
       csi: nfs-csi
     interfaces:
     - name: bond0
-      eth_name: [eno5, eno6]
+      eth_name: [eth0, eth1]
       sriov: true
       ipvlan: true
     - name: bond1
-      eth_name: [ens2f0, ens2f1]
+      eth_name: [eth3, eth4]
       sriov: true
       ipvlan: true
     underlay_networks:
@@ -38,8 +38,8 @@ all:
       vlan: 40
       eth_name: bond0
     cni_networks:
-      pod_cidr: {{.Config.Cluster.Networks.Pod.Ipv4Cidr}}
-      svc_cidr: {{.Config.Cluster.Networks.Svc.Ipv4Cidr}}
+      pod_cidr: {{(index (index .Config.Cluster.Networks "pod" ).Ipv4Cidr 0)}}
+      svc_cidr: {{(index (index .Config.Cluster.Networks "svc" ).Ipv4Cidr 0)}}
     multus_networks:
       multus_mgmt:
         ipvlan_vlan: 101
