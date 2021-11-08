@@ -3,6 +3,8 @@ package cmd
 import (
 	"os"
 	"path"
+	"strconv"
+	"strings"
 
 	"github.com/nokia-paco-automation/paco-parser/parser"
 	"github.com/nokia-paco-automation/paco-parser/templating"
@@ -176,9 +178,106 @@ func writeSwitchConfigs(srl_configs map[string]string) {
 	}
 }
 
+type NokiaYmlXtraData struct {
+	Nodes  map[string]*NokiaYmlNode
+	Config *parser.Config
+}
+
+type NokiaYmlInterface struct {
+	Name      string
+	Sriov     bool
+	Ipvlan    bool
+	Eth_names []string
+}
+
+type NokiaYmlNode struct {
+	Name       string
+	Nodetype   string
+	Mgmt_ip    string
+	Interfaces map[string]*NokiaYmlInterface
+}
+
+func (nyn *NokiaYmlNode) add_bond_subinterface(bond_name string, subinterface_name string, sriov bool, ipvlan bool) {
+	if _, exists := nyn.Interfaces[bond_name]; !exists {
+		nyn.Interfaces[bond_name] = &NokiaYmlInterface{
+			Name:      bond_name,
+			Sriov:     sriov,
+			Ipvlan:    ipvlan,
+			Eth_names: []string{},
+		}
+	}
+	nyn.Interfaces[bond_name].Eth_names = append(nyn.Interfaces[bond_name].Eth_names, subinterface_name)
+}
+
+func SkipLinkConditionCheck(nodeA string, nodeB string) bool {
+	SkipCombinations := [][]string{
+		{"leaf", "infra"},
+		{"infra", "infra"},
+		{"infra", "dcgw"},
+		{"leaf", "dcgw"},
+	}
+	for _, data1 := range SkipCombinations {
+		if strings.Contains(nodeA, data1[0]) && strings.Contains(nodeB, data1[1]) {
+			return true
+		}
+		if strings.Contains(nodeB, data1[0]) && strings.Contains(nodeA, data1[1]) {
+			return true
+		}
+	}
+	return false
+}
+
 func writeNokiaYml(config *parser.Config) {
+	nokia_yml_xtra_data := &NokiaYmlXtraData{
+		Nodes:  map[string]*NokiaYmlNode{},
+		Config: config,
+	}
+
+	for nodename, nodedata := range config.Topology.Nodes {
+		node := &NokiaYmlNode{
+			Name:       nodename,
+			Mgmt_ip:    *nodedata.MgmtIPv4,
+			Interfaces: map[string]*NokiaYmlInterface{},
+		}
+
+		nokia_yml_xtra_data.Nodes[nodename] = node
+		switch {
+		case strings.Contains(nodename, "worker"):
+			node.Nodetype = "worker"
+		case strings.Contains(nodename, "master"):
+			node.Nodetype = "master"
+		case strings.Contains(nodename, "leaf"):
+			node.Nodetype = "leaf"
+		}
+	}
+
+	for _, lc := range config.Topology.Links {
+		if SkipLinkConditionCheck(*lc.Endpoints[0], *lc.Endpoints[1]) {
+			continue
+		}
+		for _, ep := range lc.Endpoints {
+			ep_info := strings.Split(*ep, ":")
+			if _, exists := nokia_yml_xtra_data.Nodes[ep_info[0]]; !exists {
+				continue
+			}
+			if nokia_yml_xtra_data.Nodes[ep_info[0]].Nodetype != "leaf" {
+				sriov, err := strconv.ParseBool(*lc.Labels["sriov"])
+				if err != nil {
+					log.Fatal(err)
+				}
+				ipvlan, err := strconv.ParseBool(*lc.Labels["ipvlan"])
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				bond_name := *lc.Labels["client-name"]
+				nokia_yml_xtra_data.Nodes[ep_info[0]].add_bond_subinterface(bond_name, ep_info[1], sriov, ipvlan)
+			}
+		}
+	}
+
 	templateFile := path.Join("templates", "Nokia.yml.tmpl")
-	data := templating.GeneralTemplateProcessing(templateFile, "nokia", config)
+	data := templating.GeneralTemplateProcessing(templateFile, "nokia", nokia_yml_xtra_data)
 	conf := path.Join(output, "Nokia.yml")
 	f, err := os.Create(path.Join(conf))
 	if err != nil {

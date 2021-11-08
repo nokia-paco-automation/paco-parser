@@ -1,20 +1,21 @@
 {{define "nokia"}}
+{{$root := .}}
 all:
   vars:
     grub_linux_cmd: "transparent_hugepage=madvise hugepagesz=1G hugepages=20 hugepagesz=2M hugepages=2048 intel_iommu=on"
     proxy:
-      http_proxy: {{.Infrastructure.Proxy}}
-      https_proxy: {{.Infrastructure.Proxy}}
-      no_proxy: {{.Infrastructure.NoProxy}}
-    region: {{.Cluster.Region}}
-    anthos_dir: {{.Cluster.AnthosDir}}
-    anthos_deployment_type: {{.Cluster.AnthosDeploymentType}}
-    anthos-version: {{.Cluster.AnthosVersion}}
-    project_id: {{.Cluster.ProjectId}}
-    cluster_name: {{.Cluster.ClusterName}}
-    ansible_user: {{.Credentials.AnsibleUser}}
-    ansible_ssh_private_key_file: {{.Credentials.AnsibleSshPrivateKeyFile}}
-    ansible_ssh_extra_args: {{.Credentials.AnsibleSshExtraArgs}}
+      http_proxy: {{.Config.Infrastructure.Proxy}}
+      https_proxy: {{.Config.Infrastructure.Proxy}}
+      no_proxy: {{.Config.Infrastructure.NoProxy}}
+    region: {{.Config.Cluster.Region}}
+    anthos_dir: {{.Config.Cluster.AnthosDir}}
+    anthos_deployment_type: {{.Config.Cluster.AnthosDeploymentType}}
+    anthos-version: {{.Config.Cluster.AnthosVersion}}
+    project_id: {{.Config.Cluster.ProjectId}}
+    cluster_name: {{.Config.Cluster.ClusterName}}
+    ansible_user: {{.Config.Credentials.AnsibleUser}}
+    ansible_ssh_private_key_file: {{.Config.Credentials.AnsibleSshPrivateKeyFile}}
+    ansible_ssh_extra_args: {{.Config.Credentials.AnsibleSshExtraArgs}}
     need_update_dist: false
     install_rt_sched: false
     install_net_driver: true
@@ -37,8 +38,8 @@ all:
       vlan: 40
       eth_name: bond0
     cni_networks:
-      pod_cidr: {{.Cluster.Networks.Pod.Ipv4Cidr}}
-      svc_cidr: {{.Cluster.Networks.Svc.Ipv4Cidr}}
+      pod_cidr: {{.Config.Cluster.Networks.Pod.Ipv4Cidr}}
+      svc_cidr: {{.Config.Cluster.Networks.Svc.Ipv4Cidr}}
     multus_networks:
       multus_mgmt:
         ipvlan_vlan: 101
@@ -52,53 +53,53 @@ all:
         ipvlan_vlan: 501
     paco_sw:
       harbor:
-        name: {{.ContainerRegistry.Name}}
-        url: {{.ContainerRegistry.Url}}
-        server: {{.ContainerRegistry.Server}}
-        image_dir: {{.ContainerRegistry.ImageDir}}
-        email: {{.ContainerRegistry.Email}}
-        username: {{.ContainerRegistry.Username}}
-        secret: {{.ContainerRegistry.Secret}}
+        name: {{.Config.ContainerRegistry.Name}}
+        url: {{.Config.ContainerRegistry.Url}}
+        server: {{.Config.ContainerRegistry.Server}}
+        image_dir: {{.Config.ContainerRegistry.ImageDir}}
+        email: {{.Config.ContainerRegistry.Email}}
+        username: {{.Config.ContainerRegistry.Username}}
+        secret: {{.Config.ContainerRegistry.Secret}}
       elements: [default, vec, nrd, nrd-db, amf, smf, upf]
   children:
     workers:
       hosts:
-        worker0:
-          ansible_host: 100.112.3.12
-        worker1:
-          ansible_host: 100.112.3.13
-        worker2:
-          ansible_host: 100.112.3.14
+    {{- range .Nodes}}
+    {{- if eq .Nodetype "worker"}}
+        {{.Name}}:
+          ansible_host: {{.Mgmt_ip}}
           interfaces:
-            - name: bond0
-              eth_name: [ens1f0, ens1f1]
-              sriov: true
-              ipvlan: true
-            - name: bond1
-              eth_name: [ens3f0, ens3f1]
-              sriov: true
-              ipvlan: true
+          {{- range .Interfaces}}
+            - name: {{.Name}}
+              sriov: {{.Sriov}}
+              ipvlan: {{.Ipvlan}}
+              eth_name: [ {{range $index, $element := .Eth_names}}{{if $index}}, {{end}}{{$element}}{{end}} ]
+          {{- end}}
+    {{- end }}
+    {{- end }}
     masters:
       hosts:
-        master0:
-          ansible_host: 100.112.3.11
+    {{- range .Nodes}}
+    {{- if eq .Nodetype "master"}}
+        {{.Name}}:
+          ansible_host: {{.Mgmt_ip}}
           interfaces:
-            - name: bond0
-              eth_name: [eno5, eno6]
-              sriov: true
-              ipvlan: true
-            - name: bond1
-              eth_name: [ens2f0, ens2f1]
-              sriov: true
-              ipvlan: true
+          {{- range .Interfaces}}
+            - name: {{.Name}}
+              sriov: {{.Sriov}}
+              ipvlan: {{.Ipvlan}}
+              eth_name: [ {{range $index, $element := .Eth_names}}{{if $index}}, {{end}}{{$element}}{{end}} ]
+          {{- end}}
+    {{- end }}
+    {{- end }}
     leafs:
       hosts:
-        leaf1:
-          ansible_host: 100.112.1.16
+    {{- range .Nodes}}
+    {{- if eq .Nodetype "leaf"}}
+        {{.Name}}:
+          ansible_host: {{.Mgmt_ip}}
           ansible_user: linuxadmin
-          ansible_ssh_private_key_file: /home/nokia/.ssh/id_rsa
-        leaf2:
-          ansible_host: 100.112.1.17
-          ansible_user: linuxadmin
-          ansible_ssh_private_key_file: /home/nokia/.ssh/id_rsa
+          ansible_ssh_private_key_file: {{$root.Config.Credentials.AnsibleSshPrivateKeyFile}}
+    {{- end }}
+    {{- end }}
 {{end}}
