@@ -1,5 +1,104 @@
 {{define "nokia"}}
-
-anthos-version: {{.Cluster.AnthosVersion}}
-
+all:
+  vars:
+    grub_linux_cmd: "transparent_hugepage=madvise hugepagesz=1G hugepages=20 hugepagesz=2M hugepages=2048 intel_iommu=on"
+    proxy:
+      http_proxy: {{.Infrastructure.Proxy}}
+      https_proxy: {{.Infrastructure.Proxy}}
+      no_proxy: {{.Infrastructure.NoProxy}}
+    region: {{.Cluster.Region}}
+    anthos_dir: {{.Cluster.AnthosDir}}
+    anthos_deployment_type: {{.Cluster.AnthosDeploymentType}}
+    anthos-version: {{.Cluster.AnthosVersion}}
+    project_id: {{.Cluster.ProjectId}}
+    cluster_name: {{.Cluster.ClusterName}}
+    ansible_user: {{.Credentials.AnsibleUser}}
+    ansible_ssh_private_key_file: {{.Credentials.AnsibleSshPrivateKeyFile}}
+    ansible_ssh_extra_args: {{.Credentials.AnsibleSshExtraArgs}}
+    need_update_dist: false
+    install_rt_sched: false
+    install_net_driver: true
+    create_vlans: false
+    storage:
+      nfs_server: 100.112.1.201
+      nfs_mount: /nfs
+      csi: nfs-csi
+    interfaces:
+    - name: bond0
+      eth_name: [eno5, eno6]
+      sriov: true
+      ipvlan: true
+    - name: bond1
+      eth_name: [ens2f0, ens2f1]
+      sriov: true
+      ipvlan: true
+    underlay_networks:
+      itfce_cidr: 100.112.3.0/24
+      vlan: 40
+      eth_name: bond0
+    cni_networks:
+      pod_cidr: {{.Cluster.Networks.Pod.Ipv4Cidr}}
+      svc_cidr: {{.Cluster.Networks.Svc.Ipv4Cidr}}
+    multus_networks:
+      multus_mgmt:
+        ipvlan_vlan: 101
+      multus_internal:
+        ipvlan_vlan: 201
+      multus_external:
+        ipvlan_vlan: 301
+      multus_sba:
+        ipvlan_vlan: 401
+      multus_internet:
+        ipvlan_vlan: 501
+    paco_sw:
+      harbor:
+        name: {{.ContainerRegistry.Name}}
+        url: {{.ContainerRegistry.Url}}
+        server: {{.ContainerRegistry.Server}}
+        image_dir: {{.ContainerRegistry.ImageDir}}
+        email: {{.ContainerRegistry.Email}}
+        username: {{.ContainerRegistry.Username}}
+        secret: {{.ContainerRegistry.Secret}}
+      elements: [default, vec, nrd, nrd-db, amf, smf, upf]
+  children:
+    workers:
+      hosts:
+        worker0:
+          ansible_host: 100.112.3.12
+        worker1:
+          ansible_host: 100.112.3.13
+        worker2:
+          ansible_host: 100.112.3.14
+          interfaces:
+            - name: bond0
+              eth_name: [ens1f0, ens1f1]
+              sriov: true
+              ipvlan: true
+            - name: bond1
+              eth_name: [ens3f0, ens3f1]
+              sriov: true
+              ipvlan: true
+    masters:
+      hosts:
+        master0:
+          ansible_host: 100.112.3.11
+          interfaces:
+            - name: bond0
+              eth_name: [eno5, eno6]
+              sriov: true
+              ipvlan: true
+            - name: bond1
+              eth_name: [ens2f0, ens2f1]
+              sriov: true
+              ipvlan: true
+    leafs:
+      hosts:
+        leaf1:
+          ansible_host: 100.112.1.16
+          ansible_user: linuxadmin
+          ansible_ssh_private_key_file: /home/nokia/.ssh/id_rsa
+        leaf2:
+          ansible_host: 100.112.1.17
+          ansible_user: linuxadmin
+          ansible_ssh_private_key_file: /home/nokia/.ssh/id_rsa
 {{end}}
