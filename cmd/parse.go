@@ -179,8 +179,9 @@ func writeSwitchConfigs(srl_configs map[string]string) {
 }
 
 type NokiaYmlXtraData struct {
-	Nodes  map[string]*NokiaYmlNode
-	Config *parser.Config
+	Nodes     map[string]*NokiaYmlNode
+	Config    *parser.Config
+	Workloads map[string]*NokiaYmlWorkload
 }
 
 type NokiaYmlInterface struct {
@@ -195,6 +196,11 @@ type NokiaYmlNode struct {
 	Nodetype   string
 	Mgmt_ip    string
 	Interfaces map[string]*NokiaYmlInterface
+}
+
+type NokiaYmlWorkload struct {
+	Name string
+	VID  int
 }
 
 func (nyn *NokiaYmlNode) add_bond_subinterface(bond_name string, subinterface_name string, sriov bool, ipvlan bool) {
@@ -229,8 +235,9 @@ func SkipLinkConditionCheck(nodeA string, nodeB string) bool {
 
 func writeNokiaYml(config *parser.Config) {
 	nokia_yml_xtra_data := &NokiaYmlXtraData{
-		Nodes:  map[string]*NokiaYmlNode{},
-		Config: config,
+		Nodes:     map[string]*NokiaYmlNode{},
+		Config:    config,
+		Workloads: map[string]*NokiaYmlWorkload{},
 	}
 
 	for nodename, nodedata := range config.Topology.Nodes {
@@ -273,6 +280,17 @@ func writeNokiaYml(config *parser.Config) {
 				bond_name := *lc.Labels["client-name"]
 				nokia_yml_xtra_data.Nodes[ep_info[0]].add_bond_subinterface(bond_name, ep_info[1], sriov, ipvlan)
 			}
+		}
+	}
+
+	for wl_name, wl_data := range config.Workloads {
+		if _, exists := wl_data["servers"].Itfces["ipvlan"]; !exists {
+			continue
+		}
+
+		nokia_yml_xtra_data.Workloads[wl_name] = &NokiaYmlWorkload{
+			Name: wl_name,
+			VID:  *wl_data["servers"].Itfces["ipvlan"].VlanID,
 		}
 	}
 
