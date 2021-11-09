@@ -201,7 +201,7 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 			}
 
 			if entry.Target == nil {
-				tngsubnet.Type = "ipvrf"
+				tngsubnet.Type = "ipvlan"
 			} else {
 				tngsubnet.Type = "sriov"
 				tngsubnet.Target = *entry.Target
