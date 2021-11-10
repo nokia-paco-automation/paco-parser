@@ -36,7 +36,6 @@ all:
     underlay_networks:
       itfce_cidr: 100.112.3.0/24
       vlan: 40
-      eth_name: bond0
     cni_networks:
       pod_cidr: {{(index (index .Config.Cluster.Networks "pod" ).Ipv4Cidr 0)}}
       svc_cidr: {{(index (index .Config.Cluster.Networks "svc" ).Ipv4Cidr 0)}}
