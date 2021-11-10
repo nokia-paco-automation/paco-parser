@@ -40,16 +40,10 @@ all:
       pod_cidr: {{(index (index .Config.Cluster.Networks "pod" ).Ipv4Cidr 0)}}
       svc_cidr: {{(index (index .Config.Cluster.Networks "svc" ).Ipv4Cidr 0)}}
     multus_networks:
-      multus_mgmt:
-        ipvlan_vlan: 101
-      multus_internal:
-        ipvlan_vlan: 201
-      multus_external:
-        ipvlan_vlan: 301
-      multus_sba:
-        ipvlan_vlan: 401
-      multus_internet:
-        ipvlan_vlan: 501
+    {{- range .Workloads }}
+      {{.Name}}:
+        ipvlan_vlan: {{.VID}}
+    {{- end}}
     paco_sw:
       harbor:
         name: {{.Config.ContainerRegistry.Name}}
