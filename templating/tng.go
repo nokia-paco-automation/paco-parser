@@ -185,9 +185,11 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 		// 	}
 		// }
 		for name, entry := range wl["servers"].Itfces {
+			typepart := "macvrf-" + name
+			snName := wlname + "-" + typepart + "-" + strconv.Itoa(*entry.VlanID)
 			tngsubnet := &TngSubnet{
 				Gatewaysv4: []string{},
-				Name:       name,
+				Name:       snName,
 				Type:       "",
 				Vlan:       *entry.VlanID,
 				Target:     "",
@@ -349,10 +351,10 @@ func processTNGCnfs(appconf map[string]*parser.AppConfig, ir *types.Infrastructu
 				if routeentry.RType == "llbbgp" {
 					tng_cnf_workloads[routeentry.CnfName][wlname].Name = wlname
 					if routeentry.IpVersion == "v4" {
-						tng_cnf_workloads[routeentry.CnfName][wlname].Llbvipv4 = routeentry.Prefix
+						tng_cnf_workloads[routeentry.CnfName][wlname].Llbvipv4 = strings.Split(routeentry.Prefix, "/")[0]
 					}
 					if routeentry.IpVersion == "v6" {
-						tng_cnf_workloads[routeentry.CnfName][wlname].Llbvipv6 = routeentry.Prefix
+						tng_cnf_workloads[routeentry.CnfName][wlname].Llbvipv6 = strings.Split(routeentry.Prefix, "/")[0]
 					}
 
 				} else if routeentry.RType == "llb" {
@@ -361,7 +363,7 @@ func processTNGCnfs(appconf map[string]*parser.AppConfig, ir *types.Infrastructu
 					}
 					if _, exists := podRouteStore[routeentry.Prefix]; !exists {
 						newPodRoute := &TngCnfPodRoutes{
-							Systemip: routeentry.Prefix,
+							Systemip: strings.Split(routeentry.Prefix, "/")[0],
 							Leaf1:    &TngCnfPodLeafIPInfo{},
 							Leaf2:    &TngCnfPodLeafIPInfo{},
 						}
@@ -385,7 +387,7 @@ func processTNGCnfs(appconf map[string]*parser.AppConfig, ir *types.Infrastructu
 					}
 					if _, exists := podRouteStore[routeentry.Prefix]; !exists {
 						newPodRoute := &TngCnfPodRoutes{
-							Systemip: routeentry.Prefix,
+							Systemip: strings.Split(routeentry.Prefix, "/")[0],
 							Leaf1:    &TngCnfPodLeafIPInfo{},
 							Leaf2:    &TngCnfPodLeafIPInfo{},
 						}
