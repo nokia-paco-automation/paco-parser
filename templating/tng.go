@@ -446,21 +446,21 @@ func processTNGCnfs(appconf map[string]*parser.AppConfig, ir *types.Infrastructu
 					}
 
 					if _, exists := routeentry.NHGroup.Entries[1]; exists {
-						podRouteStore[routeentry.Prefix].Leaf1.Ipv4 = routeentry.NHGroup.Entries[1].LocalAddr
-						podRouteStore[routeentry.Prefix].Leaf1.Gwv4 = routeentry.NHGroup.Entries[1].NHIp
+						podRouteStore[routeentry.Prefix].Leaf1.Ipv4 = routeentry.NHGroup.Entries[1].NHIp
+						podRouteStore[routeentry.Prefix].Leaf1.Gwv4 = routeentry.NHGroup.Entries[1].LocalAddr
 					}
 					if _, exists := v6_info.NHGroup.Entries[1]; exists {
-						podRouteStore[routeentry.Prefix].Leaf1.Ipv6 = v6_info.NHGroup.Entries[1].LocalAddr
-						podRouteStore[routeentry.Prefix].Leaf1.Gwv6 = v6_info.NHGroup.Entries[1].NHIp
+						podRouteStore[routeentry.Prefix].Leaf1.Ipv6 = v6_info.NHGroup.Entries[1].NHIp
+						podRouteStore[routeentry.Prefix].Leaf1.Gwv6 = v6_info.NHGroup.Entries[1].LocalAddr
 					}
 
 					if _, exists := routeentry.NHGroup.Entries[2]; exists {
-						podRouteStore[routeentry.Prefix].Leaf2.Ipv4 = routeentry.NHGroup.Entries[2].LocalAddr
-						podRouteStore[routeentry.Prefix].Leaf2.Gwv4 = routeentry.NHGroup.Entries[2].NHIp
+						podRouteStore[routeentry.Prefix].Leaf2.Ipv4 = routeentry.NHGroup.Entries[2].NHIp
+						podRouteStore[routeentry.Prefix].Leaf2.Gwv4 = routeentry.NHGroup.Entries[2].LocalAddr
 					}
 					if _, exists := v6_info.NHGroup.Entries[2]; exists {
-						podRouteStore[routeentry.Prefix].Leaf2.Ipv6 = v6_info.NHGroup.Entries[2].LocalAddr
-						podRouteStore[routeentry.Prefix].Leaf2.Gwv6 = v6_info.NHGroup.Entries[2].NHIp
+						podRouteStore[routeentry.Prefix].Leaf2.Ipv6 = v6_info.NHGroup.Entries[2].NHIp
+						podRouteStore[routeentry.Prefix].Leaf2.Gwv6 = v6_info.NHGroup.Entries[2].LocalAddr
 					}
 				}
 			}
