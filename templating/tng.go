@@ -96,13 +96,15 @@ type TngSpineUplink struct {
 }
 
 type TngLeafGroupLeaf struct {
-	BgpAs         uint32
-	Id            string
-	IrbName       string
-	LoName        string
-	Name          string
-	UplinkItfname string
-	VxlName       string
+	BgpAs               uint32
+	Id                  string
+	IrbName             string
+	LoName              string
+	Name                string
+	UplinkItfname       string
+	VxlName             string
+	IpVlanInterfaceList []string
+	SriovInterfaceList  []string
 }
 
 func ProcessTNG(p *parser.Parser, wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, appconfig map[string]*parser.AppConfig, looptngresult *SwitchGoTNGResult) string {
@@ -113,7 +115,7 @@ func ProcessTNG(p *parser.Parser, wr *types.WorkloadResults, ir *types.Infrastru
 
 	processTNGCnfs(appconfig, ir, wr, tng, p)
 	processTNGLeafGroups(p, tng, wr, ir, cg, appconfig, looptngresult)
-	processLeafGroupLeafs(tng, p)
+	processLeafGroupLeafs(tng, p, cg)
 	return populateTemplate(tng)
 }
 
@@ -265,17 +267,36 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 	}
 }
 
-func processLeafGroupLeafs(tng *TngRoot, p *parser.Parser) {
+func processLeafGroupLeafs(tng *TngRoot, p *parser.Parser, cg *types.ClientGroupResults) {
 	for name, leaf := range get_leafs(p) {
 		new_leafgroupleaf := &TngLeafGroupLeaf{
-			BgpAs:         *leaf.AS,
-			Id:            *leaf.MgmtIPv4,
-			IrbName:       "irb0",
-			LoName:        "lo0",
-			Name:          name,
-			UplinkItfname: getUplinkName(name, p),
-			VxlName:       "vxlan0",
+			BgpAs:               *leaf.AS,
+			Id:                  *leaf.MgmtIPv4,
+			IrbName:             "irb0",
+			LoName:              "lo0",
+			Name:                name,
+			UplinkItfname:       getUplinkName(name, p),
+			VxlName:             "vxlan0",
+			SriovInterfaceList:  []string{},
+			IpVlanInterfaceList: []string{},
 		}
+
+		stringSetIpVlan := map[string]bool{}
+		stringSetSriov := map[string]bool{}
+		for _, entry := range cg.ClientInterfaces[name]["servers"] {
+			if entry.Lag {
+				stringSetIpVlan[entry.Name] = true
+			} else {
+				stringSetSriov[entry.Name] = true
+			}
+		}
+		for k, _ := range stringSetIpVlan {
+			new_leafgroupleaf.IpVlanInterfaceList = append(new_leafgroupleaf.IpVlanInterfaceList, k)
+		}
+		for k, _ := range stringSetSriov {
+			new_leafgroupleaf.SriovInterfaceList = append(new_leafgroupleaf.SriovInterfaceList, k)
+		}
+
 		tng.Leafgrp.Leafs = append(tng.Leafgrp.Leafs, new_leafgroupleaf)
 	}
 }
