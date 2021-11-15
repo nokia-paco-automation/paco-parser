@@ -237,7 +237,7 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 		tngVrf.SpineUplink.Vlan = *wl["dcgw-grp1"].Itfces["itfce"].VlanID
 
 		tng.Leafgrp.IpVrfs = append(tng.Leafgrp.IpVrfs, tngVrf)
-		tng.Leafgrp.SpineAs = 4259845498 // TODO
+		tng.Leafgrp.SpineAs = *p.Config.Workloads["infrastructure"]["dcgw-grp1"].Itfces["itfce"].PeerAS
 		tng.Leafgrp.Name = "leaf-grp1"
 		tng.Leafgrp.Loop = &TngLeafGroupLoop{}
 
@@ -268,7 +268,7 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 func processLeafGroupLeafs(tng *TngRoot, p *parser.Parser) {
 	for name, leaf := range get_leafs(p) {
 		new_leafgroupleaf := &TngLeafGroupLeaf{
-			BgpAs:         *leaf.AS,
+			BgpAs:         *p.Config.Infrastructure.Protocols.OverlayAs,
 			Id:            *leaf.MgmtIPv4,
 			IrbName:       "irb0",
 			LoName:        "lo0",
