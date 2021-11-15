@@ -21,11 +21,16 @@
 {{define "pods"}}
   {{- range . }}
             - leaf1itf:
-                ip: {{.Leaf1.Ip}}
-                gw: {{.Leaf1.Gw}}
+                ipv4: {{.Leaf1.Ipv4}}
+                gwv4: {{.Leaf1.Gwv4}}
+                ipv6: {{.Leaf1.Ipv6}}
+                gwv6: {{.Leaf1.Gwv6}}
               leaf2itf:
-                ip: {{.Leaf2.Ip}}
-                gw: {{.Leaf2.Gw}}
-              systemip: {{.Systemip}}
+                ipv4: {{.Leaf2.Ipv4}}
+                gwv4: {{.Leaf2.Gwv4}}
+                ipv6: {{.Leaf2.Ipv6}}
+                gwv6: {{.Leaf2.Gwv6}}
+              systemipv4: {{.Systemipv4}}
+              systemipv6: {{.Systemipv6}}
   {{- end -}}
 {{- end -}}

@@ -2,6 +2,7 @@ package templating
 
 import (
 	"bytes"
+	"fmt"
 	"path"
 	"strconv"
 	"strings"
@@ -31,14 +32,17 @@ type TngCnfWorkload struct {
 }
 
 type TngCnfPodRoutes struct {
-	Systemip string
-	Leaf1    *TngCnfPodLeafIPInfo
-	Leaf2    *TngCnfPodLeafIPInfo
+	Systemipv4 string
+	Systemipv6 string
+	Leaf1      *TngCnfPodLeafIPInfo
+	Leaf2      *TngCnfPodLeafIPInfo
 }
 
 type TngCnfPodLeafIPInfo struct {
-	Ip string
-	Gw string
+	Ipv4 string
+	Gwv4 string
+	Ipv6 string
+	Gwv6 string
 }
 
 type TngLeafGroup struct {
@@ -318,9 +322,9 @@ func processTNGCnfs(appconf map[string]*parser.AppConfig, ir *types.Infrastructu
 	tng_cnf_workloads := map[string]map[string]*TngCnfWorkload{} // CNF, Workload
 
 	cnfpodroutes := TngCnfPodRoutes{
-		Systemip: "",
-		Leaf1:    &TngCnfPodLeafIPInfo{},
-		Leaf2:    &TngCnfPodLeafIPInfo{},
+		Systemipv4: "",
+		Leaf1:      &TngCnfPodLeafIPInfo{},
+		Leaf2:      &TngCnfPodLeafIPInfo{},
 	}
 	_ = tng_cnf_workloads
 	_ = cnfpodroutes
@@ -332,6 +336,10 @@ func processTNGCnfs(appconf map[string]*parser.AppConfig, ir *types.Infrastructu
 			for _, routeentry := range routearr {
 				_ = device
 				_ = wlname
+
+				if routeentry.IpVersion == "v6" {
+					continue
+				}
 
 				if _, exists := tng_cnf_workloads[routeentry.CnfName]; !exists {
 					tng_cnf_workloads[routeentry.CnfName] = map[string]*TngCnfWorkload{}
@@ -348,67 +356,108 @@ func processTNGCnfs(appconf map[string]*parser.AppConfig, ir *types.Infrastructu
 					resultmap[routeentry.CnfName].Workloads = append(resultmap[routeentry.CnfName].Workloads, newWorkload)
 				}
 
+				fmt.Println(device + " " + wlname + " " + routeentry.RType + " " + strconv.Itoa(routeentry.INPUT_INDEX) + " " + routeentry.CnfName + " " + routeentry.WlName + " " + routeentry.IpVersion + " " + strconv.Itoa(routeentry.VlanID) + " " + routeentry.Prefix + " ")
+
 				if routeentry.RType == "llbbgp" {
+					v6_info := findv6Info(routearr, routeentry)
+
 					tng_cnf_workloads[routeentry.CnfName][wlname].Name = wlname
 					if routeentry.IpVersion == "v4" {
 						tng_cnf_workloads[routeentry.CnfName][wlname].Llbvipv4 = strings.Split(routeentry.Prefix, "/")[0]
 					}
-					if routeentry.IpVersion == "v6" {
-						tng_cnf_workloads[routeentry.CnfName][wlname].Llbvipv6 = strings.Split(routeentry.Prefix, "/")[0]
-					}
+
+					tng_cnf_workloads[routeentry.CnfName][wlname].Llbvipv6 = strings.Split(v6_info.Prefix, "/")[0]
 
 				} else if routeentry.RType == "llb" {
+
+					v6_info := findv6Info(routearr, routeentry)
+
 					if tng_cnf_workloads[routeentry.CnfName][wlname].LlbPods == nil {
 						tng_cnf_workloads[routeentry.CnfName][wlname].LlbPods = []*TngCnfPodRoutes{}
 					}
 					if _, exists := podRouteStore[routeentry.Prefix]; !exists {
 						newPodRoute := &TngCnfPodRoutes{
-							Systemip: strings.Split(routeentry.Prefix, "/")[0],
-							Leaf1:    &TngCnfPodLeafIPInfo{},
-							Leaf2:    &TngCnfPodLeafIPInfo{},
+							Systemipv4: strings.Split(routeentry.Prefix, "/")[0],
+							Systemipv6: strings.Split(v6_info.Prefix, "/")[0],
+							Leaf1:      &TngCnfPodLeafIPInfo{},
+							Leaf2:      &TngCnfPodLeafIPInfo{},
 						}
 						podRouteStore[routeentry.Prefix] = newPodRoute
 						tng_cnf_workloads[routeentry.CnfName][wlname].LlbPods = append(tng_cnf_workloads[routeentry.CnfName][wlname].LlbPods, newPodRoute)
 					}
 
 					if _, exists := routeentry.NHGroup.Entries[1]; exists {
-						podRouteStore[routeentry.Prefix].Leaf1.Ip = routeentry.NHGroup.Entries[1].LocalAddr
-						podRouteStore[routeentry.Prefix].Leaf1.Gw = routeentry.NHGroup.Entries[1].NHIp
+						podRouteStore[routeentry.Prefix].Leaf1.Ipv4 = routeentry.NHGroup.Entries[1].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf1.Gwv4 = routeentry.NHGroup.Entries[1].NHIp
+					}
+
+					if _, exists := v6_info.NHGroup.Entries[1]; exists {
+						podRouteStore[routeentry.Prefix].Leaf1.Ipv6 = v6_info.NHGroup.Entries[1].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf1.Gwv6 = v6_info.NHGroup.Entries[1].NHIp
 					}
 
 					if _, exists := routeentry.NHGroup.Entries[2]; exists {
-						podRouteStore[routeentry.Prefix].Leaf2.Ip = routeentry.NHGroup.Entries[2].LocalAddr
-						podRouteStore[routeentry.Prefix].Leaf2.Gw = routeentry.NHGroup.Entries[2].NHIp
+						podRouteStore[routeentry.Prefix].Leaf2.Ipv4 = routeentry.NHGroup.Entries[2].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf2.Gwv4 = routeentry.NHGroup.Entries[2].NHIp
+					}
+
+					if _, exists := v6_info.NHGroup.Entries[2]; exists {
+						podRouteStore[routeentry.Prefix].Leaf2.Ipv6 = v6_info.NHGroup.Entries[2].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf2.Gwv6 = v6_info.NHGroup.Entries[2].NHIp
 					}
 
 				} else if routeentry.RType == "lmg" {
+
+					v6_info := findv6Info(routearr, routeentry)
+
 					if tng_cnf_workloads[routeentry.CnfName][wlname].LmgPods == nil {
 						tng_cnf_workloads[routeentry.CnfName][wlname].LmgPods = []*TngCnfPodRoutes{}
 					}
 					if _, exists := podRouteStore[routeentry.Prefix]; !exists {
 						newPodRoute := &TngCnfPodRoutes{
-							Systemip: strings.Split(routeentry.Prefix, "/")[0],
-							Leaf1:    &TngCnfPodLeafIPInfo{},
-							Leaf2:    &TngCnfPodLeafIPInfo{},
+							Systemipv4: strings.Split(routeentry.Prefix, "/")[0],
+							Systemipv6: strings.Split(v6_info.Prefix, "/")[0],
+							Leaf1:      &TngCnfPodLeafIPInfo{},
+							Leaf2:      &TngCnfPodLeafIPInfo{},
 						}
 						podRouteStore[routeentry.Prefix] = newPodRoute
 						tng_cnf_workloads[routeentry.CnfName][wlname].LmgPods = append(tng_cnf_workloads[routeentry.CnfName][wlname].LmgPods, newPodRoute)
 					}
 
 					if _, exists := routeentry.NHGroup.Entries[1]; exists {
-						podRouteStore[routeentry.Prefix].Leaf1.Ip = routeentry.NHGroup.Entries[1].LocalAddr
-						podRouteStore[routeentry.Prefix].Leaf1.Gw = routeentry.NHGroup.Entries[1].NHIp
+						podRouteStore[routeentry.Prefix].Leaf1.Ipv4 = routeentry.NHGroup.Entries[1].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf1.Gwv4 = routeentry.NHGroup.Entries[1].NHIp
+					}
+					if _, exists := v6_info.NHGroup.Entries[1]; exists {
+						podRouteStore[routeentry.Prefix].Leaf1.Ipv6 = v6_info.NHGroup.Entries[1].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf1.Gwv6 = v6_info.NHGroup.Entries[1].NHIp
 					}
 
 					if _, exists := routeentry.NHGroup.Entries[2]; exists {
-						podRouteStore[routeentry.Prefix].Leaf2.Ip = routeentry.NHGroup.Entries[2].LocalAddr
-						podRouteStore[routeentry.Prefix].Leaf2.Gw = routeentry.NHGroup.Entries[2].NHIp
+						podRouteStore[routeentry.Prefix].Leaf2.Ipv4 = routeentry.NHGroup.Entries[2].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf2.Gwv4 = routeentry.NHGroup.Entries[2].NHIp
 					}
-
+					if _, exists := v6_info.NHGroup.Entries[2]; exists {
+						podRouteStore[routeentry.Prefix].Leaf2.Ipv6 = v6_info.NHGroup.Entries[2].LocalAddr
+						podRouteStore[routeentry.Prefix].Leaf2.Gwv6 = v6_info.NHGroup.Entries[2].NHIp
+					}
 				}
 			}
 		}
 	}
+}
+
+func findv6Info(routearr []*types.StaticRouteNHG, r *types.StaticRouteNHG) *types.StaticRouteNHG {
+	result := []*types.StaticRouteNHG{}
+	for _, x := range routearr {
+		if r.CnfName == x.CnfName && r.RType == x.RType && r.TargetLeaf == x.TargetLeaf && r.VlanID == x.VlanID && r.INPUT_INDEX == x.INPUT_INDEX && x.IpVersion == "v6" {
+			result = append(result, x)
+		}
+	}
+	if len(result) > 1 {
+		log.Fatal("non unique result!")
+	}
+	return result[0]
 }
 
 func populateTemplate(tng *TngRoot) string {
