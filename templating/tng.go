@@ -270,7 +270,7 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 func processLeafGroupLeafs(tng *TngRoot, p *parser.Parser, cg *types.ClientGroupResults) {
 	for name, leaf := range get_leafs(p) {
 		new_leafgroupleaf := &TngLeafGroupLeaf{
-			BgpAs:               *leaf.AS,
+			BgpAs:               *p.Config.Infrastructure.Protocols.OverlayAs,
 			Id:                  *leaf.MgmtIPv4,
 			IrbName:             "irb0",
 			LoName:              "lo0",
