@@ -367,7 +367,7 @@ peers:
 {{- $networkInfo := index $networkTypes 0 }}
     - ip: {{ $appIPMapInternal.UpfCpIPv4}}
       apn:
-      - name: {{ $appc.Apn}}.mnc{{ $appc.Mnc}}.mcc{{ $appc.Mcc}}.gprs
+      - name: {{$appc.Apn}}
         uepool:
           name: pool1
           ipv4Prefix: {{ $appc.UePoolCidr}}
