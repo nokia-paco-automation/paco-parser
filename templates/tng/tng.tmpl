@@ -1,4 +1,5 @@
 {{- define "TNGRoot" -}}
+fsc_cni: {{.UseVecCni}}
 cnfs:
 {{- template "tngcnfs" .Cnfs }}
 leafgrp:
