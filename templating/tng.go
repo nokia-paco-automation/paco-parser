@@ -16,6 +16,7 @@ import (
 type TngRoot struct {
 	Leafgrp *TngLeafGroup
 	Cnfs    []*TngCnf
+	UseVecCni bool
 }
 
 type TngCnf struct {
@@ -111,6 +112,7 @@ func ProcessTNG(p *parser.Parser, wr *types.WorkloadResults, ir *types.Infrastru
 	tng := &TngRoot{
 		Leafgrp: &TngLeafGroup{},
 		Cnfs:    []*TngCnf{},
+		UseVecCni: p.Config.Infrastructure.UseVecCni,
 	}
 
 	processTNGCnfs(appconfig, ir, wr, tng, p)

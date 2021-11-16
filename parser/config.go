@@ -119,8 +119,8 @@ type ContainerRegistry struct {
 
 // Infrastructure
 type Infrastructure struct {
-	Proxy			 *string				 `yaml:"proxy,omitempty"`
-	NoProxy			 *string				 `yaml:"no_proxy,omitempty"`
+	UseVec			 bool					 `default:"false" yaml:"use_vec"`
+	UseVecCni		 bool					 `default:"false" yaml:"use_vec_cni"`
 	InternetDns      *string                 `yaml:"internet_dns,omitempty"`
 	Protocols        *Protocols              `yaml:"protocols,omitempty"`
 	AddressingSchema *string                 `yaml:"addressing_schema,omitempty"`

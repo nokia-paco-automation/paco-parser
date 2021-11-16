@@ -16,12 +16,8 @@
       loname: {{.LoName}}
       uplink_itfname: {{.UplinkItfname}}
       vxlname: {{.VxlName}}
-      ipvlan_interface_list:
+      access_interface_list:
       {{- range .IpVlanInterfaceList }}
-        - {{ . }}
-      {{- end }}
-      sriov_interface_list:
-      {{- range .SriovInterfaceList }}
         - {{ . }}
       {{- end }}
   {{- end }}
