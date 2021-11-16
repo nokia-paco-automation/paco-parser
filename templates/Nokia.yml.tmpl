@@ -3,10 +3,6 @@
 all:
   vars:
     grub_linux_cmd: "transparent_hugepage=madvise hugepagesz=1G hugepages=20 hugepagesz=2M hugepages=2048 intel_iommu=on"
-    proxy:
-      http_proxy: {{.Config.Infrastructure.Proxy}}
-      https_proxy: {{.Config.Infrastructure.Proxy}}
-      no_proxy: {{.Config.Infrastructure.NoProxy}}
     region: {{.Config.Cluster.Region}}
     anthos_dir: {{.Config.Cluster.AnthosDir}}
     anthos_deployment_type: {{.Config.Cluster.AnthosDeploymentType}}
@@ -19,7 +15,8 @@ all:
     need_update_dist: false
     install_rt_sched: false
     install_net_driver: true
-    create_vlans: false
+    create_vlans: true
+    use_vec: {{.Config.Infrastructure.UseVec}}
     storage:
       nfs_server: 100.112.1.201
       nfs_mount: /nfs
@@ -34,8 +31,8 @@ all:
       sriov: true
       ipvlan: true
     underlay_networks:
-      itfce_cidr: 100.112.3.0/24
-      vlan: 40
+      itfce_cidr: {{(index (index (index (index .Config.Workloads "infrastructure") "servers").Itfces "itfce").Ipv4Cidr 0)}}
+      vlan: {{(index (index (index .Config.Workloads "infrastructure") "servers").Itfces "itfce").VlanID}}
     cni_networks:
       pod_cidr: {{(index (index .Config.Cluster.Networks "pod" ).Ipv4Cidr 0)}}
       svc_cidr: {{(index (index .Config.Cluster.Networks "svc" ).Ipv4Cidr 0)}}
