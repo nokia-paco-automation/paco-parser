@@ -146,10 +146,10 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 
 		if err1 == nil || err2 == nil {
 			infrabgp = &TngIpVrfInfraBgp{
-				Leaf1_local_address: loopresult_leaf1_v4.local_address,
-				Leaf1_peer_address:  loopresult_leaf1_v4.peer_address,
-				Leaf2_local_address: loopresult_leaf2_v4.local_address,
-				Leaf2_peer_address:  loopresult_leaf2_v4.peer_address,
+				Leaf1_local_address: loopresult_leaf1_v4.peer_address,
+				Leaf1_peer_address:  loopresult_leaf1_v4.local_address,
+				Leaf2_local_address: loopresult_leaf2_v4.peer_address,
+				Leaf2_peer_address:  loopresult_leaf2_v4.local_address,
 			}
 		} else {
 			infrabgp = nil
