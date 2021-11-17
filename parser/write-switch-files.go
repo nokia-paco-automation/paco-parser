@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -482,6 +483,18 @@ spec:
 		},
 		"interfaceCounterMapGet": func(key int, counter map[int]int) int{
         	return counter[key]
+		},
+		"pad": func(mnc int) string{
+			count := 0
+			mnc_temp := mnc
+			for mnc_temp != 0 {
+				mnc_temp /= 10
+				count = count + 1
+			}
+			if count == 2{
+				return "0" + strconv.Itoa(mnc)
+			} 
+			return strconv.Itoa(mnc)
 		},
 	}
 )

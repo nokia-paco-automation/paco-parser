@@ -560,7 +560,7 @@ network:
 {{- end }}
 {{- end }}
 apn:
-- name: {{$appc.Apn}}
+- name: {{ $appc.Apn}}.mnc{{pad (derefInt $appc.Mnc)}}.mcc{{ $appc.Mcc}}.gprs
   uepool:
 {{- /* get the uepool from the lmg loopback i group1 */}}
 {{- /* TODO should this not be all groups */}}

@@ -367,7 +367,7 @@ peers:
 {{- $networkInfo := index $networkTypes 0 }}
     - ip: {{ $appIPMapInternal.UpfCpIPv4}}
       apn:
-      - name: {{$appc.Apn}}
+      - name: {{ $appc.Apn}}.mnc{{pad (derefInt $appc.Mnc)}}.mcc{{ $appc.Mcc}}.gprs
         uepool:
           name: pool1
           ipv4Prefix: {{ $appc.UePoolCidr}}
@@ -438,7 +438,7 @@ network:
     - name: pool1
       ipv4Prefix: 100.64.0.0/16
 apn:
-- name: {{$appc.Apn}}
+- name: {{ $appc.Apn}}.mnc{{pad (derefInt $appc.Mnc)}}.mcc{{ $appc.Mcc}}.gprs
   uepool:
   - router: Base
     name: pool1
