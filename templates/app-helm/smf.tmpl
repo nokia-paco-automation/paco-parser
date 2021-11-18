@@ -367,7 +367,7 @@ peers:
 {{- $networkInfo := index $networkTypes 0 }}
     - ip: {{ $appIPMapInternal.UpfCpIPv4}}
       apn:
-      - name: {{ $appc.Apn}}.mnc{{ $appc.Mnc}}.mcc{{ $appc.Mcc}}.gprs
+      - name: {{ $appc.Apn}}.mnc{{pad (derefInt $appc.Mnc)}}.mcc{{ $appc.Mcc}}.gprs
         uepool:
           name: pool1
           ipv4Prefix: {{ $appc.UePoolCidr}}
@@ -383,6 +383,9 @@ peers:
 plmn:
 - mcc: "{{$appc.Mcc}}"
   mnc: "{{$appc.Mnc}}"
+slice:
+- sst: 1
+  sd: abcdef
 uuid: 842887ce-329d-4add-9a1c-e7dd03faa00f
 network:
   autonomousSystem: {{$networkInfo.AS}}
@@ -416,7 +419,8 @@ network:
 {{- $networkInfo := index $networkTypes 0 }}
 {{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
     - name: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
-      prefix: {{ $allocatedIP.IPAddress}}/32
+      prefix: 
+      - {{ $allocatedIP.IPAddress}}/32
 {{- end }}
 {{- end }}
     policyStatement:
@@ -437,7 +441,7 @@ network:
     - name: pool1
       ipv4Prefix: 100.64.0.0/16
 apn:
-- name: {{$appc.Apn}}
+- name: {{ $appc.Apn}}.mnc{{pad (derefInt $appc.Mnc)}}.mcc{{ $appc.Mcc}}.gprs
   uepool:
   - router: Base
     name: pool1

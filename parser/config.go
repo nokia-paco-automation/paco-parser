@@ -96,6 +96,7 @@ type Credentials struct {
 // Cluster
 type Cluster struct {
 	ProjectId     *string                 `yaml:"project_id,omitempty"`
+	AnthosDeploymentType     *string                 `yaml:"anthos_deployment_type,omitempty"`
 	ClusterName   *string                 `yaml:"cluster_name,omitempty"`
 	Networks      map[string]*NetworkInfo `yaml:"networks,omitempty"`
 	Kind          *string                 `yaml:"kind,omitempty"`
@@ -118,6 +119,8 @@ type ContainerRegistry struct {
 
 // Infrastructure
 type Infrastructure struct {
+	UseVec			 bool					 `default:"false" yaml:"use_vec"`
+	UseVecCni		 bool					 `default:"false" yaml:"use_vec_cni"`
 	InternetDns      *string                 `yaml:"internet_dns,omitempty"`
 	Protocols        *Protocols              `yaml:"protocols,omitempty"`
 	AddressingSchema *string                 `yaml:"addressing_schema,omitempty"`

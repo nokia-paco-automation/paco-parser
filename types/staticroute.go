@@ -1,14 +1,15 @@
 package types
 
 type StaticRouteNHG struct {
-	Prefix     string
-	RType      string
-	CnfName    string
-	IpVersion  string // "v4" or "v6"
-	WlName     string
-	VlanID     int
-	TargetLeaf string
-	NHGroup    *NHGroup
+	Prefix      string
+	RType       string
+	CnfName     string
+	IpVersion   string // "v4" or "v6"
+	WlName      string
+	VlanID      int
+	TargetLeaf  string
+	NHGroup     *NHGroup
+	INPUT_INDEX int
 }
 
 type NHGroup struct {

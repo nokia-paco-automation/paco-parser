@@ -419,9 +419,9 @@ peers:
 {{- $networks := index $switchGroups "loopback" }}
 {{- $networkTypes := index $networks "sigLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
-    interface: lmg-sig-loopback-{{$networkInfo.NetworkShortName}}
+    interface: lmg1-sig-loopback-{{$networkInfo.NetworkShortName}}
 {{- /*TODO we need to add all the vrfs of all lmgs */}}
-    router: vprn{{add $networkInfo.VrfUpId $groups}}
+    router: vprn{{add $networkInfo.VrfUpId 1}}
   n3:
 {{- $workloads := index $appc.Networks "3GPP_External"}}
 {{- $groups := index $workloads 1}}
@@ -429,9 +429,9 @@ peers:
 {{- $networks := index $switchGroups "loopback" }}
 {{- $networkTypes := index $networks "sigLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
-    interface: lmg-sig-loopback-{{$networkInfo.NetworkShortName}}
+    interface: lmg1-sig-loopback-{{$networkInfo.NetworkShortName}}
 {{- /*TODO we need to add all the vrfs of all lmgs */}}
-    router: vprn{{add $networkInfo.VrfUpId $groups}}
+    router: vprn{{add $networkInfo.VrfUpId 1}}
 plmn:
 - mcc: "{{$appc.Mcc}}"
   mnc: "{{$appc.Mnc}}"
@@ -471,13 +471,15 @@ network:
 {{- if eq $group 0}}
 {{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
     - name: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
-      prefix: {{ $allocatedIP.IPAddress}}/32
+      prefix: 
+      - {{ $allocatedIP.IPAddress}}/32
 {{- end }}
 {{- /* for the lmg groups */}}
 {{- else }}
 {{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
     - name: lmg{{$group}}-sig-loopback-{{$networkInfo.NetworkShortName}}
-      prefix: {{ $allocatedIP.IPAddress}}/32
+      prefix: 
+      - {{ $allocatedIP.IPAddress}}/32
 {{- end }}
 {{- end }}
 
@@ -502,7 +504,7 @@ network:
 {{- end }}
     community:
 {{- /* one community per lmg and one community for bgp but TBD if we need this one*/}}
-{{- range $wlName, $networkGroups := $appc.Networks}}
+{{- range $wlName, $workloads := $appc.Networks}}
 {{- range $group, $groups := $workloads}}
 {{- $switchGroups := index $groups 0 }}
 {{- $networks := index $switchGroups "loopback" }}
@@ -531,7 +533,7 @@ network:
       entryList:
       - id: 10
         from:
-          communityExpression: "[{{ rtCommExpr $networkInfo.VrfUpId $lmgs $networkInfo.NetworkShortName }}]"
+          communityExpression: "{{ rtCommExpr $networkInfo.VrfUpId $lmgs $networkInfo.NetworkShortName }}"
 {{- /*export expression exports the signalling loopbacks from all groups*/}}
     - name: export-vprn{{$networkInfo.VrfCpId}}-bgp-{{$networkInfo.NetworkShortName}}
       entryList:
@@ -558,7 +560,7 @@ network:
 {{- end }}
 {{- end }}
 apn:
-- name: {{$appc.Apn}}
+- name: {{ $appc.Apn}}.mnc{{pad (derefInt $appc.Mnc)}}.mcc{{ $appc.Mcc}}.gprs
   uepool:
 {{- /* get the uepool from the lmg loopback i group1 */}}
 {{- /* TODO should this not be all groups */}}
@@ -568,7 +570,7 @@ apn:
 {{- $networks := index $switchGroups "loopback" }}
 {{- $networkTypes := index $networks "lmgLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
-  - router: vprn{{add $networkInfo.VrfUpId $groups}}
+  - router: vprn{{add $networkInfo.VrfUpId 1}}
     name: pool1
 uepool:
 {{- /* get the uepool from the lmg loopback i group1 */}}
@@ -579,7 +581,7 @@ uepool:
 {{- $networks := index $switchGroups "loopback" }}
 {{- $networkTypes := index $networks "lmgLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
-- router: vprn{{add $networkInfo.VrfUpId $groups}}
+- router: vprn{{add $networkInfo.VrfUpId 1}}
   name: pool1
   ipv4Prefix: 
 cnfName: upf
@@ -789,7 +791,7 @@ vprn:
   - name: lmg{{$group}}-{{$networkInfo.InterfaceName }}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
     ip: {{ $allocatedIP.IPAddress}}
     subnet: {{$networkInfo.Ipv4PrefixLength}}
-    sap: {{$group}}/1/{{interfaceCounterMapGet $group $interfaceMapLmg }}
+    sap: {{$group}}/3/{{interfaceCounterMapGet $group $interfaceMapLmg }}
     bfd: true
 {{- end}}
 {{- end}}
@@ -802,7 +804,7 @@ vprn:
   - name: lmg{{$group}}-{{$networkInfo.InterfaceName }}-{{$networkInfo.Target }}-{{$networkInfo.NetworkShortName}}
     ip: {{ $allocatedIP.IPAddress}}
     subnet: {{$networkInfo.Ipv4PrefixLength}}
-    sap: {{$group }}/1/{{$networkInfo.SwitchIndex}}
+    sap: {{$group }}/3/{{$networkInfo.SwitchIndex}}
     vlan: {{$networkInfo.VlanID}}
     bfd: true
 {{- end}}

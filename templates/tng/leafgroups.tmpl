@@ -1,6 +1,12 @@
 {{ define "tngleafgroups" }}
   name: {{.Name}}
   spine_as: {{.SpineAs}}
+  bgp_loop:
+    infra_ipvrf: {{.Loop.Infra_ipvrf}}
+    infra_itf: {{.Loop.Infra_itf}}
+    k8s_infra_as: {{.Loop.K8s_infra_as}}
+    paco_itf: {{.Loop.Paco_itf}}
+    paco_overlay_as: {{.Loop.Paco_overlay_as}}
   leafs:
   {{- range .Leafs }}
     - name: {{.Name}}
@@ -8,36 +14,51 @@
       id: {{.Id}}
       irbname: {{.IrbName}}
       loname: {{.LoName}}
-      uplink_lagname: {{.UplinkLagName}}
+      uplink_itfname: {{.UplinkItfname}}
       vxlname: {{.VxlName}}
+      access_interface_list:
+      {{- range .IpVlanInterfaceList }}
+        - {{ . }}
+      {{- end }}
   {{- end }}
   ipvrfs:
   {{- range .IpVrfs}}
     - name: {{.Name}}
       standardname: {{.StandardName}}
-      loopback_cidrv4: {{.LoopbackCIDRv4}}
-      loopback_cidrv6: {{.LoopbackCIDRv6}}
+      leaf1routerid: {{.Leaf1routerid}}
+      leaf2routerid: {{.Leaf2routerid}}
+      {{- if .InfraBgp }}
+      k8s_infra_bgp: 
+        leaf1_local_address: {{.InfraBgp.Leaf1_local_address}}
+        leaf1_peer_address: {{.InfraBgp.Leaf1_peer_address}}
+        leaf2_local_address: {{.InfraBgp.Leaf2_local_address}}
+        leaf2_peer_address: {{.InfraBgp.Leaf2_peer_address}}
+      {{- end }}
       vxlanvni: {{.VxlanVni}}
       spine_uplink:
-        subnetv4: {{.SpineUplink.Subnetv4}}
-        subnetv6: {{.SpineUplink.Subnetv6}}
+        leaf1_local_address: {{.SpineUplink.Leaf1_local_address}}
+        leaf1_uplink_peers:
+        {{- range .SpineUplink.Leaf1_uplink_peers}}
+          - {{ . }}
+        {{- end }}
+        leaf2_local_address: {{.SpineUplink.Leaf2_local_address}}
+        leaf2_uplink_peers:
+        {{- range .SpineUplink.Leaf2_uplink_peers}}
+          - {{ . }}
+        {{- end }}
         vlan: {{.SpineUplink.Vlan}}
       subnets:
         {{- range .Subnets }}
-        - cidrv4: 
-          {{- range .Cidrv4 }}
-            - {{ . }}
-          {{- end}}
-          cidrv6: 
-          {{- range .Cidrv6 }}
-            - {{ . }}
-          {{- end}}
-          name: {{.Name }}
+        - name: {{.Name }}
           {{- if ne .Target "" }}
           target: {{.Target}}
           {{- end }}
           type: {{.Type}}
           vlan: {{.Vlan}}
+          gateways: 
+          {{- range .Gatewaysv4 }}
+            - {{ . }}
+          {{- end}}
         {{- end -}}
   {{- end -}}
 {{- end -}}

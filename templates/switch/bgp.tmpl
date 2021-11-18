@@ -4,6 +4,10 @@
     "admin-state": "enable",
     "autonomous-system": {{.AS}},
     "router-id": "{{.RouterID}}",
+    "preference": {
+        "ebgp": 100,
+        "ibgp": 170
+    },
     "ebgp-default-policy": {
       "import-reject-all": false,
       "export-reject-all": false

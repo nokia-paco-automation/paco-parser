@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -452,9 +453,9 @@ spec:
 		},
 		"rtCommExpr": func(vrfUpId, lmgs int, wlShortname string) string {
 			// if we come here there should be at least 1 element
-			rtCommExpr := fmt.Sprintf("rt-lmg%d-%d-%s", 1, vrfUpId+1, wlShortname)
+			rtCommExpr := fmt.Sprintf("[rt-lmg%d-%d-%s]", 1, vrfUpId+1, wlShortname)
 			for i := 2; i <= lmgs; i++ {
-				rtCommExpr += fmt.Sprintf(" OR rt-lmg%d-%d-%s", i, vrfUpId+i, wlShortname)
+				rtCommExpr += fmt.Sprintf(" OR [rt-lmg%d-%d-%s]", i, vrfUpId+i, wlShortname)
 			}
 			return rtCommExpr
 		},
@@ -482,6 +483,18 @@ spec:
 		},
 		"interfaceCounterMapGet": func(key int, counter map[int]int) int{
         	return counter[key]
+		},
+		"pad": func(mnc int) string{
+			count := 0
+			mnc_temp := mnc
+			for mnc_temp != 0 {
+				mnc_temp /= 10
+				count = count + 1
+			}
+			if count == 2{
+				return "0" + strconv.Itoa(mnc)
+			} 
+			return strconv.Itoa(mnc)
 		},
 	}
 )
