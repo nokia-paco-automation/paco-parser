@@ -123,8 +123,10 @@ appnetwindexes:
     switch:
       gw: 1
     smf:
+      int: 160
       llb: 2
     upf:
+      int: 170
       llb: 3
       # allocates from 4..19 in a ntok model
       # for ntok only 1 subnet is used, for 1to1 2 subnets are used
@@ -186,6 +188,7 @@ application:
         sst2: {value: 2, diff: [sd3: AAAAAA]}
     cnfs: 
       upf:
+        host_device: bond0
         deployment: ntok
         k: 1
         enabled: true
@@ -194,6 +197,7 @@ application:
           as: 65003
           # we assume the internal is always present since we take system IP from there
           multus: 
+            oam: {wl-name: multus-mgmt, type: ipvlan}
             3GPP_Internal: {wl-name: multus-internal, type: sriov}
             3GPP_External: {wl-name: multus-external, type: sriov}
             3GPP_Internet: {wl-name: multus-internet, type: sriov}
@@ -205,6 +209,7 @@ application:
           logging: {tag: B-12.0.R5-1, cpu: 1, memory: 1Gi, enabled: true}
           awsSideCar: {tag: B-12.0.R5-1, cpu: 100m, memory: 100Mi, enabled: false}
       smf:
+        host_device: bond0
         enabled: true
         namespace: smf
         networking: 
@@ -221,6 +226,7 @@ application:
           logging: {tag: B-12.0.R5-1, cpu: 1, memory: 1Gi, enabled: true}
           awsSideCar: {tag: B-12.0.R5-1, cpu: 100m, memory: 100Mi, enabled: false}
       amf:
+        host_device: bond0
         enabled: true
         namespace: amf
         storage_class: manual
