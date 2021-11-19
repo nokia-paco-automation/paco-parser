@@ -75,7 +75,6 @@ type CnfInfo struct {
 }
 
 type PacoNetworkInfo struct {
-	Type   *string                `yaml:"type,omitempty"`
 	AS     *uint32                `yaml:"as,omitempty"`
 	Multus map[string]*MultusInfo `yaml:"multus,omitempty"`
 }
@@ -84,6 +83,7 @@ type MultusInfo struct {
 	WorkloadName *string `yaml:"wl-name,omitempty"`
 	VrfCpId      *int    `yaml:"vrfcp-id,omitempty"`
 	VrfUpId      *int    `yaml:"vrfup-id,omitempty"`
+	Type   *string                `yaml:"type,omitempty"`
 }
 
 // Credentials

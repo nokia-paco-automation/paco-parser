@@ -1082,9 +1082,9 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 	// initialize networks
 	a.Networks = make(map[string]map[int]map[int]map[string]map[string][]*RenderedNetworkInfo)
 	// sriov or ipvlan
-	connType := cnfInfo.Networking.Type
-	log.Debugf("ConnectionType: %s", *connType)
-	a.ConnType = connType
+	//connType := cnfInfo.Networking.Type
+	//log.Debugf("ConnectionType: %s", *connType)
+	//a.ConnType = connType
 
 	// initialize client links
 	a.UniqueClientServer2NetworkLinks = make(map[string]map[string]map[int]map[string][]*string)
@@ -1104,6 +1104,10 @@ func (a *AppConfig) InitializeCnfNetworkData(cnfName string, cnfInfo *CnfInfo, p
 	// check all networks that are relevant for the app
 	for multusGenericWlName, multusInfo := range cnfInfo.Networking.Multus {
 		// loop over all networks in the workloads
+
+		connType := multusInfo.Type
+		log.Debugf("ConnectionType: %s", *connType)
+		a.ConnType = connType
 
 		a.UpdateWorkloadShortNames(StringPtr(multusGenericWlName))
 
