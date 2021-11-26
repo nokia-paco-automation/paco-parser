@@ -134,8 +134,8 @@ multus:
       loamB: {{ (index $networkInfo.Ipv4Addresses 3).IPAddress }}
       active: {{ (index $networkInfo.Ipv4Addresses 0).IPAddress }}
       standby: {{ (index $networkInfo.Ipv4Addresses 1).IPAddress }}
-    netMask: {{ $networkInfo.Ipv4Cidr}}
-    subnet: {{ $networkInfo.Ipv4Cidr}}
+    netMask: {{ (split  "/" $networkInfo.Ipv4Cidr)._1}}
+    subnet: {{ (split  "/" $networkInfo.Ipv4Cidr)._0}}
     gw: {{ $networkInfo.Ipv4Gw}}
     hostInterface: {{$hostdevice}}.{{$networkInfo.VlanID}}
     cniVersion: 0.3.1

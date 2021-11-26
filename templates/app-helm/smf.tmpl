@@ -18,6 +18,7 @@
 {{- $lenLlb := $appc.Llbs}}
 {{- $appcontype := deref $appc.ConnType}}
 {{- $interfaceMap := interfaceCounterMap }}
+{{- $hostdevice := .HostDevice}}
 service:
   loamA:
     console:
@@ -115,16 +116,23 @@ livenessProbe:
 readinessProbe:
   lmgEnable: 0
 multus:
+{{- /* process interface IPs on NECC/OAM workload in ipvlan start */}}
+{{- $workloads := index $appc.Networks "oam"}}
+{{- $groups := index $workloads 0}}
+{{- $switchGroups := index $groups 0 }}
+{{- $networks := index $switchGroups "itfce" }}
+{{- $networkTypes := index $networks "intIP" }}
+{{- $networkInfo := index $networkTypes 0 }}
   loam:
     ip:
-      loamA: 10.1.11.42
-      loamB: 10.1.11.43
-      active: 10.1.11.40
-      standby: 10.1.11.41
-    netMask: 24
-    subnet: 10.1.11.0
-    gw: 10.1.11.1
-    hostInterface: bond0.101
+      loamA: {{ (index $networkInfo.Ipv4Addresses 2).IPAddress }}
+      loamB: {{ (index $networkInfo.Ipv4Addresses 3).IPAddress }}
+      active: {{ (index $networkInfo.Ipv4Addresses 0).IPAddress }}
+      standby: {{ (index $networkInfo.Ipv4Addresses 1).IPAddress }}
+    netMask: {{ (split  "/" $networkInfo.Ipv4Cidr)._1}}
+    subnet: {{ (split  "/" $networkInfo.Ipv4Cidr)._0}}
+    gw: {{ $networkInfo.Ipv4Gw}}
+    hostInterface: {{$hostdevice}}.{{$networkInfo.VlanID}}
     cniVersion: 0.3.1
   lmg:
     numDevices: 0
