@@ -215,7 +215,8 @@ application:
         networking: 
           as: 65002
           # we assume the internal is always present since we take system IP from there
-          multus: 
+          multus:
+            oam: {wl-name: multus-mgmt, type: ipvlan}
             3GPP_Internal: {wl-name: multus-internal, type: sriov}
             3GPP_SBA: {wl-name: multus-sba, type: sriov}
         pods:
