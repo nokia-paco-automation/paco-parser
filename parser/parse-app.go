@@ -431,6 +431,10 @@ func (p *Parser) ParseApplicationData() map[string]*AppConfig {
 				//p.ParseCnfKustomize(StringPtr(cnfName), pacoAppConf[cnfName], appIPMap)
 			}
 
+			p.WriteNrdValues(t, &dirName, p.Config.Application["paco"].NonMultusCnfs.Nrd)
+			p.WriteCdbSmfValues(t, &dirName, p.Config.Application["paco"].NonMultusCnfs.CdbSmf)
+			p.WriteCdbUpfValues(t, &dirName, p.Config.Application["paco"].NonMultusCnfs.CdbUpf)
+
 		}
 	}
 	return pacoAppConf

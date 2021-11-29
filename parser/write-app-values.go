@@ -53,3 +53,66 @@ func (p *Parser) WriteCnfValues(t *template.Template, dirName, cnfName *string, 
 	file.Close()
 	return nil
 }
+
+func (p *Parser) WriteNrdValues(t *template.Template, dirName *string, n *NrdCnfInfo) error {
+
+	fileName := "nrd_values.yaml"
+	file, err := os.Create(filepath.Join(*dirName, filepath.Base(fileName)))
+	if err != nil {
+		return err
+	}
+
+	s := struct {
+		NrdInfo *NrdCnfInfo
+	}{
+		NrdInfo: n,
+	}
+
+	if err := t.ExecuteTemplate(file, "nrd.tmpl", s); err != nil {
+		log.Error(err)
+	}
+	file.Close()
+	return nil
+}
+
+func (p *Parser) WriteCdbSmfValues(t *template.Template, dirName *string, d *CdbSmfCnfInfo) error {
+
+	fileName := "cdbsmf_values.yaml"
+	file, err := os.Create(filepath.Join(*dirName, filepath.Base(fileName)))
+	if err != nil {
+		return err
+	}
+
+	s := struct {
+		CdbSmfInfo *CdbSmfCnfInfo
+	}{
+		CdbSmfInfo: d,
+	}
+
+	if err := t.ExecuteTemplate(file, "cdbsmf.tmpl", s); err != nil {
+		log.Error(err)
+	}
+	file.Close()
+	return nil
+}
+
+func (p *Parser) WriteCdbUpfValues(t *template.Template, dirName *string, d *CdbUpfCnfInfo) error {
+
+	fileName := "cdbupf_values.yaml"
+	file, err := os.Create(filepath.Join(*dirName, filepath.Base(fileName)))
+	if err != nil {
+		return err
+	}
+
+	s := struct {
+		CdbUpfInfo *CdbUpfCnfInfo
+	}{
+		CdbUpfInfo: d,
+	}
+
+	if err := t.ExecuteTemplate(file, "cdbupf.tmpl", s); err != nil {
+		log.Error(err)
+	}
+	file.Close()
+	return nil
+}
