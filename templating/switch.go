@@ -570,7 +570,23 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 			continue
 		}
 
-		vlanid := *wl["dcgw-grp1"].Itfces["itfce"].VlanID
+		var vlanid int
+		if _, ok := wl["dcgw-grp1"].Itfces["itfce"]; ok {
+			vlanid = *wl["dcgw-grp1"].Itfces["itfce"].VlanID
+		}
+		if _, ok := wl["dcgw-grp1"].Itfces["itfce1"]; ok {
+			vlanid = *wl["dcgw-grp1"].Itfces["itfce1"].VlanID
+		}
+		if _, ok := wl["dcgw-grp1"].Itfces["itfce2"]; ok {
+			vlanid = *wl["dcgw-grp1"].Itfces["itfce2"].VlanID
+		}
+		if _, ok := wl["dcgw-grp1"].Itfces["itfce3"]; ok {
+			vlanid = *wl["dcgw-grp1"].Itfces["itfce3"].VlanID
+		}
+		if _, ok := wl["dcgw-grp1"].Itfces["itfce4"]; ok {
+			vlanid = *wl["dcgw-grp1"].Itfces["itfce4"].VlanID
+		}
+		
 		niName := wlname + "-ipvrf-itfce-" + strconv.Itoa(vlanid)
 
 		for _, nodename := range filterNodesContainingNI(niName, templatenodes) {

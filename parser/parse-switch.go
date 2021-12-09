@@ -631,34 +631,40 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 								for _, itfce := range itfces {
 									// exclude the interfaces with member link since they will be covered as a lag
 									if !*itfce.Endpoint.LagMemberLink {
-										// allocate an IP from IPAM
-										// find the iplink
-										var link *Link
-										var foundA, foundB bool
 										var ipv4prefix, ipv6prefix string
-										for _, l := range p.Links {
-											if l.A != nil && l.A == itfce.Endpoint {
-												link = l
-												foundA = true
-												break
+										if strings.Contains(nwtype, "itfce") && strings.ReplaceAll(nwtype, "itfce", "") != "" {
+											ipv4prefix = *netwInfo.Ipv4Cidr[0]
+											ipv6prefix = *netwInfo.Ipv6Cidr[0]
+
+											if *itfce.Endpoint.Node.ShortName != *netwInfo.Target {
+												continue
 											}
-											if l.B != nil && l.B == itfce.Endpoint {
-												link = l
-												foundB = true
-												break
+											//ipv4Cidr = netwInfo.Ipv4Cidr[0]
+											//ipv6Cidr = netwInfo.Ipv6Cidr[0]
+										} else {
+											// allocate an IP from IPAM
+											// find the iplink
+											var link *Link
+											var foundA, foundB bool
+
+											for _, l := range p.Links {
+												if l.A != nil && l.A == itfce.Endpoint {
+													link = l
+													foundA = true
+													break
+												}
+												if l.B != nil && l.B == itfce.Endpoint {
+													link = l
+													foundB = true
+													break
+												}
 											}
-										}
-										if foundA || foundB {
-											log.Debugf("Link Found")
-											ipamName := wlName + cgName + strconv.Itoa(*netwInfo.VlanID)
-											var ipv4Cidr *string
-											var ipv6Cidr *string
-											if strings.Contains(nwtype, "itfce") && strings.ReplaceAll(nwtype, "itfce", "") != "" {
-												ipv4prefix = *netwInfo.Ipv4Cidr[0]
-												ipv6prefix = *netwInfo.Ipv6Cidr[0]
-												//ipv4Cidr = netwInfo.Ipv4Cidr[0]
-												//ipv6Cidr = netwInfo.Ipv6Cidr[0]
-											} else {
+											if foundA || foundB {
+												log.Debugf("Link Found")
+												ipamName := wlName + cgName + strconv.Itoa(*netwInfo.VlanID)
+												var ipv4Cidr *string
+												var ipv6Cidr *string
+
 												for i := 0; i < len(netwInfo.Ipv4Cidr); i++ {
 													ipv4Cidr = netwInfo.Ipv4Cidr[i]
 													ipv6Cidr = netwInfo.Ipv6Cidr[i]
@@ -676,10 +682,10 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 														log.Debugf("IP Address: %s %s %s", *link.B.IPv4Prefix, *link.B.RealName, *link.A.RealName)
 													}
 												}
-											}
 
-										} else {
-											log.Fatalf("Link Not found")
+											} else {
+												log.Fatalf("Link Not found")
+											}
 										}
 
 										//avoids using the srl long interface name with the ethernet-1/50
@@ -689,7 +695,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 										} else {
 											newName = *itfce.Endpoint.ShortName
 										}
-										log.Debugf("Interface name: %s", newName)
+										log.Debugf("Interface name: %s Node name %s", newName, *itfce.Endpoint.Node.ShortName)
 										// check if clientSubInterfaces[nodeName][newName] was already initialized if not initialize it
 										if _, ok := clientSubInterfaces[nodeName][newName]; !ok {
 											clientSubInterfaces[nodeName][newName] = make([]*types.K8ssrlsubinterface, 0)

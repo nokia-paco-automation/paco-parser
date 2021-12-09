@@ -51,7 +51,7 @@ workloads:
     dcgw-grp1:
       itfces:
         itfce1: {vlan_id: 10, kind: routed, ipv4_cidr: [100.112.10.1/31], ipv6_cidr: [2a02:1800:80:7050::1/64], peer_as: 100, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack", target: "leaf1"}
-        itfce2: {vlan_id: 11, kind: routed, ipv4_cidr: [100.113.10.3/31], ipv6_cidr: [2a02:1803:80:7051::1/64], peer_as: 101, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack", target: "leaf2"}
+        itfce2: {vlan_id: 11, kind: routed, ipv4_cidr: [100.112.10.3/31], ipv6_cidr: [2a02:1803:80:7051::1/64], peer_as: 101, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack", target: "leaf2"}
   # multus-enterprise:
   #   servers:
   #     itfces:
@@ -324,5 +324,5 @@ topology:
     # dcgw connectivity
     - endpoints: ["leaf1:e1-50", "dcgw1:eth1"]
       labels: {"kind": "dcgw", "speed": "40G"}
-    - endpoints: ["leaf2:e1-50", "dcgw2:eth1"]
+    - endpoints: ["leaf2:e1-51", "dcgw2:eth1"]
       labels: {"kind": "dcgw", "speed": "40G"}
