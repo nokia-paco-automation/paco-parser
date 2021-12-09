@@ -497,7 +497,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 				// used for vxlan write operation, so that we can send it to all devices in the group at once
 				targetGroup = *p.ClientGroups[cgName].TargetGroup
 				switch nwtype := netwType; {
-				case nwtype == "itfce", nwtype == "ipvlan":
+				case strings.Contains(nwtype, "itfce"), nwtype == "ipvlan":
 					switch *netwInfo.Kind {
 					case "bridged":
 
@@ -653,23 +653,31 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 											ipamName := wlName + cgName + strconv.Itoa(*netwInfo.VlanID)
 											var ipv4Cidr *string
 											var ipv6Cidr *string
-											for i := 0; i < len(netwInfo.Ipv4Cidr); i++ {
-												ipv4Cidr = netwInfo.Ipv4Cidr[i]
-												ipv6Cidr = netwInfo.Ipv6Cidr[i]
-												if err := p.IPAM[ipamName].IPAMAllocateLinkPrefix(link, ipv4Cidr, ipv6Cidr); err != nil {
-													log.Error(err)
-												}
-												if foundA {
-													ipv4prefix = *link.A.IPv4Prefix
-													ipv6prefix = *link.A.IPv6Prefix
-													log.Debugf("IP Address: %s %s %s", *link.A.IPv4Prefix, *link.A.RealName, *link.B.RealName)
-												}
-												if foundB {
-													ipv4prefix = *link.A.IPv4Prefix
-													ipv6prefix = *link.A.IPv6Prefix
-													log.Debugf("IP Address: %s %s %s", *link.B.IPv4Prefix, *link.B.RealName, *link.A.RealName)
+											if strings.Contains(nwtype, "itfce") && strings.ReplaceAll(nwtype, "itfce", "") != "" {
+												ipv4prefix = *netwInfo.Ipv4Cidr[0]
+												ipv6prefix = *netwInfo.Ipv6Cidr[0]
+												//ipv4Cidr = netwInfo.Ipv4Cidr[0]
+												//ipv6Cidr = netwInfo.Ipv6Cidr[0]
+											} else {
+												for i := 0; i < len(netwInfo.Ipv4Cidr); i++ {
+													ipv4Cidr = netwInfo.Ipv4Cidr[i]
+													ipv6Cidr = netwInfo.Ipv6Cidr[i]
+													if err := p.IPAM[ipamName].IPAMAllocateLinkPrefix(link, ipv4Cidr, ipv6Cidr); err != nil {
+														log.Error(err)
+													}
+													if foundA {
+														ipv4prefix = *link.A.IPv4Prefix
+														ipv6prefix = *link.A.IPv6Prefix
+														log.Debugf("IP Address: %s %s %s", *link.A.IPv4Prefix, *link.A.RealName, *link.B.RealName)
+													}
+													if foundB {
+														ipv4prefix = *link.A.IPv4Prefix
+														ipv6prefix = *link.A.IPv6Prefix
+														log.Debugf("IP Address: %s %s %s", *link.B.IPv4Prefix, *link.B.RealName, *link.A.RealName)
+													}
 												}
 											}
+
 										} else {
 											log.Fatalf("Link Not found")
 										}

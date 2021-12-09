@@ -941,6 +941,7 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 	var infraVID int
 
 	// determine name of Infrastructure NI
+	/*
 	for wlname, workload := range p.Config.Workloads {
 		if strings.Contains(strings.ToLower(wlname), "infrastru") {
 			infraNIName = wlname
@@ -948,6 +949,7 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 			break
 		}
 	}
+	*/
 
 	for wlname, workload := range p.Config.Workloads {
 		_ = workload

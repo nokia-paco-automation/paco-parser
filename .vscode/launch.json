@@ -25,7 +25,7 @@
         "mode": "debug",
         "program": "${workspaceFolder}",
         "args": [
-        "-d","-c","conf/prod-input.yaml","-o","./out/","parse"
+        "-d","-c","conf/test.yaml","-o","./out/","parse"
         ],
         }
         ]

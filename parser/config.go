@@ -864,7 +864,8 @@ func (p *Parser) ParseClientGroup() (err error) {
 
 	// check which client groups are connected
 	// cls is a list with all the client groups in the system
-	for _, clients := range p.Config.Workloads {
+	for wlName, clients := range p.Config.Workloads {
+		fmt.Printf("WorkloadName: %s\n", wlName)
 		for cgName := range clients {
 			if _, ok := p.ClientGroups[cgName]; !ok {
 				p.ClientGroups[cgName] = &ClientGroup{
