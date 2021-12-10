@@ -14,8 +14,8 @@ import (
 )
 
 type TngRoot struct {
-	Leafgrp *TngLeafGroup
-	Cnfs    []*TngCnf
+	Leafgrp   *TngLeafGroup
+	Cnfs      []*TngCnf
 	UseVecCni bool
 }
 
@@ -110,8 +110,8 @@ type TngLeafGroupLeaf struct {
 
 func ProcessTNG(p *parser.Parser, wr *types.WorkloadResults, ir *types.InfrastructureResult, cg *types.ClientGroupResults, appconfig map[string]*parser.AppConfig, looptngresult *SwitchGoTNGResult) string {
 	tng := &TngRoot{
-		Leafgrp: &TngLeafGroup{},
-		Cnfs:    []*TngCnf{},
+		Leafgrp:   &TngLeafGroup{},
+		Cnfs:      []*TngCnf{},
 		UseVecCni: p.Config.Infrastructure.UseVecCni,
 	}
 
@@ -241,7 +241,13 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 		tngVrf.SpineUplink.Vlan = *wl["dcgw-grp1"].Itfces["itfce"].VlanID
 
 		tng.Leafgrp.IpVrfs = append(tng.Leafgrp.IpVrfs, tngVrf)
-		tng.Leafgrp.SpineAs = *p.Config.Workloads["infrastructure"]["dcgw-grp1"].Itfces["itfce"].PeerAS
+
+		for _, x := range p.Config.Workloads["infrastructure"]["dcgw-grp1"].Itfces {
+			tng.Leafgrp.SpineAs = *x.PeerAS
+			break
+		}
+
+		// tng.Leafgrp.SpineAs = *p.Config.Workloads["infrastructure"]["dcgw-grp1"].Itfces["itfce"].PeerAS
 		tng.Leafgrp.Name = "leaf-grp1"
 		tng.Leafgrp.Loop = &TngLeafGroupLoop{}
 
@@ -250,7 +256,10 @@ func processTNGLeafGroups(p *parser.Parser, tng *TngRoot, wr *types.WorkloadResu
 		for wlname, workload := range p.Config.Workloads {
 			if strings.Contains(strings.ToLower(wlname), "infrastru") {
 				infraNIName = wlname
-				infraVID = *workload["dcgw-grp1"].Itfces["itfce"].VlanID
+				for _, x := range workload["dcgw-grp1"].Itfces {
+					infraVID = *x.VlanID
+					break
+				}
 				break
 			}
 		}

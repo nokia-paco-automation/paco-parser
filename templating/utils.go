@@ -27,7 +27,7 @@ func findNetworkInstanceOfIrb(networkinstances map[string]map[int]*types.K8ssrlN
 	for nodename, networkinstances := range networkinstances {
 		for _, ni := range networkinstances {
 			for _, subif := range ni.SubInterfaces {
-				if subif.InterfaceRealName == irbif.InterfaceRealName && subif.VlanID == irbif.VlanID && ni.Kind == "ip-vrf"{
+				if subif.InterfaceRealName == irbif.InterfaceRealName && subif.VlanID == irbif.VlanID && ni.Kind == "ip-vrf" {
 					return &NetworkInstanceLookupResult{
 						nodename:        nodename,
 						networkInstance: ni,

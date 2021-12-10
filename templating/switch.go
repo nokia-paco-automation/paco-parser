@@ -586,7 +586,7 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 		if _, ok := wl["dcgw-grp1"].Itfces["itfce4"]; ok {
 			vlanid = *wl["dcgw-grp1"].Itfces["itfce4"].VlanID
 		}
-		
+
 		niName := wlname + "-ipvrf-itfce-" + strconv.Itoa(vlanid)
 
 		for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
@@ -665,8 +665,10 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 func searchLocalASInConfig(config *parser.Config, vlanid int) uint32 {
 	for _, wl := range config.Workloads {
 		if dcgwgrp, ok := wl["dcgw-grp1"]; ok {
-			if *dcgwgrp.Itfces["itfce"].VlanID == vlanid {
-				return *dcgwgrp.Itfces["itfce"].PeerAS
+			for _, x := range dcgwgrp.Itfces {
+				if *x.VlanID == vlanid {
+					return *x.PeerAS
+				}
 			}
 		}
 	}
@@ -958,13 +960,13 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 
 	// determine name of Infrastructure NI
 	/*
-	for wlname, workload := range p.Config.Workloads {
-		if strings.Contains(strings.ToLower(wlname), "infrastru") {
-			infraNIName = wlname
-			infraVID = *workload["dcgw-grp1"].Itfces["itfce"].VlanID
-			break
+		for wlname, workload := range p.Config.Workloads {
+			if strings.Contains(strings.ToLower(wlname), "infrastru") {
+				infraNIName = wlname
+				infraVID = *workload["dcgw-grp1"].Itfces["itfce"].VlanID
+				break
+			}
 		}
-	}
 	*/
 
 	for wlname, workload := range p.Config.Workloads {
