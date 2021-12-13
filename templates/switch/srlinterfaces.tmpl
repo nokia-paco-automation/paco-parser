@@ -8,8 +8,7 @@
         "vlan-tagging": {{.VlanTagging}},
       {{- end}}
       "ethernet": {
-        {{- if or (ne .PortSpeed "") (ne .Lag true) }}
-          "port-speed": "{{.PortSpeed}}"
+        {{- if and (ne .PortSpeed "") (ne .Lag true) }}
           {{- if eq .LagMember true }},{{- end}}
         {{end}}
         {{- if eq .LagMember true }}
