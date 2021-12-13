@@ -6,6 +6,7 @@ import (
 	"net"
 	"text/template"
 
+	"github.com/nokia-paco-automation/paco-parser/parser"
 	"github.com/nokia-paco-automation/paco-parser/types"
 )
 
@@ -118,7 +119,9 @@ func findNetworkInstanceOfSRLInterface(networkinstances map[string]map[int]*type
 }
 
 func GeneralTemplateProcessing(templateFile string, templateName string, data interface{}) string {
-	t := template.Must(template.ParseFiles(templateFile))
+	p := template.New(templateName)
+	p.Funcs(parser.TemplateHelperFunctions)
+	t := template.Must(p.ParseFiles(templateFile))
 	buf := new(bytes.Buffer)
 	err := t.ExecuteTemplate(buf, templateName, data)
 	if err != nil {

@@ -414,9 +414,9 @@ spec:
 		"srlRoutingPolicy":          makek8sTemplate("srlRoutingPolicy", goK8sSrlRoutingPoliciesTemplate),
 	}
 
-	// templateHelperFunctions specifies a set of functions that are supplied as
+	// TemplateHelperFunctions specifies a set of functions that are supplied as
 	// helpers to the templates that are used within this file.
-	templateHelperFunctions = template.FuncMap{
+	TemplateHelperFunctions = template.FuncMap{
 		// inc provides a means to add 1 to a number, and is used within templates
 		// to check whether the index of an element within a loop is the last one,
 		// such that special handling can be provided for it (e.g., not following
@@ -472,29 +472,32 @@ spec:
 			return false
 		},
 		"interfaceCounterMap": func() map[int]int {
-           return map[int]int{}
+			return map[int]int{}
 		},
-		"interfaceCounterMapIncrement": func(key int, counter map[int]int) string{
-			if _,exists := counter[key]; !exists {
-        	    counter[key] = 0
+		"interfaceCounterMapIncrement": func(key int, counter map[int]int) string {
+			if _, exists := counter[key]; !exists {
+				counter[key] = 0
 			}
 			counter[key] = counter[key] + 1
 			return ""
 		},
-		"interfaceCounterMapGet": func(key int, counter map[int]int) int{
-        	return counter[key]
+		"interfaceCounterMapGet": func(key int, counter map[int]int) int {
+			return counter[key]
 		},
-		"pad": func(mnc int) string{
+		"pad": func(mnc int) string {
 			count := 0
 			mnc_temp := mnc
 			for mnc_temp != 0 {
 				mnc_temp /= 10
 				count = count + 1
 			}
-			if count == 2{
+			if count == 2 {
 				return "0" + strconv.Itoa(mnc)
-			} 
+			}
 			return strconv.Itoa(mnc)
+		},
+		"isBreakoutPort": func(portName string) bool {
+			return strings.Count(portName, "/") == 2
 		},
 	}
 )
@@ -502,7 +505,7 @@ spec:
 // makek8sTemplate generates a template.Template for a particular named source
 // template; with a common set of helper functions.
 func makek8sTemplate(name, src string) *template.Template {
-	return template.Must(template.New(name).Funcs(templateHelperFunctions).Funcs(sprig.TxtFuncMap()).Parse(src))
+	return template.Must(template.New(name).Funcs(TemplateHelperFunctions).Funcs(sprig.TxtFuncMap()).Parse(src))
 }
 
 // WriteKustomize function writes the kustomize resource file

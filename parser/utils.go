@@ -88,7 +88,7 @@ func bigForIP(ip net.IP) *big.Int {
 }
 
 func ParseTemplates(path string) *template.Template {
-	templ := template.New("app").Funcs(templateHelperFunctions).Funcs(sprig.TxtFuncMap())
+	templ := template.New("app").Funcs(TemplateHelperFunctions).Funcs(sprig.TxtFuncMap())
 	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if strings.HasSuffix(path, ".tmpl") {
 			_, err = templ.ParseFiles(path)

@@ -578,13 +578,13 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 			vlanid = *wl["dcgw-grp1"].Itfces["itfce1"].VlanID
 		}
 		if _, ok := wl["dcgw-grp1"].Itfces["itfce2"]; ok {
-			vlanid = *wl["dcgw-grp1"].Itfces["itfce2"].VlanID
+			vlanid = *wl["dcgw-grp1"].Itfces["itfce1"].VlanID
 		}
 		if _, ok := wl["dcgw-grp1"].Itfces["itfce3"]; ok {
-			vlanid = *wl["dcgw-grp1"].Itfces["itfce3"].VlanID
+			vlanid = *wl["dcgw-grp1"].Itfces["itfce1"].VlanID
 		}
 		if _, ok := wl["dcgw-grp1"].Itfces["itfce4"]; ok {
-			vlanid = *wl["dcgw-grp1"].Itfces["itfce4"].VlanID
+			vlanid = *wl["dcgw-grp1"].Itfces["itfce1"].VlanID
 		}
 
 		niName := wlname + "-ipvrf-itfce-" + strconv.Itoa(vlanid)
