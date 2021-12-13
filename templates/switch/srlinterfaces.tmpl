@@ -9,6 +9,7 @@
       {{- end}}
       "ethernet": {
         {{- if and (ne .PortSpeed "") (ne .Lag true) }}
+          "port-speed": "{{.PortSpeed}}"
           {{- if eq .LagMember true }},{{- end}}
         {{end}}
         {{- if eq .LagMember true }}
