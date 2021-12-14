@@ -571,23 +571,29 @@ func BgpForNonLoopbackNIs(config *parser.Config, templatenodes map[string]*Templ
 		}
 
 		var vlanid int
+		var itfcename string
 		if _, ok := wl["dcgw-grp1"].Itfces["itfce"]; ok {
 			vlanid = *wl["dcgw-grp1"].Itfces["itfce"].VlanID
+			itfcename = "itfce"
 		}
 		if _, ok := wl["dcgw-grp1"].Itfces["itfce1"]; ok {
 			vlanid = *wl["dcgw-grp1"].Itfces["itfce1"].VlanID
+			itfcename = "itfce1"
 		}
 		if _, ok := wl["dcgw-grp1"].Itfces["itfce2"]; ok {
 			vlanid = *wl["dcgw-grp1"].Itfces["itfce1"].VlanID
+			itfcename = "itfce1"
 		}
 		if _, ok := wl["dcgw-grp1"].Itfces["itfce3"]; ok {
 			vlanid = *wl["dcgw-grp1"].Itfces["itfce1"].VlanID
+			itfcename = "itfce1"
 		}
 		if _, ok := wl["dcgw-grp1"].Itfces["itfce4"]; ok {
 			vlanid = *wl["dcgw-grp1"].Itfces["itfce1"].VlanID
+			itfcename = "itfce1"
 		}
 
-		niName := wlname + "-ipvrf-itfce-" + strconv.Itoa(vlanid)
+		niName := wlname + "-ipvrf-" + itfcename + "-" + strconv.Itoa(vlanid)
 
 		for _, nodename := range filterNodesContainingNI(niName, templatenodes) {
 
