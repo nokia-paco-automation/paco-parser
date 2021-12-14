@@ -496,6 +496,11 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 			for netwType, netwInfo := range wlInfo.Itfces {
 				// used for vxlan write operation, so that we can send it to all devices in the group at once
 				targetGroup = *p.ClientGroups[cgName].TargetGroup
+				targetnode := ""
+				if netwInfo.Target != nil {
+					targetnode = *netwInfo.Target
+				}
+
 				switch nwtype := netwType; {
 				case strings.Contains(nwtype, "itfce"), nwtype == "ipvlan":
 					switch *netwInfo.Kind {
@@ -536,6 +541,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 										TunnelInterfaceName: "vxlan0" + "." + strconv.Itoa(*netwInfo.VlanID),
 										RouteTarget:         "target:" + strconv.Itoa(int(*p.Config.Infrastructure.Protocols.OverlayAs)) + ":" + strconv.Itoa(*netwInfo.VlanID),
 										Evi:                 evi,
+										TargetNode:          targetnode,
 									}
 								}
 								// check if clientSubInterfaces[nodeName] was already initialized, if not initialize it
@@ -616,6 +622,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 										TunnelInterfaceName: "vxlan0" + "." + strconv.Itoa(*netwInfo.VlanID),
 										RouteTarget:         "target:" + strconv.Itoa(int(*p.Config.Infrastructure.Protocols.OverlayAs)) + ":" + strconv.Itoa(*netwInfo.VlanID),
 										Evi:                 evi,
+										TargetNode:          targetnode,
 									}
 								}
 								// check if clientSubInterfaces[nodeName] was already initialized is not initialize it
@@ -756,6 +763,7 @@ func (p *Parser) WriteWorkloads() ([]string, *types.WorkloadResults) {
 										TunnelInterfaceName: "vxlan0" + "." + strconv.Itoa(*netwInfo.VlanID),
 										RouteTarget:         "target:" + strconv.Itoa(int(*p.Config.Infrastructure.Protocols.OverlayAs)) + ":" + strconv.Itoa(*netwInfo.VlanID),
 										Evi:                 evi,
+										TargetNode:          targetnode,
 									}
 								}
 								// check if clientSubInterfaces[nodeName] was already initialized, if not initialize it

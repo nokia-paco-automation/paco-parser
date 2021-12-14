@@ -27,6 +27,7 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 		RouterIdTngs: []*RouterIdTNG{},
 	}
 
+	// generate interface Loop
 	bgp_later := generateLoop(p, ir.IslSubInterfaces, wr, templatenodes, switchgotngresult)
 
 	// routing policy & systeminterfaces
@@ -201,6 +202,9 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 	for nodename, data := range wr.NetworkInstances {
 		for _, networkinstance := range data {
 			conf := processNetworkInstance(networkinstance)
+			if networkinstance.TargetNode != "" && networkinstance.TargetNode != nodename {
+				continue
+			}
 			templatenodes[nodename].AddNetworkInstance(networkinstance.Name, conf)
 		}
 	}
@@ -212,6 +216,9 @@ func ProcessSwitchTemplates(wr *types.WorkloadResults, ir *types.InfrastructureR
 	for nodename, data := range wr.NetworkInstances {
 		for _, networkinstance := range data {
 			conf := processNetworkInstance(networkinstance)
+			if networkinstance.TargetNode != "" && networkinstance.TargetNode != nodename {
+				continue
+			}
 			templatenodes[nodename].AddNetworkInstance(networkinstance.Name, conf)
 		}
 	}

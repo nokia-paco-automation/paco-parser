@@ -53,6 +53,7 @@ type K8ssrlNetworkInstance struct {
 	TunnelInterfaceName string
 	RouteTarget         string
 	Evi                 int
+	TargetNode          string
 }
 
 type K8ssrlprotocolsbgp struct {
