@@ -1,15 +1,15 @@
 name: paco-anthos
 
 credentials:
-  ansible_user: tc
-  ansible_ssh_private_key_file: /home/tc/.ssh/id_rsa
+  ansible_user: nokia
+  ansible_ssh_private_key_file: /home/nokia/.ssh/id_rsa
   ansible_ssh_extra_args: "-o IdentitiesOnly=yes"
 
 cluster:
   kind: anthos
   region: europe-west1
   anthos_dir: baremetal
-  anthos_version: 1.7.0
+  anthos_version: 1.9.0
   project_id: anthos-bm-nokia
   cluster_name: telcocloud-cluster
   networks:
@@ -24,7 +24,7 @@ container_registry:
   image_dir: paco
   email: robot@harbor.nokia.cloudpj.be
   username: robot$paco
-  secret: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE2MDM3ODYwNTcsImlzcyI6ImhhcmJvci10b2tlbi1kZWZhdWx0SXNzdWVyIiwiaWQiOjQsInBpZCI6MiwiYWNjZXNzIjpbeyJSZXNvdXJjZSI6Ii9wcm9qZWN0LzIvcmVwb3NpdG9yeSIsIkFjdGlvbiI6InB1c2giLCJFZmZlY3QiOiIifSx7IlJlc291cmNlIjoiL3Byb2plY3QvMi9oZWxtLWNoYXJ0IiwiQWN0aW9uIjoicmVhZCIsIkVmZmVjdCI6IiJ9LHsiUmVzb3VyY2UiOiIvcHJvamVjdC8yL2hlbG0tY2hhcnQtdmVyc2lvbiIsIkFjdGlvbiI6ImNyZWF0ZSIsIkVmZmVjdCI6IiJ9XX0.T7vG76lrscW8JOeuGBHgqFBV7RT6HyCcWgbbseb9feYGdLM_UUOQNehYtP7LQigeCkLxZoODUXzJxCsMCjrcUKwR5C-jIF3KA4eRXdOra2VCUkNPVgAU39JHFU1AP-w4EBUJ88Q6mL1Bkv7PU52cQpfW7y5aZvGuOs-M075EKC6vQJAmxZ_zBNPQ3iZEzkfihVZ6ftmjSJK_d3GGtLGuLc63alGyBAkHCto19KPrhoaG51cpvFx0iwt2hx08oYvYDvpAYyN4YqcKoTVYt9o4vcfI5z7aW8UIXZatq2Pb7-qtBSA0InmaHXDl0lCx5ukWFIRvOxvAyksAJvTwS3YOucxYw9zGb3bwip9kWJst3rIt1Jrh4a66mTOJfGtrniQXibrBOPjmKNo7HtvLPDpKq_zKm4KpRn_M4cwQq9syBHFSeOpihfHi6uWuHtBQScdXqTy2mqWWK8S2b0zCuZrX4WiEsJ_pziqqFPChwf_bx8oXx5qmp6ms4hvCkvGpseZjJyx4xj2AVWkVHYwhEqOVb0xV_1mAwwHM10fC41lGsslTc005NrklXbvdcHdRGBUYJY5OyvHM68St9uYWVDTAFcv344cLioaagrq70I_F5lqx18rgHZeQigMZxdIDUPQ6K9y12Cl47JeioDf7qXUoCD0gNbOvDw-iLUDbprbLgzE
+  secret: xxx
 
 infrastructure:
   use_vec: true
@@ -88,7 +88,8 @@ workloads:
        loopback: {idx: 1460, ipv4_cidr: [10.0.35.0/24], ipv6_cidr: [2a02:1800:80:7350::/64]}
     dcgw-grp1:
       itfces:
-        itfce: {vlan_id: 1460, kind: routed, ipv4_cidr: [10.1.36.0/24], ipv6_cidr: [2a02:1800:80:7360::/64], peer_as: 65902, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack"}
+        itfce1: {vlan_id: 1460, kind: routed, ipv4_cidr: [10.1.36.0/24], ipv6_cidr: [2a02:1800:80:7360::/64], peer_as: 65902, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack", target: "leaf1"}
+        itfce2: {vlan_id: 1461, kind: routed, ipv4_cidr: [10.1.37.0/24], ipv6_cidr: [2a02:1800:80:7370::/64], peer_as: 65902, ipv4_itfce_prefix_length: 31, ipv6_itfce_prefix_length: 127, addressing_schema: "dual-stack", target: "leaf2"}
   multus-sba:
     servers:
       itfces:
@@ -370,9 +371,9 @@ topology:
       labels: {"kind": "access", "type": "esi9", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true, "numa": 0}
     - endpoints: ["leaf2:e1-9", "worker3:ens1f1"]
       labels: {"kind": "access", "type": "esi9", "client-name": "bond0", "sriov": true, "ipvlan": true, "speed": "10G", "numa": 0}
-    - endpoints: ["leaf1:e1-10", "worker3:ens3f0"]
+    - endpoints: ["leaf1:e1-10/1", "worker3:ens3f0"]
       labels: {"kind": "access", "type": "esi10", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "pxe": true, "numa": 1}
-    - endpoints: ["leaf2:e1-10", "worker3:ens3f1"]
+    - endpoints: ["leaf2:e1-10/1", "worker3:ens3f1"]
       labels: {"kind": "access", "type": "esi10", "client-name": "bond1", "sriov": true, "ipvlan": true, "speed": "10G", "numa": 1}
     # switch interconnect links
     - endpoints: ["leaf1:e1-49", "leaf2:e1-49"]
