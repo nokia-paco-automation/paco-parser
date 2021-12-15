@@ -146,7 +146,8 @@ var parseCmd = &cobra.Command{
 		srl_configs, looptngresult := templating.ProcessSwitchTemplates(workloadResults, infrastructureResult, clientGroupResults, p.Nodes, appConfig, p.Config.Application["paco"].Global.Multus, p.Config, p)
 		writeSwitchConfigs(srl_configs)
 
-		writeTngFile(templating.ProcessTNG(p, workloadResults, infrastructureResult, clientGroupResults, appConfig, looptngresult))
+		_ = looptngresult
+		//writeTngFile(templating.ProcessTNG(p, workloadResults, infrastructureResult, clientGroupResults, appConfig, looptngresult))
 
 		writeNokiaYml(p.Config)
 

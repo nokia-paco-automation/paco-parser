@@ -48,6 +48,21 @@
                 "./out/",
                 "parse"
             ],
+        },
+        {
+            "name": "elisa parse",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}",
+            "args": [
+                "-d",
+                "-c",
+                "conf/paco-deployment-elisa.yaml",
+                "-o",
+                "./out/",
+                "parse"
+            ],
         }
     ]
 }

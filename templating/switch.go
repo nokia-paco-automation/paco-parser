@@ -350,7 +350,11 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 
 				mywlname := wlnametranslate(wlName, multusInfo)
 				mywlname = strcase.KebabCase(strings.Replace(mywlname, "multus-", "", 1))
-				niName := mywlname + "-ipvrf-itfce-" + strconv.Itoa(*bar.VlanID)
+				itfce_name, err := deduceItfceNoViaVIDFromConfig(*bar.VlanID, config)
+				if err != nil {
+					log.Fatal(err)
+				}
+				niName := mywlname + "-ipvrf-" + itfce_name + "-" + strconv.Itoa(*bar.VlanID)
 				mywlname = mywlname + "-" + cnfName
 
 				if _, ok := appConfBgpLoStore[niName]; ok {
@@ -402,6 +406,14 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 					//fmt.Printf("node: %s, wlname: %s, PeerIP: %s, PeerAS: %d, LocalAddress: %s, LocalAS: %d, vlanid: %d\n", niName, wlName, *bar.IPv4BGPAddress, *bar.AS, *y.IP, *y.AS, *bar.VlanID)
 					//dcgw_ip := wr.NetworkInstances[strconv.Itoa(*bar.VlanID)]
 					nodename := y.Node
+
+					wl_vid_target, err := getTargetforVIDFromConfig(*bar.VlanID, config)
+					if err != nil {
+						log.Fatal(err)
+					}
+					if wl_vid_target != nodename {
+						continue
+					}
 
 					// init the storage for remembering if dcgw was already added as neighbor (per ip version)
 					if _, ok := dcgw_needs_add[nodename]; !ok {
@@ -468,6 +480,14 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 					//dcgw_ip := wr.NetworkInstances[strconv.Itoa(*bar.VlanID)]
 
 					nodename := y.Node
+
+					wl_vid_target, err := getTargetforVIDFromConfig(*bar.VlanID, config)
+					if err != nil {
+						log.Fatal(err)
+					}
+					if wl_vid_target != nodename {
+						continue
+					}
 
 					// init the storage for remembering if dcgw was already added as neighbor (per ip version)
 					if _, ok := dcgw_needs_add[nodename]; !ok {
@@ -550,6 +570,32 @@ func processAppConfBgp(appconf map[string]*parser.AppConfig, wr *types.WorkloadR
 			templatenodes[nodename].AddBgp(niName, processBgp(bgpconf))
 		}
 	}
+}
+
+func deduceItfceNoViaVIDFromConfig(vid int, config *parser.Config) (string, error) {
+	for _, workload := range config.Workloads {
+		for _, workload_type_data := range workload {
+			for itfce_name, itfce := range workload_type_data.Itfces {
+				if *itfce.VlanID == vid {
+					return itfce_name, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("VlanID not found.")
+}
+
+func getTargetforVIDFromConfig(vid int, config *parser.Config) (string, error) {
+	for _, workload := range config.Workloads {
+		for _, workload_type_data := range workload {
+			for _, itfce := range workload_type_data.Itfces {
+				if *itfce.VlanID == vid {
+					return *itfce.Target, nil
+				}
+			}
+		}
+	}
+	return "", fmt.Errorf("VlanID not found.")
 }
 
 type SpineUplinkTng struct {
@@ -989,6 +1035,7 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 		}
 		for _, l := range p.Links {
 			if *l.Kind == "loop" {
+
 				ipamName := "loop"
 				var ipv4Cidr *string
 				var ipv6Cidr *string
@@ -1000,7 +1047,10 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 					}
 				}
 
-				vlanid := *workload["dcgw-grp1"].Itfces["itfce"].VlanID
+				vlanid, err := determineVIDForLoop(workload["dcgw-grp1"].Itfces, *l.A.Node.ShortName)
+				if err != nil {
+					log.Fatalf(err.Error())
+				}
 
 				csiA := &types.K8ssrlsubinterface{
 					InterfaceRealName:  *l.A.RealName,
@@ -1110,6 +1160,18 @@ func generateLoop(p *parser.Parser, subifs map[string]map[string][]*types.K8ssrl
 		}
 	}
 	return bgplater
+}
+
+func determineVIDForLoop(itfces map[string]*parser.NetworkInfo, nodename string) (int, error) {
+	if val, exists := itfces["itfce"]; exists {
+		return *val.VlanID, nil
+	}
+	for _, itfce_data := range itfces {
+		if *itfce_data.Target == nodename {
+			return *itfce_data.VlanID, nil
+		}
+	}
+	return 0, fmt.Errorf("Unable to determine VlanID")
 }
 
 type SwitchGoTNGResult struct {
