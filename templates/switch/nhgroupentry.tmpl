@@ -1,0 +1,12 @@
+{{define "nhgroupentry"}}
+{
+"index": {{.Index}},
+"ip-address": "{{.NHIp}}",
+"admin-state": "enable",
+"failure-detection": {
+    "enable-bfd": {
+    "local-address": "{{.LocalAddr}}"
+    }
+}
+}
+{{end}}

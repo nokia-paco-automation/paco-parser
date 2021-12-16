@@ -1,0 +1,9 @@
+{{define "esi"}}
+              { 
+                "name": "ESI-{{.LagName}}",
+                "esi": "{{.ESI}}",
+                "admin-state": "enable",
+                "interface": "{{.LagName}}",
+                "multi-homing-mode": "all-active"
+              }
+{{end}}

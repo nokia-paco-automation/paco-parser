@@ -1,0 +1,70 @@
+{{define "networkinstancedefault"}}
+{
+      "name": "{{.NetworkInstance.Name}}",
+      "type": "{{.NetworkInstance.Kind}}",
+      "admin-state": "enable",
+      "interface": [
+    {{- range $index, $element := .NetworkInstance.SubInterfaces}}
+        {{- if $index }},{{end}}
+        { "name": "{{$element.InterfaceRealName}}.{{$element.VlanID}}"}
+    {{- end}}
+      ],
+      "protocols": {
+        "bgp": {
+          "admin-state": "enable",
+          "autonomous-system": {{.BGPProtocol.AS}},
+          "router-id": "{{.BGPProtocol.RouterID}}",
+          "ebgp-default-policy": {
+            "import-reject-all": false
+          },
+          "group": [
+        {{- range $index, $element := .BGPProtocol.PeerGroups}}
+            {{- if $index }},{{end}}
+            {
+              "group-name": "{{$element.Name}}",
+            {{- if eq $element.Name "underlay"}}
+              "export-policy": "export-underlay-local",
+            {{- end}}
+              "admin-state": "enable",
+              {{- range $index, $proto := $element.Protocols}}
+                {{- if $index }},{{end}}
+                "{{$proto}}": {
+                    "admin-state": "enable"
+                }
+              {{end}}
+            }
+        {{end}}
+          ],
+          "ipv4-unicast": {
+            "multipath": {
+              "max-paths-level-1": 2,
+              "max-paths-level-2": 2
+            }
+          },
+          "neighbor": [
+            {{- range $index, $neighbor := .BGPProtocol.Neighbors}}
+            {{- if $index }},{{end}}
+            {
+              "peer-address": "{{$neighbor.PeerIP}}",
+              "peer-as": {{$neighbor.PeerAS}},
+              "admin-state": "enable",
+              "peer-group": "{{$neighbor.PeerGroup}}"
+              {{- if ne $neighbor.LocalAS 0}}
+              ,"local-as": [
+                {
+                  "as-number": {{$neighbor.LocalAS}}
+                }
+              ]
+              {{end}}
+              {{- if ne $neighbor.TransportAddress "" }}
+              ,"transport": {
+                "local-address": "{{$neighbor.TransportAddress}}"
+              }
+              {{end}}
+            }
+            {{end}}
+          ]
+        }
+      }
+    }
+{{end}}

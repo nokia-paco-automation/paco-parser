@@ -58,6 +58,11 @@ func GetLastIP(subnet *net.IPNet) (net.IP, error) {
 	return GetIndexedIP(subnet, int(size-1))
 }
 
+// GetFirstIP returns subnet's last IP
+func GetFirstIP(subnet *net.IPNet) (net.IP, error) {
+	return GetIndexedIP(subnet, 1)
+}
+
 // GetIndexedIP returns a net.IP that is subnet.IP + index in the contiguous IP space.
 func GetIndexedIP(subnet *net.IPNet, index int) (net.IP, error) {
 	ip := addIPOffset(bigForIP(subnet.IP), index)
@@ -83,7 +88,7 @@ func bigForIP(ip net.IP) *big.Int {
 }
 
 func ParseTemplates(path string) *template.Template {
-	templ := template.New("app").Funcs(templateHelperFunctions).Funcs(sprig.TxtFuncMap())
+	templ := template.New("app").Funcs(TemplateHelperFunctions).Funcs(sprig.TxtFuncMap())
 	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 		if strings.HasSuffix(path, ".tmpl") {
 			_, err = templ.ParseFiles(path)
@@ -91,7 +96,6 @@ func ParseTemplates(path string) *template.Template {
 				log.Println(err)
 			}
 		}
-
 		return err
 	})
 
@@ -100,4 +104,12 @@ func ParseTemplates(path string) *template.Template {
 	}
 
 	return templ
+}
+
+func DerefString(s *string) string {
+	if s != nil {
+		return *s
+	}
+
+	return ""
 }

@@ -1,0 +1,36 @@
+{{define "srlinterface"}}
+
+    {
+      "name": "{{.Name}}",
+      "description": "paco-{{.Name}}",
+      "admin-state": "enable",
+      {{- if .VlanTagging}}
+        "vlan-tagging": {{.VlanTagging}},
+      {{- end}}
+      "ethernet": {
+        {{- if and (ne .PortSpeed "") (ne .Lag true) (ne (isBreakoutPort .Name) true)}}
+          "port-speed": "{{.PortSpeed}}"
+          {{- if eq .LagMember true }},{{- end}}
+        {{end}}
+        {{- if eq .LagMember true }}
+          "aggregate-id": "{{.LagName}}"
+        {{- end}}
+      }
+{{- if .Lag }},
+    "lag": {
+      "lag-type": "lacp",
+      "member-speed": "{{.PortSpeed}}",
+      {{- if eq .Pxe true}}
+      "lacp-fallback-mode": "static",
+      {{- end}}
+      "lacp":{
+        "interval": "FAST",
+        "lacp-mode": "ACTIVE",
+        "admin-key": "{{.AdminKey}}",
+        "system-id-mac": "{{.SystemMac}}"
+      }
+    }
+{{- end}}
+}
+
+{{end}}

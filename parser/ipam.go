@@ -302,6 +302,20 @@ func getLastIPPrefixInCidr(cidr *string) (*string, error) {
 	return StringPtr(ipAddr.String() + "/" + strconv.Itoa(ipMask)), nil
 }
 
+func getFirstIPPrefixInCidr(cidr *string) (*string, error) {
+	ipAddr, ipNet, err := net.ParseCIDR(*cidr)
+	if err != nil {
+		return nil, err
+	}
+	ipMask, _ := ipNet.Mask.Size()
+	ipAddr, err = GetFirstIP(ipNet)
+	if err != nil {
+		return nil, err
+	}
+
+	return StringPtr(ipAddr.String() + "/" + strconv.Itoa(ipMask)), nil
+}
+
 func getLastIPPrefixInIPnet(ipNet net.IPNet) (*string, error) {
 	ipMask, _ := ipNet.Mask.Size()
 	ipAddr, err := GetLastIP(&ipNet)
@@ -309,6 +323,16 @@ func getLastIPPrefixInIPnet(ipNet net.IPNet) (*string, error) {
 		return nil, err
 	}
 	ipAddr = decrementIP(ipAddr)
+
+	return StringPtr(ipAddr.String() + "/" + strconv.Itoa(ipMask)), nil
+}
+
+func getFirstIPPrefixInIPnet(ipNet net.IPNet) (*string, error) {
+	ipMask, _ := ipNet.Mask.Size()
+	ipAddr, err := GetFirstIP(&ipNet)
+	if err != nil {
+		return nil, err
+	}
 
 	return StringPtr(ipAddr.String() + "/" + strconv.Itoa(ipMask)), nil
 }

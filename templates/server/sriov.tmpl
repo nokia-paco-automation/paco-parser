@@ -4,33 +4,29 @@
 {{- /* key3: numa */}}
 {{- /* key4: switch-name */}}
 {{- /* value list of pfNames */}}
-Name:         sriovdp-config
-Namespace:    kube-system
-Labels:       <none>
-Annotations:  <none>
-
-Data
-====
-config.json:
-----
-{
-    "resourceList": [
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sriovdp-config
+  namespace: kube-system
+data:
+  config.json: |
+    {
+        "resourceList": [
 {{- $sriov := index .Sriovc "sriov"}}
+{{- $putcomma := false -}}
 {{- range $InterfaceName, $interfaceInfo := $sriov  }}
 {{- range $numa, $numaInfo := $interfaceInfo }}
-{{- range $switchName, $switchInfo :=  $numaInfo }}
-        {
-            "resourceName": "sriov_numa{{$numa}}_{{$InterfaceName}}_{{$switchName}}",
-            "resourcePrefix": "gke",
-            "selectors": {
-                "pfNames": [{{list2string $switchInfo }}]
+{{- range $switchName, $switchInfo := $numaInfo }}
+             {{if $putcomma }},{{- end}}{{$putcomma = true}}{
+                "resourceName": "sriov_numa{{$numa}}_{{$InterfaceName}}_{{$switchName}}",
+                "resourcePrefix": "gke",
+                "selectors": {
+                    "pfNames": [{{list2string $switchInfo }}]
+                }
             }
-        }
-{{- if eq (lastmap $switchName $numaInfo) false}}
-        ,        
 {{- end}}
 {{- end}}
 {{- end}}
-{{- end}}
-    ]
-}
+        ]
+    }

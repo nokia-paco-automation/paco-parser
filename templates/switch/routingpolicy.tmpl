@@ -1,0 +1,137 @@
+{{define "routingpolicy"}}
+{  "routing-policy":
+    { 
+    "prefix-set":
+{{- if .IPv4Prefix}}
+    [ {"name": "{{.IPv4PrefixSetName}}",
+      "prefix": [
+        {
+          "ip-prefix": "{{.IPv4Prefix}}",
+          "mask-length-range": "32..32"
+        }]
+      }
+{{- end }}
+{{- if and .IPv6Prefix .IPv4Prefix}},{{- end}}
+{{- if .IPv6Prefix}}
+    { "name": "{{.IPv6PrefixSetName}}",
+      "prefix": [
+        {
+          "ip-prefix": "{{.IPv6Prefix}}",
+          "mask-length-range": "128..128"
+        }]
+    }],
+{{- end }}
+    "policy":
+    [{
+        "name": "{{.Name}}",
+        "statement": [{
+{{- if .IPv4Prefix}}
+          "sequence-id": 10,
+           "match":{
+             "prefix-set": "{{.IPv4PrefixSetName}}"
+           },
+           "action":{
+             "accept": {}
+           }
+      }
+{{- end }}
+{{- if and .IPv6Prefix .IPv4Prefix}},{{- end}}
+{{- if .IPv6Prefix}}
+     { "sequence-id": 20,
+        "match":{
+          "prefix-set": "{{.IPv6PrefixSetName}}"
+          },
+        "action":{
+          "accept": {}
+        }
+        }]
+{{- end }}
+},
+{
+        "name": "bgp_export_policy_default",
+        "statement": [
+          {
+            "sequence-id": 10,
+            "match": {
+              "protocol": "local"
+            },
+            "action": {
+              "accept": {
+                "bgp": {
+                  "local-preference": {
+                    "set": 100
+                  }
+                }
+              }
+            }
+          },
+          {
+            "sequence-id": 20,
+            "match": {
+              "protocol": "bgp"
+            },
+            "action": {
+              "accept": {
+                "bgp": {
+                  "local-preference": {
+                    "set": 100
+                  }
+                }
+              }
+            }
+          },
+          {
+            "sequence-id": 30,
+            "match": {
+              "protocol": "aggregate"
+            },
+            "action": {
+              "accept": {
+                "bgp": {
+                  "local-preference": {
+                    "set": 100
+                  }
+                }
+              }
+            }
+          },
+          {
+            "sequence-id": 40,
+            "match": {
+              "protocol": "static"
+            },
+            "action": {
+              "accept": {
+                "bgp": {
+                  "local-preference": {
+                    "set": 100
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      {
+        "name": "bgp_import_policy_default",
+        "statement": [
+          {
+            "sequence-id": 20,
+            "match": {
+              "protocol": "bgp"
+            },
+            "action": {
+              "accept": {
+                "bgp": {
+                  "local-preference": {
+                    "set": 100
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+]
+}}
+{{end}}

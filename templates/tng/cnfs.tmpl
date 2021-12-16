@@ -1,0 +1,36 @@
+{{ define "tngcnfs" }}
+  {{- range . }}
+    - asnumber: {{.AsNumber}}
+      name: {{.Name}}
+      multus:
+        {{- range .Workloads}}
+        - name: {{ .Name}}
+          llbvipv4: {{.Llbvipv4}}
+          llbvipv6: {{.Llbvipv6}}
+          llbpods: 
+          {{- template "pods" .LlbPods -}}
+          {{ if gt (len .LmgPods) 0 }}
+          lmgpods: 
+          {{- template "pods" .LmgPods -}}
+          {{- end }}
+        {{- end -}}
+  {{- end -}}
+{{- end -}}
+
+
+{{define "pods"}}
+  {{- range . }}
+            - leaf1itf:
+                ipv4: {{.Leaf1.Ipv4}}
+                gwv4: {{.Leaf1.Gwv4}}
+                ipv6: {{.Leaf1.Ipv6}}
+                gwv6: {{.Leaf1.Gwv6}}
+              leaf2itf:
+                ipv4: {{.Leaf2.Ipv4}}
+                gwv4: {{.Leaf2.Gwv4}}
+                ipv6: {{.Leaf2.Ipv6}}
+                gwv6: {{.Leaf2.Gwv6}}
+              systemipv4: {{.Systemipv4}}
+              systemipv6: {{.Systemipv6}}
+  {{- end -}}
+{{- end -}}

@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -29,9 +30,32 @@ type Config struct {
 
 // PacoInfo
 type PacoInfo struct {
-	Global     *GlobalParameters   `yaml:"global,omitempty"`
-	Deployment *PacoDeploymentInfo `yaml:"deployment,omitempty"`
-	Cnfs       map[string]*CnfInfo `yaml:"cnfs,omitempty"`
+	Global        *GlobalParameters   `yaml:"global,omitempty"`
+	Deployment    *PacoDeploymentInfo `yaml:"deployment,omitempty"`
+	Cnfs          map[string]*CnfInfo `yaml:"cnfs,omitempty"`
+	NonMultusCnfs *NonMultusCnfInfo   `yaml:"non_multus_cnfs,omitempty"`
+}
+
+type NonMultusCnfInfo struct {
+	Nrd    *NrdCnfInfo    `yaml:"nrd,omitempty"`
+	CdbSmf *CdbSmfCnfInfo `yaml:"cdb_smf,omitempty"`
+	CdbUpf *CdbUpfCnfInfo `yaml:"cdb_upf,omitempty"`
+}
+
+type NrdCnfInfo struct {
+	Namespace   string `yaml:"namespace,omitempty"`
+	ServicePort int    `yaml:"service_port,omitempty"`
+	DbNamespace string `yaml:"db_namespace,omitempty"`
+}
+
+type CdbSmfCnfInfo struct {
+	DbProxyTag string `yaml:"dbproxy_tag,omitempty"`
+	RedisTag   string `yaml:"redis_tag,omitempty"`
+}
+
+type CdbUpfCnfInfo struct {
+	DbProxyTag string `yaml:"dbproxy_tag,omitempty"`
+	RedisTag   string `yaml:"redis_tag,omitempty"`
 }
 
 type GlobalParameters struct {
@@ -68,20 +92,21 @@ type CnfInfo struct {
 	NameSpace    *string                           `yaml:"namespace,omitempty"`
 	StorageClass *string                           `yaml:"storage_class,omitempty"`
 	PrometheusIP *string                           `yaml:"prometheus_ip,omitempty"`
+	HostDevice   *string                           `yaml:"host_device,omitempty"`
 	Networking   *PacoNetworkInfo                  `yaml:"networking,omitempty"`
 	Pods         map[string]map[string]interface{} `yaml:"pods,omitempty"`
 }
 
 type PacoNetworkInfo struct {
-	Type   *string                `yaml:"type,omitempty"`
 	AS     *uint32                `yaml:"as,omitempty"`
 	Multus map[string]*MultusInfo `yaml:"multus,omitempty"`
 }
 
 type MultusInfo struct {
 	WorkloadName *string `yaml:"wl-name,omitempty"`
-	VrfCpId        *int    `yaml:"vrfcp-id,omitempty"`
-	VrfUpId        *int    `yaml:"vrfup-id,omitempty"`
+	VrfCpId      *int    `yaml:"vrfcp-id,omitempty"`
+	VrfUpId      *int    `yaml:"vrfup-id,omitempty"`
+	Type         *string `yaml:"type,omitempty"`
 }
 
 // Credentials
@@ -93,13 +118,14 @@ type Credentials struct {
 
 // Cluster
 type Cluster struct {
-	ProjectId     *string                 `yaml:"project_id,omitempty"`
-	ClusterName   *string                 `yaml:"cluster_name,omitempty"`
-	Networks      map[string]*NetworkInfo `yaml:"networks,omitempty"`
-	Kind          *string                 `yaml:"kind,omitempty"`
-	Region        *string                 `yaml:"region,omitempty"`
-	AnthosDir     *string                 `yaml:"anthos_dir,omitempty"`
-	AnthosVersion *string                 `yaml:"anthos_version,omitempty"`
+	ProjectId            *string                 `yaml:"project_id,omitempty"`
+	AnthosDeploymentType *string                 `yaml:"anthos_deployment_type,omitempty"`
+	ClusterName          *string                 `yaml:"cluster_name,omitempty"`
+	Networks             map[string]*NetworkInfo `yaml:"networks,omitempty"`
+	Kind                 *string                 `yaml:"kind,omitempty"`
+	Region               *string                 `yaml:"region,omitempty"`
+	AnthosDir            *string                 `yaml:"anthos_dir,omitempty"`
+	AnthosVersion        *string                 `yaml:"anthos_version,omitempty"`
 }
 
 // ContainerRegistry
@@ -116,6 +142,8 @@ type ContainerRegistry struct {
 
 // Infrastructure
 type Infrastructure struct {
+	UseVec           bool                    `default:"false" yaml:"use_vec"`
+	UseVecCni        bool                    `default:"false" yaml:"use_vec_cni"`
 	InternetDns      *string                 `yaml:"internet_dns,omitempty"`
 	Protocols        *Protocols              `yaml:"protocols,omitempty"`
 	AddressingSchema *string                 `yaml:"addressing_schema,omitempty"`
@@ -129,8 +157,10 @@ type NetworkInfo struct {
 	Ipv6Cidr              []*string `yaml:"ipv6_cidr,omitempty"`
 	Ipv6ItfcePrefixLength *int      `yaml:"ipv6_itfce_prefix_length,omitempty"`
 	AddressingSchema      *string   `yaml:"addressing_schema,omitempty"`
+	PeerAS                *uint32   `yaml:"peer_as,omitempty"`
 	Type                  *string   `yaml:"type,omitempty"`
 	VlanID                *int      `yaml:"vlan_id,omitempty"`
+	Idx                   *int      `yaml:"idx,omitempty"`
 	Kind                  *string   `yaml:"kind,omitempty"`
 	Target                *string   `yaml:"target,omitempty"`
 	NetworkIndex          *int
@@ -166,14 +196,16 @@ type NetworkInfo struct {
 }
 
 type BGPPeerInfo struct {
-	IP *string
-	AS *uint32
+	IP   *string
+	AS   *uint32
+	Node string
 }
 
 // Protocols
 type Protocols struct {
 	Protocol        *string   `yaml:"protocol,omitempty"`
 	AsPool          []*uint32 `yaml:"as_pool,omitempty"`
+	AsPoolLoop      []*uint32 `yaml:"as_pool_loop,omitempty"`
 	OverlayAs       *uint32   `yaml:"overlay_as,omitempty"`
 	OverlayProtocol *string   `yaml:"overlay_protocol,omitempty"`
 }
@@ -225,6 +257,14 @@ type Node struct {
 	AS                   *uint32
 	Endpoints            map[string]*Endpoint
 	Target               *string
+}
+
+func (n *Node) String() string {
+	sb := strings.Builder{}
+	if n.ShortName != nil {
+		sb.WriteString(fmt.Sprintf("Name: %s\n", n.ShortName))
+	}
+	return sb.String()
 }
 
 // Link is a struct that contains the information of a link between 2 containers
@@ -305,8 +345,15 @@ func (p *Parser) ParseTopology() (err error) {
 	log.Info("Parsing topology information ...")
 
 	// initialize the Node information from the topology map
-	for nodeName, nodeCfg := range p.Config.Topology.Nodes {
-		p.Nodes[nodeName], err = p.NewNode(nodeName, nodeCfg)
+
+	names := make([]string, 0, len(p.Config.Topology.Nodes))
+	for n := range p.Config.Topology.Nodes {
+		names = append(names, n)
+	}
+
+	sort.Strings(names)
+	for _, name := range names {
+		p.Nodes[name], err = p.NewNode(name, p.Config.Topology.Nodes[name])
 		if err != nil {
 			return err
 		}
@@ -817,7 +864,8 @@ func (p *Parser) ParseClientGroup() (err error) {
 
 	// check which client groups are connected
 	// cls is a list with all the client groups in the system
-	for _, clients := range p.Config.Workloads {
+	for wlName, clients := range p.Config.Workloads {
+		fmt.Printf("WorkloadName: %s\n", wlName)
 		for cgName := range clients {
 			if _, ok := p.ClientGroups[cgName]; !ok {
 				p.ClientGroups[cgName] = &ClientGroup{
