@@ -96,7 +96,6 @@ func ParseTemplates(path string) *template.Template {
 				log.Println(err)
 			}
 		}
-
 		return err
 	})
 

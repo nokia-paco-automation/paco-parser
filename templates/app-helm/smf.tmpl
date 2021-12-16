@@ -423,6 +423,7 @@ network:
 {{- $groups := index $workloads 0}}
 {{- $switchGroups := index $groups 0 }}
 {{- $networks := index $switchGroups "loopback" }}
+{{- if index $networks "sigLbk" }}
 {{- $networkTypes := index $networks "sigLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
 {{- range $ipIndex, $allocatedIP := $networkInfo.Ipv4Addresses}}
@@ -431,11 +432,13 @@ network:
       - {{ $allocatedIP.IPAddress}}/32
 {{- end }}
 {{- end }}
+{{- end }}
     policyStatement:
 {{- range $wlName, $workloads := $appc.Networks}}
 {{- $groups := index $workloads 0}}
 {{- $switchGroups := index $groups 0 }}
 {{- $networks := index $switchGroups "loopback" }}
+{{- if index $networks "sigLbk" }}
 {{- $networkTypes := index $networks "sigLbk" }}
 {{- $networkInfo := index $networkTypes 0 }}
 {{- /*export expression exports the signalling loopbacks*/}}
@@ -444,6 +447,7 @@ network:
       - id: 10
         from:
           prefixList: llb-sig-loopback-{{$networkInfo.NetworkShortName}}
+{{- end}}
 {{- end}}
   ipLocalPool:
     - name: pool1
@@ -464,6 +468,7 @@ vprn:
 {{- /*itfce: llb interface*/}}
 #####LLB
 {{- range $wlName, $workloads := $appc.Networks}}
+{{- if ne $wlName "oam" }}
 #VPRN LLB {{$wlName}}
 {{- /* process loopback related parameters: static routes, bg[/llb loopback */}}
 {{- $groups := index $workloads 0}}
@@ -587,6 +592,6 @@ vprn:
 {{- end}}
 {{- end}}
 {{- /* interface processing finished */}}
-
+{{- end}}
 {{- end}}
 {{- /* workload processing finished */}}
